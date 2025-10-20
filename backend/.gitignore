@@ -1,0 +1,31 @@
+# .gitignore for backend
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment
+.env.local
+.env.production
+
+# State files
+nodes-state.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/

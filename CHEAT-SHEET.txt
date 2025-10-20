@@ -1,0 +1,182 @@
+================================================================================
+  🚀 SANDBOXLABS - COMMAND CHEAT SHEET
+================================================================================
+
+📍 LOCATION: /home/naki/Desktop/itsthatnewshit/sandboxlabs
+
+================================================================================
+  ⚡ MAIN COMMANDS (RUN FROM ROOT)
+================================================================================
+
+START EVERYTHING:
+  ./run-all.sh
+
+STOP EVERYTHING:
+  ./stop-all.sh
+
+CHECK STATUS:
+  ./status.sh
+
+QUICK TEST:
+  ./quick-test.sh
+
+================================================================================
+  🌐 ACCESS URLS
+================================================================================
+
+Frontend UI:       http://localhost:3000
+Backend API:       http://localhost:3001/api
+API Health:        http://localhost:3001/api/health
+Guacamole:         http://localhost:8081/guacamole
+                   (Login: guacadmin / guacadmin)
+
+================================================================================
+  📝 VIEW LOGS
+================================================================================
+
+Backend Logs:      tail -f backend.log
+Frontend Logs:     tail -f frontend.log
+Docker Logs:       docker-compose logs -f
+All Logs:          tail -f backend.log frontend.log
+
+================================================================================
+  🔧 MANUAL CONTROL (IF NEEDED)
+================================================================================
+
+Docker Services:
+  docker-compose up -d          # Start
+  docker-compose down           # Stop
+  docker-compose ps             # Status
+  docker-compose logs -f        # Logs
+
+Backend API:
+  cd backend
+  npm install                   # Install dependencies
+  npm start                     # Start server
+  node server.js                # Start directly
+
+Frontend:
+  cd frontend
+  npm install                   # Install dependencies
+  npm run dev                   # Start dev server
+  npm run build                 # Build for production
+
+================================================================================
+  🧪 API TESTING
+================================================================================
+
+Health Check:
+  curl http://localhost:3001/api/health
+
+List Nodes:
+  curl http://localhost:3001/api/nodes
+
+Create Node:
+  curl -X POST http://localhost:3001/api/nodes \
+    -H "Content-Type: application/json" \
+    -d '{"name":"my-node"}'
+
+Start Node:
+  curl -X POST http://localhost:3001/api/nodes/<ID>/run
+
+Stop Node:
+  curl -X POST http://localhost:3001/api/nodes/<ID>/stop
+
+Wipe Node:
+  curl -X POST http://localhost:3001/api/nodes/<ID>/wipe
+
+================================================================================
+  🐛 TROUBLESHOOTING
+================================================================================
+
+Kill All Processes:
+  pkill -f "next dev"
+  pkill -f "node.*server"
+  docker-compose down
+
+Check Ports:
+  netstat -tlnp | grep 3000      # Frontend
+  netstat -tlnp | grep 3001      # Backend
+  netstat -tlnp | grep 8081      # Guacamole
+
+Clean Restart:
+  ./stop-all.sh
+  docker-compose down
+  rm -f backend.pid frontend.pid
+  rm -f backend.log frontend.log
+  ./run-all.sh
+
+================================================================================
+  📂 IMPORTANT FILES
+================================================================================
+
+Configuration:
+  backend/.env                  # Backend config
+  docker-compose.yml            # Docker services
+
+State Files:
+  backend/nodes-state.json      # Node state (auto-created)
+  backend.pid                   # Backend process ID
+  frontend.pid                  # Frontend process ID
+
+Logs:
+  backend.log                   # Backend output
+  frontend.log                  # Frontend output
+
+================================================================================
+  📚 DOCUMENTATION
+================================================================================
+
+QUICK-START.md              # Quick start guide (READ THIS FIRST!)
+README.md                   # Complete documentation
+IMPLEMENTATION-COMPLETE.md  # Project summary
+BACKEND-COMPLETE.md         # Backend details
+backend/README.md           # Backend API docs
+frontend/README.md          # Frontend docs
+
+================================================================================
+  🎯 TYPICAL WORKFLOW
+================================================================================
+
+1. Start Everything:
+   ./run-all.sh
+
+2. Wait 20 seconds for startup
+
+3. Open Browser:
+   http://localhost:3000
+
+4. Use the Application:
+   - Click "Add Node"
+   - Click "Run" to start VM
+   - Click "Connect" to open console
+   - Click "Stop" to shutdown
+   - Click "Wipe" to reset
+
+5. Check Status Anytime:
+   ./status.sh
+
+6. Stop When Done:
+   ./stop-all.sh
+
+================================================================================
+  💡 QUICK TIPS
+================================================================================
+
+✅ Always run commands from: /home/naki/Desktop/itsthatnewshit/sandboxlabs
+✅ Use ./run-all.sh for easiest startup
+✅ Check ./status.sh if something seems wrong
+✅ View logs with: tail -f backend.log
+✅ Always stop with: ./stop-all.sh
+
+================================================================================
+  🚀 ONE COMMAND SUMMARY
+================================================================================
+
+cd /home/naki/Desktop/itsthatnewshit/sandboxlabs && ./run-all.sh
+
+  ↓ Wait 20 seconds ↓
+
+Open: http://localhost:3000
+
+================================================================================
