@@ -535,73 +535,286 @@ docker-compose logs guacamole
 7. Wipe the node
 8. Verify all operations work
 
-## 📝 Base VM Images
+## 📝 Base VM Images Setup
 
-### 🎉 Automatic Download (Default)
+**⚠️ REQUIRED:** You must download and prepare base VM images before creating VMs.
 
-The backend container **automatically downloads** base images on first startup! No manual setup required.
+### Prerequisites
 
-Supported base images:
-- **Ubuntu 24.04 LTS** (`ubuntu-24-lts.qcow2`) - ~700MB
-- **Alpine Linux 3.19** (`alpine-3.qcow2`) - ~100MB  
-- **Debian 12 Bookworm** (`debian-13.qcow2`) - ~600MB
+Install QEMU tools on your host system:
 
-When you start the backend, it will:
-1. Check if images exist in `/images` directory
-2. Download any missing images from official sources
-3. Verify image integrity
-4. Continue starting the server
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y qemu-utils
 
-**No action needed!** Just run `docker-compose up` and images are downloaded automatically.
+# CentOS/RHEL/Fedora
+sudo dnf install -y qemu-img
 
-### Configuration
-
-Control auto-download in `docker-compose.yml`:
-
-```yaml
-backend:
-  environment:
-    AUTO_DOWNLOAD_IMAGES: "true"  # Enable (default)
-    # AUTO_DOWNLOAD_IMAGES: "false"  # Disable for manual control
+# macOS (with Homebrew)
+brew install qemu
 ```
 
-### Manual Download (Optional)
+### Quick Start - Download Pre-converted Images
 
-If you prefer manual control, disable auto-download and run:
+The easiest way is to download cloud images that are already in QCOW2 format:
 
-#### Ubuntu 24.04 LTS
+#### 1. Create images directory
+```bash
+mkdir -p images
+```
+
+#### 2. Download Ubuntu 24.04 LTS Cloud Image
 ```bash
 wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img \
   -O ./images/ubuntu-24-lts.qcow2
 ```
 
-#### Alpine Linux 3.19
+#### 3. Download Alpine Linux 3.19
 ```bash
 wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/cloud/nocloud_alpine-3.19.1-x86_64-uefi-cloudinit-r0.qcow2 \
   -O ./images/alpine-3.qcow2
 ```
 
-#### Debian 12
+#### 4. Download Debian 12
 ```bash
 wget https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2 \
   -O ./images/debian-13.qcow2
 ```
 
-### Verify Images
+### Alternative - Convert from ISO or Other Formats
+
+If you download images in other formats (ISO, VDI, VMDK, RAW), convert them to QCOW2:
+
+#### Step 1: Download your preferred OS image
+
+**Ubuntu Desktop/Server ISO:**
+```bash
+wget https://releases.ubuntu.com/24.04/ubuntu-24.04-live-server-amd64.iso \
+  -O ~/downloads/ubuntu-24.04.iso
+```
+
+**Debian ISO:**
+```bash
+wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.5.0-amd64-netinst.iso \
+  -O ~/downloads/debian-12.iso
+```
+
+**Alpine Virtual ISO:**
+```bash
+wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-virt-3.19.1-x86_64.iso \
+  -O ~/downloads/alpine-3.19.iso
+```
+
+#### Step 2: Create a base QCOW2 disk
 
 ```bash
-# Check what's downloaded
-docker exec sandlabx-backend ls -lh /images/
+# Create a 20GB QCOW2 disk (adjust size as needed)
+qemu-img create -f qcow2 ./images/ubuntu-24-lts.qcow2 20G
 
-# Verify image integrity
-docker exec sandlabx-backend qemu-img info /images/ubuntu-24-lts.qcow2
+# For Alpine (smaller)
+qemu-img create -f qcow2 ./images/alpine-3.qcow2 10G
+
+# For Debian
+qemu-img create -f qcow2 ./images/debian-13.qcow2 20G
+```
+
+#### Step 3: Install OS to QCOW2 image
+
+You need to boot the ISO and install the OS to the QCOW2 disk:
+
+**Ubuntu/Debian Installation:**
+```bash
+# Start VM with ISO mounted
+qemu-system-x86_64 \
+  -m 2048 \
+  -smp 2 \
+  -cdrom ~/downloads/ubuntu-24.04.iso \
+  -hda ./images/ubuntu-24-lts.qcow2 \
+  -boot d \
+  -vnc :0 \
+  -enable-kvm
+
+# Connect with VNC viewer to localhost:5900
+# Complete OS installation
+# Shutdown the VM when done
+```
+
+**Alpine Installation (text-based):**
+```bash
+# Start VM with ISO
+qemu-system-x86_64 \
+  -m 1024 \
+  -smp 2 \
+  -cdrom ~/downloads/alpine-3.19.iso \
+  -hda ./images/alpine-3.qcow2 \
+  -boot d \
+  -nographic
+
+# Follow Alpine setup-alpine wizard
+# When done, press Ctrl+A then X to quit
+```
+
+#### Step 4: Convert from other formats (VirtualBox, VMware, etc.)
+
+**From VirtualBox VDI:**
+```bash
+qemu-img convert -f vdi -O qcow2 \
+  /path/to/virtualbox/disk.vdi \
+  ./images/ubuntu-24-lts.qcow2
+```
+
+**From VMware VMDK:**
+```bash
+qemu-img convert -f vmdk -O qcow2 \
+  /path/to/vmware/disk.vmdk \
+  ./images/ubuntu-24-lts.qcow2
+```
+
+**From RAW image:**
+```bash
+qemu-img convert -f raw -O qcow2 \
+  /path/to/image.img \
+  ./images/ubuntu-24-lts.qcow2
+```
+
+**From IMG/DD image:**
+```bash
+qemu-img convert -f raw -O qcow2 \
+  /path/to/disk.img \
+  ./images/ubuntu-24-lts.qcow2
+```
+
+### Verify and Optimize Images
+
+#### Check image information
+```bash
+qemu-img info ./images/ubuntu-24-lts.qcow2
+```
+
+Expected output:
+```
+image: ubuntu-24-lts.qcow2
+file format: qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 2.5 GiB
+cluster_size: 65536
+```
+
+#### Optimize/compress the image (optional)
+```bash
+# Compress to save disk space
+qemu-img convert -O qcow2 -c \
+  ./images/ubuntu-24-lts.qcow2 \
+  ./images/ubuntu-24-lts-compressed.qcow2
+
+# Replace original with compressed version
+mv ./images/ubuntu-24-lts-compressed.qcow2 ./images/ubuntu-24-lts.qcow2
+```
+
+#### Resize if needed
+```bash
+# Resize to 30GB (can only increase)
+qemu-img resize ./images/ubuntu-24-lts.qcow2 30G
+```
+
+### Required Images
+
+Place at least one of these in the `./images/` directory:
+
+| OS | Filename | Recommended Size | Format |
+|----|----------|-----------------|--------|
+| **Ubuntu 24.04 LTS** | `ubuntu-24-lts.qcow2` | 20GB | QCOW2 |
+| **Alpine Linux 3.19** | `alpine-3.qcow2` | 10GB | QCOW2 |
+| **Debian 12** | `debian-13.qcow2` | 20GB | QCOW2 |
+
+### Verify Setup
+
+Check that images are accessible:
+
+```bash
+# List images
+ls -lh ./images/*.qcow2
+
+# Verify format
+qemu-img info ./images/ubuntu-24-lts.qcow2
+
+# Test with Docker (after starting services)
+docker exec sandlabx-backend ls -lh /images/
+```
+
+Expected output:
+```
+-rw-r--r-- 1 user user 2.5G Oct 20 15:00 ubuntu-24-lts.qcow2
+-rw-r--r-- 1 user user 150M Oct 20 15:00 alpine-3.qcow2
+-rw-r--r-- 1 user user 1.8G Oct 20 15:00 debian-13.qcow2
+```
+
+### Troubleshooting
+
+**Problem:** `qemu-img: command not found`
+```bash
+# Install QEMU tools
+sudo apt-get install qemu-utils
+```
+
+**Problem:** "Image format not supported"
+```bash
+# Check current format
+qemu-img info suspicious-image.img
+
+# Convert to QCOW2
+qemu-img convert -f <detected-format> -O qcow2 input.img output.qcow2
+```
+
+**Problem:** "Permission denied"
+```bash
+# Fix permissions
+chmod 644 ./images/*.qcow2
+chown $USER:$USER ./images/*.qcow2
+```
+
+**Problem:** Images not showing in container
+```bash
+# Check bind mount
+docker inspect sandlabx-backend | grep -A 5 "Mounts"
+
+# Should show: ./images -> /images
 ```
 
 ### Custom Images
 
-You can add your own QCOW2 images to the `./images` directory. Just update the `baseImages` mapping in `backend/modules/qemuManager.js` to use your custom images.
+To use your own images:
 
-See [images/README.md](./images/README.md) for more details.
+1. Convert to QCOW2 format (see conversion commands above)
+2. Place in `./images/` directory with a descriptive name
+3. Update `backend/modules/qemuManager.js`:
+
+```javascript
+this.baseImages = {
+  'ubuntu': path.join(this.imagesPath, 'ubuntu-24-lts.qcow2'),
+  'alpine': path.join(this.imagesPath, 'alpine-3.qcow2'),
+  'debian': path.join(this.imagesPath, 'debian-13.qcow2'),
+  'custom': path.join(this.imagesPath, 'my-custom-image.qcow2'),  // Add this
+};
+```
+
+4. Create VMs with `osType: 'custom'`
+
+### Download Sources
+
+**Official Cloud Images (Pre-installed, QCOW2 format):**
+- Ubuntu: https://cloud-images.ubuntu.com/
+- Debian: https://cloud.debian.org/images/cloud/
+- Alpine: https://alpinelinux.org/cloud/
+- CentOS Stream: https://cloud.centos.org/
+- Fedora: https://alt.fedoraproject.org/cloud/
+
+**Installation ISOs (Requires installation):**
+- Ubuntu: https://ubuntu.com/download/server
+- Debian: https://www.debian.org/distrib/
+- Alpine: https://alpinelinux.org/downloads/
+- Rocky Linux: https://rockylinux.org/download
+- Arch Linux: https://archlinux.org/download/
 
 ## 💾 Data Persistence
 
