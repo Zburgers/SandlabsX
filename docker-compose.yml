@@ -24,7 +24,7 @@ services:
   # Guacamole Daemon (VNC/RDP/SSH proxy)
   guacd:
     image: guacamole/guacd:latest
-    container_name: sandlabx-guacd
+    container_name: guacd
     restart: unless-stopped
     networks:
       - sandlabx-network
@@ -37,7 +37,7 @@ services:
   # Guacamole Web Application
   guacamole:
     image: guacamole/guacamole:latest
-    container_name: sandlabx-guacamole
+    container_name: guacamole
     environment:
       GUACD_HOSTNAME: guacd
       GUACD_PORT: 4822
@@ -76,16 +76,18 @@ services:
       DB_NAME: guacamole_db
       DB_USER: guacamole
       DB_PASSWORD: guacpass123
-      GUAC_BASE_URL: http://guacamole:8080/guacamole
-      BASE_IMAGE_PATH: /images/base.qcow2
+      VNC_HOST: sandlabx-backend
+      BASE_IMAGE_PATH: /images/alpine-3.qcow2
       OVERLAYS_PATH: /overlays
       VNC_START_PORT: 5900
       QEMU_RAM: 2048
       QEMU_CPUS: 2
-      STATE_FILE: /app/nodes-state.json
+      STATE_FILE: /app/state/nodes-state.json
+      AUTO_DOWNLOAD_IMAGES: "true"
     volumes:
-      - ./images:/images:ro
-      - overlays_data:/overlays
+      - ./images:/images:rw
+      - ./vms:/vms:rw
+      - ./overlays:/overlays:rw
       - backend_state:/app/state
     ports:
       - "3001:3001"
@@ -98,10 +100,10 @@ services:
     networks:
       - sandlabx-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 2
 
   # Frontend Web UI
   frontend:
@@ -116,16 +118,15 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     restart: unless-stopped
     networks:
       - sandlabx-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 15s
+      timeout: 5s
+      retries: 2
 
 networks:
   sandlabx-network:
@@ -135,8 +136,6 @@ networks:
 volumes:
   postgres_data:
     name: sandlabx-postgres-data
-  overlays_data:
-    name: sandlabx-overlays
   backend_state:
     name: sandlabx-backend-state
 

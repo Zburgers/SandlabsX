@@ -8,6 +8,7 @@ A complete prototype for creating and managing virtual machine nodes in a networ
 ## 📚 Documentation Quick Links
 
 - **[Quick Start Guide](./QUICK-START.md)** - Get running in 1 command
+- **[Persistence Architecture](./PERSISTENCE.md)** - VM data persistence explained
 - **[Project Summary](./PROJECT-SUMMARY.md)** - Overview and deliverables
 - **[Project Structure](./STRUCTURE.md)** - Directory layout
 - **[Cheat Sheet](./CHEAT-SHEET.txt)** - Command reference
@@ -534,66 +535,116 @@ docker-compose logs guacamole
 7. Wipe the node
 8. Verify all operations work
 
-## 📝 Creating Base Image
+## 📝 Base VM Images
 
-Before running VMs, you need a bootable base image:
+### 🎉 Automatic Download (Default)
 
-### Option 1: Ubuntu Cloud Image (Recommended)
+The backend container **automatically downloads** base images on first startup! No manual setup required.
 
-```bash
-cd images/
+Supported base images:
+- **Ubuntu 24.04 LTS** (`ubuntu-24-lts.qcow2`) - ~700MB
+- **Alpine Linux 3.19** (`alpine-3.qcow2`) - ~100MB  
+- **Debian 12 Bookworm** (`debian-13.qcow2`) - ~600MB
 
-# Download Ubuntu 20.04 cloud image
-wget https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
+When you start the backend, it will:
+1. Check if images exist in `/images` directory
+2. Download any missing images from official sources
+3. Verify image integrity
+4. Continue starting the server
 
-# Rename to base.qcow2
-mv focal-server-cloudimg-amd64.img base.qcow2
+**No action needed!** Just run `docker-compose up` and images are downloaded automatically.
 
-# Verify
-qemu-img info base.qcow2
+### Configuration
+
+Control auto-download in `docker-compose.yml`:
+
+```yaml
+backend:
+  environment:
+    AUTO_DOWNLOAD_IMAGES: "true"  # Enable (default)
+    # AUTO_DOWNLOAD_IMAGES: "false"  # Disable for manual control
 ```
 
-### Option 2: Alpine Linux (Lightweight)
+### Manual Download (Optional)
 
+If you prefer manual control, disable auto-download and run:
+
+#### Ubuntu 24.04 LTS
 ```bash
-cd images/
-
-# Create blank disk
-qemu-img create -f qcow2 base.qcow2 10G
-
-# Download Alpine ISO
-wget https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/x86_64/alpine-virt-3.18.4-x86_64.iso
-
-# Install via QEMU
-qemu-system-x86_64 \
-  -cdrom alpine-virt-3.18.4-x86_64.iso \
-  -hda base.qcow2 \
-  -m 2048 \
-  -vnc :0
-
-# Connect with VNC viewer and install
-# After install, base.qcow2 is ready
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img \
+  -O ./images/ubuntu-24-lts.qcow2
 ```
 
-### Option 3: Custom Installation
+#### Alpine Linux 3.19
+```bash
+wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/cloud/nocloud_alpine-3.19.1-x86_64-uefi-cloudinit-r0.qcow2 \
+  -O ./images/alpine-3.qcow2
+```
+
+#### Debian 12
+```bash
+wget https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2 \
+  -O ./images/debian-13.qcow2
+```
+
+### Verify Images
 
 ```bash
-cd images/
+# Check what's downloaded
+docker exec sandlabx-backend ls -lh /images/
 
-# Create disk
-qemu-img create -f qcow2 base.qcow2 20G
-
-# Boot from any ISO
-qemu-system-x86_64 \
-  -cdrom /path/to/any-linux.iso \
-  -hda base.qcow2 \
-  -m 4096 -smp 2 \
-  -vnc :0
-
-# Install OS via VNC
-# Remove ISO and reboot
-# base.qcow2 is ready for use
+# Verify image integrity
+docker exec sandlabx-backend qemu-img info /images/ubuntu-24-lts.qcow2
 ```
+
+### Custom Images
+
+You can add your own QCOW2 images to the `./images` directory. Just update the `baseImages` mapping in `backend/modules/qemuManager.js` to use your custom images.
+
+See [images/README.md](./images/README.md) for more details.
+
+## 💾 Data Persistence
+
+**All VM data and state persist across container restarts and `docker compose down/up` cycles.**
+
+### What Persists
+
+1. **VM Disk Data** - All changes made to VMs are stored in overlay files in `./overlays/`
+2. **VM State** - Node metadata (names, IDs, resources) stored in Docker volume `backend_state`
+3. **PostgreSQL Data** - Guacamole connections and user data stored in volume `postgres_data`
+4. **Base Images** - Cloud images in `./images/` directory
+
+### Fresh Environment
+
+When starting with a clean clone:
+- No VMs are pre-populated by default
+- Environment starts empty and ready for use
+- Create VMs on-demand via the UI
+
+### Migration from Previous Version
+
+If you're upgrading from a version that stored state in the container:
+
+```bash
+# Run the migration script
+./migrate-state.sh
+```
+
+This will migrate your existing VMs to persistent storage.
+
+### Manual Backup
+
+To backup all VMs:
+
+```bash
+# Backup VM overlays
+tar -czf vm-backup.tar.gz overlays/
+
+# Backup state file
+docker cp sandlabx-backend:/app/state/nodes-state.json nodes-state-backup.json
+```
+
+See [PERSISTENCE.md](./PERSISTENCE.md) for complete documentation.
 
 ## 📝 Next Steps
 

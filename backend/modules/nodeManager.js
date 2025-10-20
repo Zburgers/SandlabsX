@@ -55,12 +55,15 @@ class NodeManager {
     const id = uuidv4();
     const timestamp = new Date().toISOString();
     
+    // Use container paths for overlays
+    const overlaysPath = process.env.OVERLAYS_PATH || '/overlays';
+    
     const node = {
       id,
       name: name || `node-${id.substring(0, 8)}`,
       osType,
       status: 'stopped',
-      overlayPath: path.join(process.env.OVERLAYS_PATH || '../overlays', `node_${id}.qcow2`),
+      overlayPath: path.join(overlaysPath, `node_${id}.qcow2`),
       vncPort: null,
       guacConnectionId: null,
       guacUrl: null,
