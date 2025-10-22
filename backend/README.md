@@ -409,8 +409,8 @@ For production deployment, implement:
 
 ## 📄 License
 
-MIT - For educational/evaluation purposes
+MIT License
 
-## 👨‍💻 Author
+## 👨‍💻 Project
 
-SandBoxLabs Internship Project
+SandBoxLabs - Network Lab Management System
