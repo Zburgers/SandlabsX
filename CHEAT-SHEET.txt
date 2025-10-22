@@ -2,7 +2,7 @@
   🚀 SANDBOXLABS - COMMAND CHEAT SHEET
 ================================================================================
 
-📍 LOCATION: /home/naki/Desktop/itsthatnewshit/sandboxlabs
+📍 LOCATION: /path/to/sandboxlabs
 
 ================================================================================
   ⚡ MAIN COMMANDS (RUN FROM ROOT)
@@ -163,7 +163,7 @@ frontend/README.md          # Frontend docs
   💡 QUICK TIPS
 ================================================================================
 
-✅ Always run commands from: /home/naki/Desktop/itsthatnewshit/sandboxlabs
+✅ Always run commands from project root directory
 ✅ Use ./run-all.sh for easiest startup
 ✅ Check ./status.sh if something seems wrong
 ✅ View logs with: tail -f backend.log
@@ -173,7 +173,7 @@ frontend/README.md          # Frontend docs
   🚀 ONE COMMAND SUMMARY
 ================================================================================
 
-cd /home/naki/Desktop/itsthatnewshit/sandboxlabs && ./run-all.sh
+cd /path/to/sandboxlabs && ./run-all.sh
 
   ↓ Wait 20 seconds ↓
 
