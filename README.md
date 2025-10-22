@@ -1,4 +1,4 @@
-# SandBoxLabs - Network Lab with QEMU and Guacamole
+# SandLabsX - Network Lab with QEMU and Guacamole
 
 A complete system for creating and managing virtual machine nodes in a network lab using QEMU disk overlays and Apache Guacamole browser-based console.
 
