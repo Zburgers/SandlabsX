@@ -6,7 +6,7 @@
 ### 1️⃣ ONE COMMAND TO START EVERYTHING:
 
 ```bash
-cd /home/naki/Desktop/itsthatnewshit/sandboxlabs
+cd /path/to/sandboxlabs
 ./run-all.sh
 ```
 
@@ -153,10 +153,10 @@ cd ..
 
 ---
 
-## 🎯 Directory Structure (Where You Are)
+## 🎯 Directory Structure
 
 ```
-/home/naki/Desktop/itsthatnewshit/sandboxlabs/  ← YOU ARE HERE
+/path/to/sandboxlabs/  ← PROJECT ROOT
 ├── run-all.sh         ← START EVERYTHING
 ├── stop-all.sh        ← STOP EVERYTHING  
 ├── status.sh          ← CHECK STATUS
@@ -170,7 +170,7 @@ cd ..
 
 ## 💡 Tips
 
-1. **Always run from the root directory** (`/home/naki/Desktop/itsthatnewshit/sandboxlabs/`)
+1. **Always run from the root directory** (where run-all.sh is located)
 2. **Wait 20-30 seconds** after running `./run-all.sh` for everything to start
 3. **Check logs** if something doesn't work: `tail -f backend.log`
 4. **Use status.sh** to see what's running
@@ -181,7 +181,7 @@ cd ..
 ## 🚀 Ready to Use!
 
 ```bash
-cd /home/naki/Desktop/itsthatnewshit/sandboxlabs
+cd /path/to/sandboxlabs
 ./run-all.sh
 # Wait 20 seconds...
 # Open http://localhost:3000
