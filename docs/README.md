@@ -14,6 +14,14 @@ Complete index of all documentation files in the project.
 | **[STRUCTURE.md](../STRUCTURE.md)** | Project structure and directory layout | `/STRUCTURE.md` |
 | **[CHEAT-SHEET.txt](../CHEAT-SHEET.txt)** | Command reference and quick tips | `/CHEAT-SHEET.txt` |
 
+### 🌐 Router Networking Lab Documentation (Task 2)
+
+| File | Description | Location |
+|------|-------------|----------|
+| **[TASK-2-ROUTER-NETWORKING-PRD.md](./TASK-2-ROUTER-NETWORKING-PRD.md)** | Complete Technical PRD for router networking lab | `/docs/TASK-2-ROUTER-NETWORKING-PRD.md` |
+| **[ROUTER-NETWORKING-GUIDE.md](./ROUTER-NETWORKING-GUIDE.md)** | Step-by-step setup guide for router lab | `/docs/ROUTER-NETWORKING-GUIDE.md` |
+| **[NETWORK-TROUBLESHOOTING.md](./NETWORK-TROUBLESHOOTING.md)** | Troubleshooting guide for network issues | `/docs/NETWORK-TROUBLESHOOTING.md` |
+
 ### 🔧 Component Documentation
 
 | File | Description | Location |
@@ -30,6 +38,11 @@ Complete index of all documentation files in the project.
 1. **[README.md](../README.md)** - Complete overview, architecture, and setup
 2. **[QUICK-START.md](../QUICK-START.md)** - Get the system running
 3. **[CHEAT-SHEET.txt](../CHEAT-SHEET.txt)** - Common commands
+
+### For Router Networking Lab (Task 2)
+1. **[TASK-2-ROUTER-NETWORKING-PRD.md](./TASK-2-ROUTER-NETWORKING-PRD.md)** - Technical requirements and architecture
+2. **[ROUTER-NETWORKING-GUIDE.md](./ROUTER-NETWORKING-GUIDE.md)** - Setup instructions
+3. **[NETWORK-TROUBLESHOOTING.md](./NETWORK-TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### For Developers
 1. **[STRUCTURE.md](../STRUCTURE.md)** - Understand the codebase organization
@@ -58,13 +71,35 @@ sandboxlabs/
 ├── 🔧 backend/
 │   └── README.md               # Backend documentation
 │
-└── 📚 docs/
-    └── README.md               # This index
+├── 📚 docs/
+│   ├── README.md               # This index
+│   ├── TASK-2-ROUTER-NETWORKING-PRD.md      # Router lab PRD
+│   ├── ROUTER-NETWORKING-GUIDE.md            # Router lab setup guide
+│   └── NETWORK-TROUBLESHOOTING.md            # Network troubleshooting
+│
+└── 🛠️ scripts/
+    ├── network/                # Network setup scripts
+    │   ├── create-tap-interfaces.sh
+    │   ├── cleanup-tap-interfaces.sh
+    │   ├── setup-router-lab.sh
+    │   └── cleanup-router-lab.sh
+    └── router/                 # Router configuration
+        ├── router-initial-config.txt
+        ├── pc1-network-config.sh
+        └── pc2-network-config.sh
 ```
 
 ---
 
 ## 📝 Document Changelog
+
+### November 2, 2025:
+- Added Router Networking Lab documentation (Task 2)
+- Created Technical PRD for QEMU router networking
+- Added comprehensive setup guide for router lab
+- Created network troubleshooting documentation
+- Added network setup and cleanup scripts
+- Added router and PC configuration scripts
 
 ### October 19, 2025:
 - Reorganized documentation index
@@ -92,6 +127,6 @@ sandboxlabs/
 
 ---
 
-**Last Updated:** October 19, 2025  
-**Total Documentation Files:** 7 markdown files  
+**Last Updated:** November 2, 2025  
+**Total Documentation Files:** 10 markdown files  
 **Status:** ✅ All documentation current and cross-referenced

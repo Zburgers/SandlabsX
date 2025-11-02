@@ -1,0 +1,76 @@
+! Cisco Router Initial Configuration
+! For QEMU Router Networking Lab - Task 2
+! 
+! This configuration sets up a dual-homed router connecting two networks:
+! - Network 1: 192.168.1.0/24 (GigabitEthernet0/0)
+! - Network 2: 192.168.2.0/24 (GigabitEthernet0/1)
+
+! Enter privileged EXEC mode
+enable
+
+! Enter global configuration mode
+configure terminal
+
+! Set hostname
+hostname Router
+
+! Disable DNS lookup (prevents delays on typos)
+no ip domain-lookup
+
+! Configure console line
+line con 0
+ logging synchronous
+ exec-timeout 0 0
+ exit
+
+! Configure VTY lines (telnet/ssh)
+line vty 0 4
+ login
+ exec-timeout 0 0
+ exit
+
+! Configure GigabitEthernet0/0 (Network 1 - PC1 side)
+interface GigabitEthernet0/0
+ description Connection to Network 1 - PC1
+ ip address 192.168.1.1 255.255.255.0
+ duplex auto
+ speed auto
+ no shutdown
+ exit
+
+! Configure GigabitEthernet0/1 (Network 2 - PC2 side)
+interface GigabitEthernet0/1
+ description Connection to Network 2 - PC2
+ ip address 192.168.2.1 255.255.255.0
+ duplex auto
+ speed auto
+ no shutdown
+ exit
+
+! Enable IP routing (should be enabled by default, but ensure it's on)
+ip routing
+
+! Configure banners
+banner motd ^C
+╔════════════════════════════════════════════════════════════╗
+║  SandLabsX - QEMU Router Networking Lab                   ║
+║  Task 2: Routed Network Topology                          ║
+╠════════════════════════════════════════════════════════════╣
+║  This router connects two networks:                        ║
+║  - Network 1: 192.168.1.0/24 (GigE0/0: 192.168.1.1)       ║
+║  - Network 2: 192.168.2.0/24 (GigE0/1: 192.168.2.1)       ║
+╚════════════════════════════════════════════════════════════╝
+^C
+
+! Exit configuration mode
+exit
+
+! Save configuration to NVRAM
+write memory
+
+! Display configuration verification
+show ip interface brief
+show ip route
+show running-config
+
+! End of configuration
