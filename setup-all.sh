@@ -58,9 +58,24 @@ fi
 echo ""
 echo "3️⃣  Setting up frontend..."
 cd ../frontend
+
 if [ ! -d "node_modules" ]; then
     echo "   Installing frontend dependencies..."
     npm install
+fi
+
+# Ensure PostCSS configuration is correct for Tailwind v3
+echo "   Verifying PostCSS configuration..."
+if ! grep -q "tailwindcss:" postcss.config.js; then
+    echo "   Updating postcss.config.js for Tailwind CSS v3..."
+    cat > postcss.config.js << 'EOF'
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+EOF
 fi
 
 cd ..

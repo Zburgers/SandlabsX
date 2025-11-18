@@ -26,9 +26,9 @@ A complete prototype for creating and managing virtual machine nodes in a networ
 - ✅ **Guacamole Integration** (Auto-registration, URL generation)
 - ✅ **State Management** (JSON persistence)
 - ✅ **Documentation** (Complete guides and READMEs)
+- ✅ **Custom ISO Support** (Install any OS from ISO - Bazzite, Fedora, etc.)
 
 ### ⏳ Remaining (5%)
-- ⏳ Base OS image installation
 - ⏳ End-to-end testing with real VMs
 
 ## 🏗️ Complete Architecture
@@ -545,78 +545,71 @@ Install QEMU tools on your host system:
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get update && sudo apt-get install -y qemu-utils
+sudo apt-get update && sudo apt-get install -y qemu-utils qemu-system-x86
 
 # CentOS/RHEL/Fedora
-sudo dnf install -y qemu-img
+sudo dnf install -y qemu-img qemu-kvm
 
 # macOS (with Homebrew)
 brew install qemu
 ```
 
-### Quick Start - Download Pre-converted Images
+### Method 1: Download Pre-converted Cloud Images (Fastest)
 
 The easiest way is to download cloud images that are already in QCOW2 format:
 
-#### 1. Create images directory
 ```bash
-mkdir -p images
-```
+mkdir -p images && cd images
 
-#### 2. Download Ubuntu 24.04 LTS Cloud Image
-```bash
+# Ubuntu 24.04 LTS Cloud Image
 wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img \
-  -O ./images/ubuntu-24-lts.qcow2
-```
+  -O ubuntu-24-lts.qcow2
 
-#### 3. Download Alpine Linux 3.19
-```bash
+# Alpine Linux 3.19
 wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/cloud/nocloud_alpine-3.19.1-x86_64-uefi-cloudinit-r0.qcow2 \
-  -O ./images/alpine-3.qcow2
-```
+  -O alpine-3.qcow2
 
-#### 4. Download Debian 12
-```bash
+# Debian 12
 wget https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2 \
-  -O ./images/debian-13.qcow2
+  -O debian-13.qcow2
 ```
 
-### Alternative - Convert from ISO or Other Formats
+### Method 2: Install from ISO (For Custom OS like Bazzite, Fedora, etc.)
 
-If you download images in other formats (ISO, VDI, VMDK, RAW), convert them to QCOW2:
-
-#### Step 1: Download your preferred OS image
-
-**Ubuntu Desktop/Server ISO:**
-```bash
-wget https://releases.ubuntu.com/24.04/ubuntu-24.04-live-server-amd64.iso \
-  -O ~/downloads/ubuntu-24.04.iso
-```
-
-**Debian ISO:**
-```bash
-wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.5.0-amd64-netinst.iso \
-  -O ~/downloads/debian-12.iso
-```
-
-**Alpine Virtual ISO:**
-```bash
-wget https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-virt-3.19.1-x86_64.iso \
-  -O ~/downloads/alpine-3.19.iso
-```
-
-#### Step 2: Create a base QCOW2 disk
+Install any operating system from ISO with VNC access:
 
 ```bash
-# Create a 20GB QCOW2 disk (adjust size as needed)
-qemu-img create -f qcow2 ./images/ubuntu-24-lts.qcow2 20G
+cd images
 
-# For Alpine (smaller)
-qemu-img create -f qcow2 ./images/alpine-3.qcow2 10G
+# 1. Place your ISO file here (or download it)
+# Example: bazzite-gnome-stable-amd64.iso
 
-# For Debian
-qemu-img create -f qcow2 ./images/debian-13.qcow2 20G
+# 2. Create empty qcow2 disk (adjust size as needed)
+qemu-img create -f qcow2 bazzite-gnome.qcow2 40G
+
+# 3. Start installation VM with VNC
+qemu-system-x86_64 -enable-kvm -m 4096 -smp 2 \
+  -boot d -cdrom bazzite-gnome-stable-amd64.iso \
+  -hda bazzite-gnome.qcow2 \
+  -vnc :1 -name "OS Installation" &
+
+# 4. Connect with VNC viewer
+vncviewer localhost:5901
+
+# 5. Complete the installation in VNC window
+# Install the OS to disk normally
+
+# 6. After installation, shutdown the VM
+pkill -f "qemu.*iso"
+
+# 7. Your new base image is ready: bazzite-gnome.qcow2
+
+# 8. Add to backend support (see images/README.md for details)
 ```
+
+### Method 3: Convert from VirtualBox/VMware
+
+If you have existing VMs in other formats:
 
 #### Step 3: Install OS to QCOW2 image
 
@@ -624,65 +617,28 @@ You need to boot the ISO and install the OS to the QCOW2 disk:
 
 **Ubuntu/Debian Installation:**
 ```bash
-# Start VM with ISO mounted
-qemu-system-x86_64 \
-  -m 2048 \
-  -smp 2 \
-  -cdrom ~/downloads/ubuntu-24.04.iso \
-  -hda ./images/ubuntu-24-lts.qcow2 \
-  -boot d \
-  -vnc :0 \
-  -enable-kvm
-
-# Connect with VNC viewer to localhost:5900
-# Complete OS installation
-# Shutdown the VM when done
-```
-
-**Alpine Installation (text-based):**
 ```bash
-# Start VM with ISO
-qemu-system-x86_64 \
-  -m 1024 \
-  -smp 2 \
-  -cdrom ~/downloads/alpine-3.19.iso \
-  -hda ./images/alpine-3.qcow2 \
-  -boot d \
-  -nographic
+# From VirtualBox VDI
+qemu-img convert -f vdi -O qcow2 source.vdi ./images/ubuntu-24-lts.qcow2
 
-# Follow Alpine setup-alpine wizard
-# When done, press Ctrl+A then X to quit
+# From VMware VMDK
+qemu-img convert -f vmdk -O qcow2 source.vmdk ./images/debian-13.qcow2
+
+# From RAW/IMG
+qemu-img convert -f raw -O qcow2 source.img ./images/alpine-3.qcow2
 ```
 
-#### Step 4: Convert from other formats (VirtualBox, VMware, etc.)
+### Supported OS Types
 
-**From VirtualBox VDI:**
-```bash
-qemu-img convert -f vdi -O qcow2 \
-  /path/to/virtualbox/disk.vdi \
-  ./images/ubuntu-24-lts.qcow2
-```
+| OS Type | Filename | Method |
+|---------|----------|--------|
+| Ubuntu | `ubuntu-24-lts.qcow2` | Method 1 (Cloud Image) |
+| Alpine | `alpine-3.qcow2` | Method 1 (Cloud Image) |
+| Debian | `debian-13.qcow2` | Method 1 (Cloud Image) |
+| Bazzite | `bazzite-gnome.qcow2` | Method 2 (ISO Install) |
+| Custom | `your-os.qcow2` | Method 2 (ISO Install) |
 
-**From VMware VMDK:**
-```bash
-qemu-img convert -f vmdk -O qcow2 \
-  /path/to/vmware/disk.vmdk \
-  ./images/ubuntu-24-lts.qcow2
-```
-
-**From RAW image:**
-```bash
-qemu-img convert -f raw -O qcow2 \
-  /path/to/image.img \
-  ./images/ubuntu-24-lts.qcow2
-```
-
-**From IMG/DD image:**
-```bash
-qemu-img convert -f raw -O qcow2 \
-  /path/to/disk.img \
-  ./images/ubuntu-24-lts.qcow2
-```
+**See [images/README.md](./images/README.md) for detailed instructions and adding custom OS support.**
 
 ### Verify and Optimize Images
 

@@ -1,0 +1,795 @@
+const { spawn, exec } = require('child_process');
+const { promisify } = require('util');
+const fs = require('fs').promises;
+const path = require('path');
+const WebSocket = require('ws');
+
+// Added helper for readable file sizes
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const precision = value >= 10 || unitIndex === 0 ? 0 : 1;
+  return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+const execAsync = promisify(exec);
+
+/**
+ * QemuManager - Manages QEMU VM processes and disk overlays
+ */
+class QemuManager {
+  constructor() {
+    // Use absolute paths to avoid path resolution issues
+    const projectRoot = path.resolve(__dirname, '../../');
+    this.imagesPath = path.join(projectRoot, 'images');
+    this.customImagesPath = process.env.CUSTOM_IMAGES_PATH || path.join(this.imagesPath, 'custom');
+    
+    // Map OS types to their cloud base images
+    this.baseImages = {
+      'ubuntu': path.join(this.imagesPath, 'ubuntu-24-lts.qcow2'),      // Ubuntu 24 LTS Cloud Image
+      'alpine': path.join(this.imagesPath, 'alpine-3.qcow2'),           // Alpine Linux 3.x Cloud Image
+      'debian': path.join(this.imagesPath, 'debian-13.qcow2'),          // Debian 13 Cloud Image
+      'bazzite': path.join(this.imagesPath, 'bazzite-gnome.qcow2'),     // Bazzite GNOME
+      'router': path.join(this.imagesPath, 'router.qcow2'),             // Cisco Router
+      'default': path.join(this.imagesPath, 'ubuntu-24-lts.qcow2')      // Default to Ubuntu
+    };
+
+    // Added base metadata so frontend can show richer cards
+    this.baseImageMetadata = {
+      ubuntu: {
+        id: 'ubuntu-24-lts',
+        name: 'Ubuntu 24.04 LTS',
+        description: 'Ubuntu Noble Server Cloud Image',
+      },
+      alpine: {
+        id: 'alpine-3',
+        name: 'Alpine Linux 3.x',
+        description: 'Minimal Alpine cloud image',
+      },
+      debian: {
+        id: 'debian-13',
+        name: 'Debian 13 (Trixie)',
+        description: 'Debian NoCloud image',
+      },
+      bazzite: {
+        id: 'bazzite-gnome',
+        name: 'Bazzite GNOME',
+        description: 'Fedora based gaming distro',
+      },
+      router: {
+        id: 'router',
+        name: 'Cisco Router',
+        description: 'Cisco IOS Router (Serial Console Only)',
+      }
+    };
+    
+    this.baseImagePath = process.env.BASE_IMAGE_PATH || this.baseImages.default;
+    this.overlaysPath = process.env.OVERLAYS_PATH || path.join(projectRoot, 'overlays');
+    this.vmsPath = process.env.VMS_PATH || path.join(projectRoot, 'vms');
+    this.runningVMs = new Map(); // id -> process
+  }
+
+  /**
+   * Get the base image path for a specific OS type
+   */
+  getBaseImageForOS(osType) {
+    return this.baseImages[osType] || this.baseImages.default;
+  }
+
+  async initialize() {
+    console.log('🖥️  Initializing QemuManager...');
+    
+    // Create directories if they don't exist
+    try {
+      await fs.mkdir(this.overlaysPath, { recursive: true });
+      console.log(`✅ Overlays directory: ${this.overlaysPath}`);
+    } catch (error) {
+      console.error('Error creating overlays directory:', error.message);
+    }
+
+    // Added to ensure custom images directory exists
+    try {
+      await fs.mkdir(this.customImagesPath, { recursive: true });
+      console.log(`✅ Custom images directory: ${this.customImagesPath}`);
+    } catch (error) {
+      console.error('Error creating custom images directory:', error.message);
+    }
+
+    // Check if base image exists
+    try {
+      await fs.access(this.baseImagePath);
+      console.log(`✅ Base image found: ${this.baseImagePath}`);
+    } catch (error) {
+      console.warn(`⚠️  Base image not found: ${this.baseImagePath}`);
+      console.warn('   You will need to create a base image to run VMs');
+    }
+
+    // Check for qemu-img and qemu-system-x86_64
+    try {
+      await execAsync('which qemu-img');
+      await execAsync('which qemu-system-x86_64');
+      console.log('✅ QEMU tools found');
+    } catch (error) {
+      console.warn('⚠️  QEMU tools not found in PATH');
+      console.warn('   Install: apt-get install qemu-system-x86 qemu-utils');
+    }
+  }
+
+  /**
+   * Create QCOW2 overlay from base image
+   */
+  async createOverlay(node) {
+    console.log(`📀 Creating overlay for node ${node.id}...`);
+    
+    const overlayPath = node.overlayPath;
+    const baseImage = node.image && node.image.path ? node.image.path : this.getBaseImageForOS(node.osType);
+    
+    try {
+      // Check if overlay already exists
+      try {
+        await fs.access(overlayPath);
+        console.log(`  Overlay already exists: ${overlayPath}`);
+        return overlayPath;
+      } catch (error) {
+        // Overlay doesn't exist, create it
+      }
+
+      // Verify base image exists
+      try {
+        await fs.access(baseImage);
+        console.log(`  Using base image: ${baseImage}`);
+      } catch (error) {
+        throw new Error(`Base image not found: ${baseImage}`);
+      }
+
+      // Create overlay using qemu-img
+      const cmd = `qemu-img create -f qcow2 -b ${baseImage} -F qcow2 ${overlayPath}`;
+      console.log(`  Running: ${cmd}`);
+      
+      const { stdout, stderr } = await execAsync(cmd);
+      if (stderr && !stderr.includes('Formatting')) {
+        console.warn('  qemu-img stderr:', stderr);
+      }
+      
+      console.log(`✅ Overlay created: ${overlayPath}`);
+      return overlayPath;
+    } catch (error) {
+      console.error('Error creating overlay:', error);
+      throw new Error(`Failed to create overlay: ${error.message}`);
+    }
+  }
+
+  /**
+   * Setup TAP interfaces for router (manual configuration since script=no)
+   */
+  async setupRouterTaps(nodeId) {
+    const tap0 = `tap-${nodeId.substring(0,8)}-0`;
+    const tap1 = `tap-${nodeId.substring(0,8)}-1`;
+    
+    try {
+      console.log(`  🔧 Setting up TAP interfaces...`);
+      
+      // Create and configure tap0 -> br0
+      await execAsync(`ip tuntap add dev ${tap0} mode tap`);
+      await execAsync(`ip link set ${tap0} up`);
+      await execAsync(`ip link set ${tap0} master sandlabx-br0`);
+      console.log(`    ✅ ${tap0} -> sandlabx-br0`);
+      
+      // Create and configure tap1 -> br1
+      await execAsync(`ip tuntap add dev ${tap1} mode tap`);
+      await execAsync(`ip link set ${tap1} up`);
+      await execAsync(`ip link set ${tap1} master sandlabx-br1`);
+      console.log(`    ✅ ${tap1} -> sandlabx-br1`);
+      
+      return true;
+    } catch (error) {
+      console.error(`  ❌ Failed to setup TAP interfaces:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Cleanup TAP interfaces for router
+   */
+  async cleanupRouterTaps(nodeId) {
+    const tap0 = `tap-${nodeId.substring(0,8)}-0`;
+    const tap1 = `tap-${nodeId.substring(0,8)}-1`;
+    
+    try {
+      console.log(`  🧹 Cleaning up TAP interfaces...`);
+      
+      // Remove tap interfaces (will auto-detach from bridges)
+      await execAsync(`ip link delete ${tap0}`).catch(() => {});
+      await execAsync(`ip link delete ${tap1}`).catch(() => {});
+      
+      console.log(`    ✅ TAP interfaces removed`);
+    } catch (error) {
+      console.warn(`  ⚠️  TAP cleanup warning:`, error.message);
+    }
+  }
+
+  /**
+   * Start QEMU VM with the overlay
+   */
+  async startVM(node) {
+    console.log(`🚀 Starting VM for node ${node.id}...`);
+    
+    // Create overlay if it doesn't exist
+    await this.createOverlay(node);
+    
+    // Get VNC port (use node's port if assigned, or get next available)
+    const vncPort = node.vncPort || await this.getNextAvailablePort();
+    const vncDisplay = vncPort - 5900; // VNC display number
+    
+    // Simple check: is this a router?
+    const isRouter = (node.osType === 'router');
+
+    let qemuArgs;
+    let qemuCommand = 'qemu-system-x86_64';
+
+    if (isRouter) {
+      // ========== ROUTER CONFIGURATION ==========
+      console.log(`  🌐 Router configuration (no graphics)`);
+      
+      // Generate unique MAC addresses for two interfaces (GigabitEthernet0/0 and GigabitEthernet0/1)
+      const mac0 = '52:54:00:12:34:' + Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+      const mac1 = '52:54:00:12:35:' + Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+      
+      qemuArgs = [
+        '-machine', 'pc',
+        '-m', '2048',  // IOSv needs at least 2GB RAM
+        '-smp', '2',   // 2 CPUs recommended for IOSv
+        '-hda', node.overlayPath,
+        '-boot', 'd',
+        '-nographic',
+        '-serial', 'stdio',
+        // First interface (GigabitEthernet0/0) - connects to br0
+        '-device', `e1000,netdev=net0,mac=${mac0}`,
+        '-netdev', `tap,id=net0,ifname=tap-${node.id.substring(0,8)}-0,script=no,downscript=no`,
+        // Second interface (GigabitEthernet0/1) - connects to br1
+        '-device', `e1000,netdev=net1,mac=${mac1}`,
+        '-netdev', `tap,id=net1,ifname=tap-${node.id.substring(0,8)}-1,script=no,downscript=no`
+      ];
+      
+      // Add KVM if available (but IOSv might not work well with KVM)
+      try {
+        await fs.access('/dev/kvm');
+        // Note: IOSv often works better without KVM, but we'll try it
+        qemuArgs.push('-enable-kvm');
+        console.log('  ⚡ KVM acceleration enabled for router');
+      } catch (e) {
+        console.log('  ⚠️  KVM not available for router, using software emulation');
+      }
+      
+      // For router, we need to manually configure tap interfaces and attach to bridges
+      console.log(`  🌉 Router will use tap-${node.id.substring(0,8)}-0 (br0) and tap-${node.id.substring(0,8)}-1 (br1)`);
+      
+      // Setup TAP interfaces before starting QEMU
+      await this.setupRouterTaps(node.id);
+      
+    } else {
+      // ========== STANDARD OS CONFIGURATION ==========
+      console.log(`  💻 Standard OS: ${node.osType}`);
+      
+      // Generate unique MAC address
+      const mac0 = '52:54:00:12:36:' + Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+      
+      qemuArgs = [
+        '-vnc', `0.0.0.0:${vncDisplay}`,
+        '-hda', node.overlayPath,
+        '-m', String(node.resources.ram || 2048),
+        '-smp', String(node.resources.cpus || 2),
+        '-boot', 'c',
+        '-name', `node_${node.id}`,
+        '-vga', 'std',
+        '-serial', 'stdio',
+        // Network - connected to shared bridge so VMs can talk to each other
+        '-device', `e1000,netdev=net0,mac=${mac0}`,
+        '-netdev', `tap,id=net0,ifname=tap-${node.id.substring(0,8)},script=/etc/qemu-ifup,downscript=/etc/qemu-ifdown`
+      ];
+
+      // Add KVM acceleration if available
+      try {
+        await fs.access('/dev/kvm');
+        qemuArgs.push('-enable-kvm');
+        console.log('  ⚡ KVM acceleration enabled');
+      } catch (error) {
+        console.log('  ⚠️  KVM not available, using software emulation');
+      }
+    }
+
+    console.log(`  VNC Port: ${vncPort} (display :${vncDisplay})`);
+    console.log(`  Overlay: ${node.overlayPath}`);
+    
+    try {
+      // Spawn QEMU process
+      const qemuProcess = spawn(qemuCommand, qemuArgs, {
+        detached: false,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      // Store process reference with router flag
+      this.runningVMs.set(node.id, {
+        process: qemuProcess,
+        vncPort: vncPort,
+        startTime: Date.now(),
+        consoleClients: new Set(),
+        isRouter: isRouter,
+        bootWaitTime: isRouter ? 120000 : 30000
+      });
+
+      // Handle process events - improved for router serial output
+      qemuProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        console.log(`  [${isRouter ? 'ROUTER' : 'VM'} Serial ${node.id.substring(0, 8)}] ${output.trim()}`);
+        
+        // Broadcast to WebSocket clients
+        const vmInfo = this.runningVMs.get(node.id);
+        if (vmInfo && vmInfo.consoleClients) {
+          for (const client of vmInfo.consoleClients) {
+            try {
+              if (client.socket.readyState === WebSocket.OPEN) {
+                client.socket.send(JSON.stringify({ 
+                  type: 'data', 
+                  stream: 'stdout', 
+                  payload: output 
+                }));
+              }
+            } catch (e) {
+              console.error('  [Console broadcast error]:', e.message);
+            }
+          }
+        }
+      });
+
+      qemuProcess.stderr.on('data', (data) => {
+        const msg = data.toString().trim();
+        if (!msg.includes('warning') && !msg.includes('info')) {
+          console.error(`  [${isRouter ? 'ROUTER' : 'VM'} ${node.id.substring(0, 8)} ERROR] ${msg}`);
+        }
+      });
+      
+      // Handle stdin errors gracefully (common with routers)
+      qemuProcess.stdin.on('error', (err) => {
+        console.warn(`  [${node.id.substring(0, 8)}] stdin error (may be normal): ${err.message}`);
+      });
+
+      qemuProcess.on('exit', (code, signal) => {
+        console.log(`  [QEMU ${node.id.substring(0, 8)}] Process exited (code: ${code}, signal: ${signal})`);
+        const vmInfo = this.runningVMs.get(node.id);
+        if (vmInfo && vmInfo.consoleClients) {
+          for (const client of vmInfo.consoleClients) {
+            try {
+              if (client.socket.readyState === WebSocket.OPEN) {
+                client.socket.send(JSON.stringify({ type: 'exit', code, signal }));
+                client.socket.close(1000, 'VM terminated');
+              }
+            } catch (err) {
+              console.error('  [QEMU console] notify error:', err.message);
+            }
+          }
+          vmInfo.consoleClients.clear();
+        }
+        this.runningVMs.delete(node.id);
+      });
+
+      qemuProcess.on('error', (error) => {
+        console.error(`  [QEMU ${node.id.substring(0, 8)}] Process error:`, error);
+        this.runningVMs.delete(node.id);
+      });
+
+      // Wait for boot - longer for routers (need 2+ minutes to boot)
+      const bootTimeout = isRouter ? 150000 : 1000;
+      await new Promise(resolve => setTimeout(resolve, bootTimeout));
+
+      if (qemuProcess.exitCode !== null) {
+        throw new Error(`QEMU process exited immediately with code ${qemuProcess.exitCode}`);
+      }
+
+      console.log(`✅ VM started: PID ${qemuProcess.pid}, VNC :${vncDisplay} (${vncPort})`);
+      
+      if (isRouter) {
+        console.log(`  📟 Access router console via Serial Console in UI`);
+        console.log(`  📟 VNC will show blank/BIOS screen (routers have no graphics)`);
+        console.log(`  ⏱️  Router boot time: ~120 seconds - please wait!`);
+      }
+      
+      return vncPort;
+    } catch (error) {
+      this.runningVMs.delete(node.id);
+      console.error('Error starting VM:', error);
+      throw new Error(`Failed to start VM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Stop QEMU VM
+   */
+  async stopVM(node) {
+    console.log(`⏹️  Stopping VM for node ${node.id}...`);
+    
+    const vmInfo = this.runningVMs.get(node.id);
+    if (!vmInfo) {
+      console.log('  VM is not running');
+      return;
+    }
+
+    try {
+      const { process: qemuProcess } = vmInfo;
+      
+      // Try graceful shutdown first (SIGTERM)
+      qemuProcess.kill('SIGTERM');
+      
+      // Wait up to 5 seconds for graceful shutdown
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          if (this.runningVMs.has(node.id)) {
+            console.log('  Graceful shutdown timeout, forcing kill...');
+            qemuProcess.kill('SIGKILL');
+          }
+          resolve();
+        }, 5000);
+
+        qemuProcess.once('exit', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
+
+      this.runningVMs.delete(node.id);
+      
+      // Cleanup TAP interfaces for router nodes
+      if (node.osType === 'router') {
+        await this.cleanupRouterTaps(node.id);
+      }
+      
+      if (vmInfo.consoleClients) {
+        for (const client of vmInfo.consoleClients) {
+          try {
+            if (client.socket.readyState === WebSocket.OPEN) {
+              client.socket.send(JSON.stringify({ type: 'exit', code: null, signal: 'terminated' }));
+              client.socket.close(1000, 'VM stopped');
+            }
+          } catch (err) {
+            console.error('  [QEMU console] stop notify error:', err.message);
+          }
+        }
+        vmInfo.consoleClients.clear();
+      }
+      console.log(`✅ VM stopped for node ${node.id}`);
+    } catch (error) {
+      console.error('Error stopping VM:', error);
+      throw new Error(`Failed to stop VM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Wipe overlay (delete and recreate)
+   */
+  async wipeOverlay(node) {
+    console.log(`🧹 Wiping overlay for node ${node.id}...`);
+    
+    try {
+      // Delete existing overlay
+      try {
+        await fs.unlink(node.overlayPath);
+        console.log(`  Deleted: ${node.overlayPath}`);
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          console.warn(`  Warning: ${error.message}`);
+        }
+      }
+
+      // Recreate overlay
+      await this.createOverlay(node);
+      
+      console.log(`✅ Overlay wiped for node ${node.id}`);
+    } catch (error) {
+      console.error('Error wiping overlay:', error);
+      throw new Error(`Failed to wipe overlay: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete overlay completely
+   */
+  async deleteOverlay(node) {
+    console.log(`🗑️  Deleting overlay for node ${node.id}...`);
+    
+    try {
+      await fs.unlink(node.overlayPath);
+      console.log(`✅ Overlay deleted: ${node.overlayPath}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error('Error deleting overlay:', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Get next available VNC port by checking actual system ports
+   */
+  async getNextAvailablePort() {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    
+    const startPort = parseInt(process.env.VNC_START_PORT) || 5900;
+    const maxPort = startPort + 100; // Check up to 100 ports
+    
+    // Get ports currently used by our running VMs
+    const usedByUs = new Set(
+      Array.from(this.runningVMs.values()).map(vm => vm.vncPort)
+    );
+
+    // Check actual system ports
+    for (let port = startPort; port < maxPort; port++) {
+      if (usedByUs.has(port)) {
+        continue; // Skip ports we know we're using
+      }
+      
+      // Check if port is available on the system
+      try {
+        const { stdout } = await execAsync(`netstat -tln 2>/dev/null | grep :${port} || ss -tln | grep :${port}`);
+        if (stdout.trim()) {
+          // Port is in use
+          continue;
+        }
+      } catch (error) {
+        // Command failed (no match found), port is available
+      }
+      
+      // Port is available!
+      return port;
+    }
+
+    // If we get here, all ports are in use
+    throw new Error(`No available VNC ports in range ${startPort}-${maxPort}`);
+  }
+
+  /**
+   * Cleanup all running VMs
+   */
+  async cleanup() {
+    console.log('🧹 Cleaning up QEMU processes...');
+    
+    const promises = Array.from(this.runningVMs.keys()).map(async (nodeId) => {
+      const vmInfo = this.runningVMs.get(nodeId);
+      if (vmInfo && vmInfo.process) {
+        try {
+          vmInfo.process.kill('SIGTERM');
+          console.log(`  Stopped VM: ${nodeId}`);
+        } catch (error) {
+          console.error(`  Error stopping VM ${nodeId}:`, error.message);
+        }
+      }
+    });
+
+    await Promise.all(promises);
+    this.runningVMs.clear();
+    console.log('✅ Cleanup complete');
+  }
+
+  // Added to enumerate built-in and custom images for the UI
+  async listAvailableImages() {
+    const baseEntries = await Promise.all(Object.entries(this.baseImages)
+      .filter(([key]) => key !== 'default')
+      .map(async ([key, imagePath]) => {
+        try {
+          const stats = await fs.stat(imagePath);
+          const meta = this.baseImageMetadata[key] || { id: key, name: key, description: '' };
+          return {
+            type: 'base',
+            id: key,
+            name: meta.name,
+            description: meta.description,
+            path: imagePath,
+            sizeBytes: stats.size,
+            size: formatBytes(stats.size),
+            available: true
+          };
+        } catch (error) {
+          const meta = this.baseImageMetadata[key] || { id: key, name: key, description: '' };
+          return {
+            type: 'base',
+            id: key,
+            name: meta.name,
+            description: meta.description,
+            path: imagePath,
+            sizeBytes: 0,
+            size: '0 B',
+            available: false,
+            error: error.message
+          };
+        }
+      }));
+
+    let customEntries = [];
+    try {
+      const files = await fs.readdir(this.customImagesPath);
+      customEntries = await Promise.all(files.filter(f => f.endsWith('.qcow2')).map(async (file) => {
+        const fullPath = path.join(this.customImagesPath, file);
+        const stats = await fs.stat(fullPath);
+        return {
+          type: 'custom',
+          id: file,
+          name: file.replace(/\.qcow2$/i, ''),
+          path: fullPath,
+          sizeBytes: stats.size,
+          size: formatBytes(stats.size),
+          available: true,
+          uploadedAt: stats.birthtime
+        };
+      }));
+    } catch (error) {
+      console.error('Error listing custom images:', error.message);
+    }
+
+    return {
+      baseImages: baseEntries,
+      customImages: customEntries
+    };
+  }
+
+  // Added helper to resolve the source image for a node request
+  async resolveImage({ imageType = 'base', osType = 'ubuntu', customImageName }) {
+    if (imageType === 'custom') {
+      if (!customImageName) {
+        throw new Error('Custom image name required');
+      }
+      const candidate = path.join(this.customImagesPath, customImageName);
+      try {
+        const stats = await fs.stat(candidate);
+        return {
+          type: 'custom',
+          id: customImageName,
+          path: candidate,
+          sizeBytes: stats.size,
+          size: formatBytes(stats.size),
+          name: path.parse(customImageName).name
+        };
+      } catch (error) {
+        throw new Error(`Custom image not found: ${customImageName}`);
+      }
+    }
+
+    const basePath = this.getBaseImageForOS(osType);
+    try {
+      const stats = await fs.stat(basePath);
+      const meta = this.baseImageMetadata[osType] || { name: osType, description: '' };
+      return {
+        type: 'base',
+        id: osType,
+        path: basePath,
+        sizeBytes: stats.size,
+        size: formatBytes(stats.size),
+        name: meta.name,
+        description: meta.description
+      };
+    } catch (error) {
+      throw new Error(`Base image not available for ${osType}`);
+    }
+  }
+
+  // Added to connect WebSocket clients to QEMU stdio
+  attachConsoleClient(nodeId, socket) {
+    const vmInfo = this.runningVMs.get(nodeId);
+    if (!vmInfo || !vmInfo.process) {
+      throw new Error('VM is not running');
+    }
+
+    const { process } = vmInfo;
+    if (!process.stdin || !process.stdout) {
+      throw new Error('Console streams unavailable');
+    }
+
+    const stdoutHandler = (data) => {
+      try {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'data', stream: 'stdout', payload: data.toString('utf8') }));
+        }
+      } catch (error) {
+        console.error('Console stdout handler error:', error.message);
+      }
+    };
+
+    const stderrHandler = (data) => {
+      try {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'data', stream: 'stderr', payload: data.toString('utf8') }));
+        }
+      } catch (error) {
+        console.error('Console stderr handler error:', error.message);
+      }
+    };
+
+    process.stdout.on('data', stdoutHandler);
+    process.stderr.on('data', stderrHandler);
+
+    socket.on('message', (message) => {
+      try {
+        const payload = Buffer.isBuffer(message) ? message.toString('utf8') : String(message);
+        process.stdin.write(payload);
+      } catch (error) {
+        console.error('Console stdin write error:', error.message);
+      }
+    });
+
+    socket.on('close', () => {
+      process.stdout.off('data', stdoutHandler);
+      process.stderr.off('data', stderrHandler);
+      vmInfo.consoleClients.delete(clientRef);
+    });
+
+    const clientRef = { socket, stdoutHandler, stderrHandler };
+    vmInfo.consoleClients.add(clientRef);
+
+    socket.send(JSON.stringify({ type: 'ready', nodeId }));
+  }
+
+  /**
+   * Ensure image is in QCOW2 format, convert if necessary
+   */
+  async ensureQcow2Format(imagePath) {
+    console.log(`🔍 Checking format of ${path.basename(imagePath)}...`);
+    
+    try {
+      // Detect the current format
+      const { stdout } = await execAsync(`qemu-img info --output=json "${imagePath}"`);
+      const info = JSON.parse(stdout);
+      const currentFormat = info.format;
+      
+      console.log(`  Current format: ${currentFormat}`);
+      
+      // If already QCOW2, return as-is
+      if (currentFormat === 'qcow2') {
+        console.log(`✅ Image is already in QCOW2 format`);
+        return imagePath;
+      }
+      
+      // Need to convert
+      const ext = path.extname(imagePath);
+      const baseName = path.basename(imagePath, ext);
+      const convertedPath = path.join(
+        path.dirname(imagePath),
+        `${baseName}_converted.qcow2`
+      );
+      
+      console.log(`🔄 Converting ${currentFormat} to QCOW2...`);
+      console.log(`  Source: ${imagePath}`);
+      console.log(`  Target: ${convertedPath}`);
+      
+      // Convert to QCOW2
+      const cmd = `qemu-img convert -f ${currentFormat} -O qcow2 "${imagePath}" "${convertedPath}"`;
+      await execAsync(cmd);
+      
+      // Verify conversion
+      const { stdout: verifyOutput } = await execAsync(`qemu-img info --output=json "${convertedPath}"`);
+      const verifyInfo = JSON.parse(verifyOutput);
+      
+      if (verifyInfo.format !== 'qcow2') {
+        throw new Error(`Conversion failed: resulting format is ${verifyInfo.format}`);
+      }
+      
+      console.log(`✅ Conversion successful`);
+      console.log(`  Original size: ${formatBytes(info['actual-size'] || info['virtual-size'])}`);
+      console.log(`  Converted size: ${formatBytes(verifyInfo['actual-size'] || verifyInfo['virtual-size'])}`);
+      
+      return convertedPath;
+    } catch (error) {
+      console.error('Error converting image format:', error);
+      throw new Error(`Failed to convert image to QCOW2: ${error.message}`);
+    }
+  }
+}
+
+module.exports = { QemuManager };

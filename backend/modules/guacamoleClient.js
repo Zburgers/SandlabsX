@@ -13,7 +13,8 @@ class GuacamoleClient {
       password: process.env.DB_PASSWORD || 'guacpass123',
     };
     
-    this.guacBaseUrl = process.env.GUAC_BASE_URL || 'http://localhost:8081/guacamole';
+    // URL for browser access (must be localhost:8081 since that's where the host exposes Guacamole)
+    this.guacBaseUrl = 'http://localhost:8081/guacamole';
     this.connected = false;
   }
 
@@ -103,10 +104,9 @@ class GuacamoleClient {
       console.log(`  Created connection ID: ${connectionId}`);
 
       // Insert VNC parameters
-      // On Linux, Docker containers cannot use 'host.docker.internal'
-      // We need to use the host's IP address or configure extra_hosts
-      // Using 172.17.0.1 (default Docker bridge gateway) to reach host
-      const vncHost = process.env.VNC_HOST || '172.17.0.1';
+      // VNC host: use the backend container name since QEMU runs in the backend container
+      // and guacd needs to connect to it via the Docker network
+      const vncHost = process.env.VNC_HOST || 'sandlabx-backend';
       const parameters = [
         { name: 'hostname', value: vncHost },
         { name: 'port', value: String(vncPort) },
@@ -114,6 +114,7 @@ class GuacamoleClient {
         { name: 'color-depth', value: '16' },
         { name: 'cursor', value: 'remote' },
         { name: 'read-only', value: 'false' },
+        { name: 'enable-audio', value: 'false' },
       ];
 
       for (const param of parameters) {

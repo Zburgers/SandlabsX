@@ -1,142 +1,92 @@
+version: "3.9"
+
 services:
-  # PostgreSQL Database for Guacamole
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16
     container_name: sandlabx-postgres
     environment:
+      POSTGRES_USER: guacamole_user
+      POSTGRES_PASSWORD: guacamole_pass
       POSTGRES_DB: guacamole_db
-      POSTGRES_USER: guacamole
-      POSTGRES_PASSWORD: guacpass123
     volumes:
-      - ./initdb-schema.sql:/docker-entrypoint-initdb.d/initdb.sql:ro
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb-schema.sql:/docker-entrypoint-initdb.d/initdb.sql
     networks:
-      - sandlabx-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U guacamole -d guacamole_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - sandboxlab-network
 
-  # Guacamole Daemon (VNC/RDP/SSH proxy)
   guacd:
-    image: guacamole/guacd:latest
+    image: guacamole/guacd:1.5.4
     container_name: sandlabx-guacd
-    restart: unless-stopped
     networks:
-      - sandlabx-network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "4822"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - sandboxlab-network
 
-  # Guacamole Web Application
   guacamole:
-    image: guacamole/guacamole:latest
+    image: guacamole/guacamole:1.5.4
     container_name: sandlabx-guacamole
     environment:
       GUACD_HOSTNAME: guacd
-      GUACD_PORT: 4822
-      POSTGRESQL_HOSTNAME: postgres
-      POSTGRESQL_DATABASE: guacamole_db
-      POSTGRESQL_USER: guacamole
-      POSTGRESQL_PASSWORD: guacpass123
-      GUACAMOLE_HOME: /guacamole-home
-    depends_on:
-      postgres:
-        condition: service_healthy
-      guacd:
-        condition: service_healthy
+      POSTGRES_HOSTNAME: postgres
+      POSTGRES_DATABASE: guacamole_db
+      POSTGRES_USER: guacamole_user
+      POSTGRES_PASSWORD: guacamole_pass
     ports:
       - "8081:8080"
-    restart: unless-stopped
+    depends_on:
+      - guacd
+      - postgres
     networks:
-      - sandlabx-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/guacamole/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - sandboxlab-network
 
-  # Backend API Server
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ./backend
     container_name: sandlabx-backend
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+    devices:
+      - /dev/kvm:/dev/kvm
+      - /dev/net/tun:/dev/net/tun
     environment:
-      PORT: 3001
-      NODE_ENV: production
+      DATABASE_URL: postgresql://guacamole_user:guacamole_pass@postgres:5432/guacamole_db
+      GUAC_BASE_URL: http://guacamole:8080/guacamole
+      STATE_FILE: /app/data/nodes-state.json
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: guacamole_db
-      DB_USER: guacamole
-      DB_PASSWORD: guacpass123
-      GUAC_BASE_URL: http://guacamole:8080/guacamole
-      BASE_IMAGE_PATH: /images/base.qcow2
-      OVERLAYS_PATH: /overlays
-      VNC_START_PORT: 5900
-      QEMU_RAM: 2048
-      QEMU_CPUS: 2
-      STATE_FILE: /app/nodes-state.json
-    volumes:
-      - ./images:/images:ro
-      - overlays_data:/overlays
-      - backend_state:/app/state
+      DB_USER: guacamole_user
+      DB_PASSWORD: guacamole_pass
     ports:
       - "3001:3001"
+    volumes:
+      - backend-data:/app/data
+      - ./images:/images
+      - ./overlays:/overlays
+      - ./vms:/vms
     depends_on:
-      postgres:
-        condition: service_healthy
-      guacamole:
-        condition: service_healthy
-    restart: unless-stopped
+      - postgres
+      - guacamole
     networks:
-      - sandlabx-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - sandboxlab-network
 
-  # Frontend Web UI
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     container_name: sandlabx-frontend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
-      NEXT_PUBLIC_GUACAMOLE_URL: http://localhost:8081/guacamole
-      NODE_ENV: production
+      NEXT_PUBLIC_GUAC_URL: http://localhost:8081/guacamole
     ports:
       - "3000:3000"
     depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
+      - backend
     networks:
-      - sandlabx-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-networks:
-  sandlabx-network:
-    driver: bridge
-    name: sandlabx-network
+      - sandboxlab-network
 
 volumes:
-  postgres_data:
-    name: sandlabx-postgres-data
-  overlays_data:
-    name: sandlabx-overlays
-  backend_state:
-    name: sandlabx-backend-state
+  pgdata:
+  backend-data:
 
+networks:
+  sandboxlab-network:
+    driver: bridge

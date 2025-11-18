@@ -7,6 +7,8 @@ import type {
   WipeNodeResponse,
   ListNodesResponse,
   ApiResponse,
+  ImageCatalogueResponse,
+  ImageInfo,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -63,10 +65,12 @@ class ApiClient {
     // Transform frontend format to backend format
     const backendRequest = {
       name: data.name,
-      osType: data.baseImage, // baseImage maps to osType in backend
+      osType: data.imageType === 'base' ? data.baseImage : 'custom',
+      imageType: data.imageType,
+      customImageName: data.imageType === 'custom' ? data.customImageName : undefined,
       resources: data.resources ? {
         ram: data.resources.ram,
-        cpus: data.resources.cpu, // cpu (frontend) maps to cpus (backend)
+        cpus: data.resources.cpu,
       } : undefined,
     };
     
@@ -107,6 +111,44 @@ class ApiClient {
   // Get node details
   async getNode(id: string): Promise<ApiResponse<Node>> {
     return this.request<Node>(`/nodes/${id}`);
+  }
+
+  // Added image catalogue
+  async listImages(): Promise<ApiResponse<ImageCatalogueResponse>> {
+    return this.request<ImageCatalogueResponse>('/images');
+  }
+
+  // Added custom image upload helper
+  async uploadCustomImage(file: File): Promise<ApiResponse<{ image: ImageInfo }>> {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(`${this.baseUrl}/images/custom`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || 'Upload failed',
+        };
+      }
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error) {
+      console.error('Upload failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error',
+      };
+    }
   }
 }
 

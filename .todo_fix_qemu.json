@@ -1,0 +1,9 @@
+{
+  "todo": [
+    {"id": 1, "title": "Inspect compose & backend code", "status": "completed", "description": "Opened docker-compose.yml, backend/Dockerfile, and backend/modules/qemuManager.js and searched for VNC/guacamole integration."},
+  {"id": 2, "title": "Install QEMU in backend image", "status": "in-progress", "description": "Updated backend/Dockerfile to use Debian image and install QEMU packages via apt."},
+  {"id": 3, "title": "Ensure images available inside container", "status": "in-progress", "description": "Added init-images.sh to download base images into /images when AUTO_DOWNLOAD_IMAGES=true; compose mounts ./images into container."},
+    {"id": 4, "title": "Optional: expose VNC ports & KVM", "status": "not-started", "description": "Consider enabling /dev/kvm or host networking and expose VNC if desired for guacd to connect."},
+    {"id": 5, "title": "Rebuild and test", "status": "not-started", "description": "Rebuild backend image and run docker-compose up; verify qemu-img exists and overlays created, then test Guacamole connections."}
+  ]
+}

@@ -1,0 +1,4 @@
+# .repomixignore
+node_modules/
+.git/
+

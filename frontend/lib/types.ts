@@ -2,7 +2,8 @@
 export type NodeStatus = 'running' | 'stopped' | 'starting' | 'stopping' | 'error';
 
 // Base image types
-export type BaseImageType = 'ubuntu' | 'alpine' | 'debian' | 'fedora' | 'arch';
+export type BaseImageType = 'ubuntu' | 'alpine' | 'debian' | 'fedora' | 'arch' | 'router';
+export type ImageSourceType = 'base' | 'custom';
 
 export interface BaseImage {
   id: string;
@@ -13,13 +14,35 @@ export interface BaseImage {
   available: boolean;
 }
 
+export interface NodeImage {
+  type: ImageSourceType;
+  id: string;
+  path: string;
+  sizeBytes: number;
+  size: string;
+  name?: string;
+  description?: string;
+}
+
+export interface ImageInfo extends NodeImage {
+  available: boolean;
+  error?: string;
+  uploadedAt?: string;
+}
+
+export interface ImageCatalogueResponse {
+  baseImages: ImageInfo[];
+  customImages: ImageInfo[];
+}
+
 // Node interface
 export interface Node {
   id: string;
   name: string;
   status: NodeStatus;
-  osType: BaseImageType; // Changed from baseImage to match backend
+  osType: BaseImageType | 'custom'; // Changed from baseImage to match backend
   baseImage?: BaseImageType; // Keep for backward compatibility
+  image?: NodeImage | null;
   vncPort: number | null;
   guacUrl: string | null;
   guacConnectionId: number | null;
@@ -44,7 +67,9 @@ export interface ApiResponse<T = any> {
 
 export interface CreateNodeRequest {
   name?: string;
-  baseImage: BaseImageType;
+  imageType: ImageSourceType;
+  baseImage?: BaseImageType;
+  customImageName?: string;
   resources?: {
     cpu?: number;
     ram?: number;

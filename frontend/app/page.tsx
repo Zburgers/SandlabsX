@@ -1,12 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import type { Node, CreateNodeRequest } from '../lib/types';
 import { Button } from '../components/Button';
 import { NodeCard } from '../components/NodeCard';
 import { CreateNodeModal } from '../components/CreateNodeModal';
-import { GuacamoleViewer } from '../components/GuacamoleViewer';
 import { apiClient } from '../lib/api';
+
+const GuacamoleViewer = dynamic(
+  () => import('../components/GuacamoleViewer').then((mod) => mod.GuacamoleViewer),
+  { ssr: false }
+);
 
 export default function Home() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -15,13 +20,23 @@ export default function Home() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load nodes on component mount
+  // Load nodes on component mount and set up polling
   useEffect(() => {
     loadNodes();
+    
+    // Poll for status updates every 3 seconds
+    const pollInterval = setInterval(() => {
+      loadNodes();
+    }, 3000);
+    
+    return () => clearInterval(pollInterval);
   }, []);
 
   const loadNodes = async () => {
-    setLoading(true);
+    // Only show loading on initial load
+    if (nodes.length === 0) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const response = await apiClient.listNodes();
@@ -29,12 +44,16 @@ export default function Home() {
         setNodes(response.data.nodes);
       } else {
         setError(response.error || 'Failed to load nodes');
-        setNodes([]); // Empty state if API fails
+        if (nodes.length === 0) {
+          setNodes([]); // Empty state if API fails
+        }
       }
     } catch (err) {
       setError('Failed to connect to backend API. Is the backend running?');
       console.error('Load nodes error:', err);
-      setNodes([]); // Empty state on error
+      if (nodes.length === 0) {
+        setNodes([]); // Empty state on error
+      }
     } finally {
       setLoading(false);
     }
@@ -57,11 +76,42 @@ export default function Home() {
 
   const handleStartNode = async (id: string) => {
     try {
-      const response = await apiClient.startNode(id);
-      if (response.success) {
-        await loadNodes();
+      // Find the node to check if it's a router
+      const node = nodes.find(n => n.id === id);
+      const isRouter = node?.osType === 'router';
+      
+      if (isRouter) {
+        // For routers: Start async and immediately open console
+        console.log('🌐 Starting router - opening console immediately...');
+        
+        if (node) {
+          setSelectedNode({ ...node, status: 'running' });
+        }
+
+        // Start the router (don't wait for full boot)
+        apiClient.startNode(id).then(async (response) => {
+          if (response.success) {
+            await loadNodes();
+          } else {
+            console.error('Router start error:', response.error);
+            alert('Failed to start router: ' + response.error);
+          }
+        }).catch(err => {
+          console.error('Router start error:', err);
+          alert('Failed to start router: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        });
+        
+        // Reload nodes in background
+        setTimeout(() => loadNodes(), 2000);
+        
       } else {
-        throw new Error(response.error || 'Failed to start node');
+        // For regular VMs: Wait for full startup
+        const response = await apiClient.startNode(id);
+        if (response.success) {
+          await loadNodes();
+        } else {
+          throw new Error(response.error || 'Failed to start node');
+        }
       }
     } catch (err) {
       console.error('Start node error:', err);
@@ -116,6 +166,12 @@ export default function Home() {
   };
 
   const handleConnectNode = (node: Node) => {
+    const isRouter = node.osType === 'router' || node.baseImage === 'router';
+    if (isRouter) {
+      setSelectedNode({ ...node, status: 'running' });
+      return;
+    }
+
     if (node.guacUrl) {
       setSelectedNode(node);
     }

@@ -9,6 +9,10 @@ class NodeManager {
   constructor() {
     this.stateFile = process.env.STATE_FILE || path.join(__dirname, '..', 'nodes-state.json');
     this.nodes = new Map();
+    const overlaysEnv = process.env.OVERLAYS_PATH;
+    this.overlaysPath = overlaysEnv && overlaysEnv.length > 0
+      ? overlaysEnv
+      : path.join(__dirname, '..', '..', 'overlays');
   }
 
   async initialize() {
@@ -51,16 +55,19 @@ class NodeManager {
     }
   }
 
-  async createNode(name, osType = 'ubuntu', resources = {}) {
+  async createNode(name, osType = 'ubuntu', resources = {}, options = {}) {
     const id = uuidv4();
     const timestamp = new Date().toISOString();
+    const image = options.image || null;
+    const overlayPath = path.join(this.overlaysPath, `node_${id}.qcow2`);
     
+    const requestedCpus = resources?.cpus ?? resources?.cpu;
     const node = {
       id,
       name: name || `node-${id.substring(0, 8)}`,
       osType,
       status: 'stopped',
-      overlayPath: path.join(process.env.OVERLAYS_PATH || '../overlays', `node_${id}.qcow2`),
+      overlayPath,
       vncPort: null,
       guacConnectionId: null,
       guacUrl: null,
@@ -70,9 +77,10 @@ class NodeManager {
       startedAt: null,
       stoppedAt: null,
       wipedAt: null,
+      image,
       resources: {
-        ram: parseInt(resources.ram) || parseInt(process.env.QEMU_RAM) || 2048,
-        cpus: parseInt(resources.cpus) || parseInt(process.env.QEMU_CPUS) || 2
+        ram: parseInt(resources?.ram) || parseInt(process.env.QEMU_RAM) || 2048,
+        cpus: parseInt(requestedCpus) || parseInt(process.env.QEMU_CPUS) || 2
       }
     };
 

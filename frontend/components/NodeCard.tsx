@@ -62,6 +62,7 @@ export const NodeCard: React.FC<NodeCardProps> = ({
       debian: '🌀',
       fedora: '🎩',
       arch: '🔧',
+      custom: '🧩',
     };
     return icons[type] || '💻';
   };
@@ -73,11 +74,14 @@ export const NodeCard: React.FC<NodeCardProps> = ({
       debian: 'Debian 13',
       fedora: 'Fedora',
       arch: 'Arch Linux',
+      custom: 'Custom Image',
     };
     return names[type] || 'Unknown OS';
   };
 
   const osType = node.osType || node.baseImage || 'ubuntu';
+  const imageName = node.image?.name || getImageName(osType);
+  const imageIcon = getImageIcon(osType);
 
   return (
     <div className="group bg-gradient-to-br from-lab-gray to-lab-gray/50 rounded-2xl border border-lab-gray-light hover:border-lab-primary/60 transition-all duration-500 overflow-hidden shadow-lg hover:shadow-lab-primary/20 hover:scale-[1.02]">
@@ -86,7 +90,7 @@ export const NodeCard: React.FC<NodeCardProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="text-4xl filter drop-shadow-lg group-hover:scale-110 transition-transform duration-300">
-              {getImageIcon(osType)}
+              {imageIcon}
             </div>
             <div>
               <h3 className="text-xl font-bold text-white mb-1 tracking-tight">{node.name}</h3>
@@ -107,27 +111,63 @@ export const NodeCard: React.FC<NodeCardProps> = ({
         <div className="bg-gradient-to-r from-lab-primary/10 to-lab-secondary/10 rounded-xl p-3 border border-lab-primary/20">
           <p className="text-xs text-gray-400 mb-1">Base Image</p>
           <p className="text-sm font-semibold text-white capitalize flex items-center gap-2">
-            <span>{getImageIcon(osType)}</span>
-            {getImageName(osType)}
+            <span>{imageIcon}</span>
+            {imageName}
           </p>
+          {node.image?.type === 'custom' && (
+            <p className="text-xs text-gray-500 mt-1 break-all">{node.image.id}</p>
+          )}
         </div>
 
-        {/* Resource Grid */}
+        {/* Resource Grid - Enhanced with visual indicators */}
         <div className="grid grid-cols-3 gap-3 text-sm">
-          <div className="bg-lab-darker/70 rounded-xl p-3 border border-lab-gray-light/30 hover:border-lab-primary/40 transition-colors">
-            <p className="text-gray-400 text-xs mb-1.5 uppercase tracking-wide">CPU</p>
-            <p className="text-white font-bold text-lg">{node.resources.cpus || node.resources.cpu || 2}</p>
-            <p className="text-xs text-gray-500">cores</p>
+          <div className="bg-gradient-to-br from-lab-darker/70 to-lab-darker/50 rounded-xl p-3 border border-lab-gray-light/30 hover:border-lab-primary/40 transition-all hover:scale-105 group/resource">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-gray-400 text-xs uppercase tracking-wide">CPU</p>
+              <span className="text-lab-primary opacity-0 group-hover/resource:opacity-100 transition-opacity">⚡</span>
+            </div>
+            <p className="text-white font-bold text-2xl mb-0.5">{node.resources.cpus || node.resources.cpu || 2}</p>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 bg-lab-gray-light/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-lab-primary to-lab-accent rounded-full"
+                  style={{ width: `${Math.min(100, ((node.resources.cpus || node.resources.cpu || 2) / 8) * 100)}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 whitespace-nowrap">/ 8</p>
+            </div>
           </div>
-          <div className="bg-lab-darker/70 rounded-xl p-3 border border-lab-gray-light/30 hover:border-lab-primary/40 transition-colors">
-            <p className="text-gray-400 text-xs mb-1.5 uppercase tracking-wide">RAM</p>
-            <p className="text-white font-bold text-lg">{node.resources.ram}</p>
-            <p className="text-xs text-gray-500">MB</p>
+          <div className="bg-gradient-to-br from-lab-darker/70 to-lab-darker/50 rounded-xl p-3 border border-lab-gray-light/30 hover:border-lab-secondary/40 transition-all hover:scale-105 group/resource">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-gray-400 text-xs uppercase tracking-wide">RAM</p>
+              <span className="text-lab-secondary opacity-0 group-hover/resource:opacity-100 transition-opacity">💾</span>
+            </div>
+            <p className="text-white font-bold text-2xl mb-0.5">{node.resources.ram}</p>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 bg-lab-gray-light/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-lab-secondary to-lab-accent rounded-full"
+                  style={{ width: `${Math.min(100, (node.resources.ram / 8192) * 100)}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 whitespace-nowrap">MB</p>
+            </div>
           </div>
-          <div className="bg-lab-darker/70 rounded-xl p-3 border border-lab-gray-light/30 hover:border-lab-primary/40 transition-colors">
-            <p className="text-gray-400 text-xs mb-1.5 uppercase tracking-wide">Disk</p>
-            <p className="text-white font-bold text-lg">{node.resources.disk || 10}</p>
-            <p className="text-xs text-gray-500">GB</p>
+          <div className="bg-gradient-to-br from-lab-darker/70 to-lab-darker/50 rounded-xl p-3 border border-lab-gray-light/30 hover:border-lab-accent/40 transition-all hover:scale-105 group/resource">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-gray-400 text-xs uppercase tracking-wide">Disk</p>
+              <span className="text-lab-accent opacity-0 group-hover/resource:opacity-100 transition-opacity">💿</span>
+            </div>
+            <p className="text-white font-bold text-2xl mb-0.5">{node.resources.disk || 10}</p>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 bg-lab-gray-light/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-lab-accent to-lab-primary rounded-full"
+                  style={{ width: `${Math.min(100, ((node.resources.disk || 10) / 100) * 100)}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 whitespace-nowrap">GB</p>
+            </div>
           </div>
         </div>
 
