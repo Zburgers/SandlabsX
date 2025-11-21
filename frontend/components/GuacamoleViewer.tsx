@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import type { Node } from '../lib/types';
 import { Button } from './Button';
@@ -52,8 +53,11 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
       setConsoleHeight(newHeight);
       
       // Fit terminal to new size
-      if (fitAddonRef.current) {
-        setTimeout(() => fitAddonRef.current?.fit(), 0);
+      if (fitAddonRef.current && terminalRef.current) {
+        setTimeout(() => {
+          fitAddonRef.current?.fit();
+          terminalRef.current?.scrollToBottom();
+        }, 0);
       }
     };
 
@@ -72,7 +76,69 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
 
   const toggleConsoleFullscreen = () => {
     setIsConsoleFullscreen((prev) => !prev);
-    setTimeout(() => fitAddonRef.current?.fit(), 100);
+    setTimeout(() => {
+      fitAddonRef.current?.fit();
+      terminalRef.current?.scrollToBottom();
+    }, 100);
+  };
+
+  const takeScreenshot = async () => {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      alert('Terminal not available for screenshot');
+      return;
+    }
+    
+    try {
+      // Get terminal content as text
+      const buffer = terminal.buffer.active;
+      let content = '';
+      for (let i = 0; i < buffer.length; i++) {
+        const line = buffer.getLine(i);
+        if (line) {
+          content += line.translateToString(true) + '\n';
+        }
+      }
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(content);
+      alert('Terminal content copied to clipboard!');
+    } catch (error) {
+      console.error('Screenshot failed:', error);
+      alert('Failed to capture terminal content');
+    }
+  };
+
+  const copyToClipboard = async () => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    
+    try {
+      const selection = terminal.getSelection();
+      if (selection) {
+        await navigator.clipboard.writeText(selection);
+        alert('Copied to clipboard!');
+      } else {
+        alert('Please select text in the terminal first');
+      }
+    } catch (error) {
+      console.error('Clipboard copy failed:', error);
+      alert('Failed to copy to clipboard');
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    const terminal = terminalRef.current;
+    const ws = wsRef.current;
+    if (!terminal || !ws || ws.readyState !== WebSocket.OPEN) return;
+    
+    try {
+      const text = await navigator.clipboard.readText();
+      ws.send(text);
+    } catch (error) {
+      console.error('Clipboard paste failed:', error);
+      alert('Failed to paste from clipboard');
+    }
   };
 
   const openInNewTab = () => {
@@ -121,22 +187,52 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
 
     const term = new Terminal({
       theme: {
-        background: '#0b0f19',
-        foreground: '#f5f6f9',
-        cursor: '#4ade80',
+        background: '#0a0e1a',
+        foreground: '#e4e4e7',
+        cursor: '#22d3ee',
+        cursorAccent: '#0a0e1a',
+        selectionBackground: 'rgba(99, 102, 241, 0.3)',
+        black: '#1e293b',
+        red: '#ef4444',
+        green: '#22c55e',
+        yellow: '#eab308',
+        blue: '#3b82f6',
+        magenta: '#a855f7',
+        cyan: '#06b6d4',
+        white: '#e2e8f0',
+        brightBlack: '#475569',
+        brightRed: '#f87171',
+        brightGreen: '#4ade80',
+        brightYellow: '#fbbf24',
+        brightBlue: '#60a5fa',
+        brightMagenta: '#c084fc',
+        brightCyan: '#22d3ee',
+        brightWhite: '#f8fafc',
       },
       cursorBlink: true,
-      fontSize: 14,
-      // Disable local echo - the server echoes back what we type
-      // This prevents double-typing in the terminal
-      disableStdin: false,
+      cursorStyle: 'block',
+      fontSize: 15,
+      fontFamily: '"Fira Code", "Cascadia Code", "JetBrains Mono", "Consolas", monospace',
+      fontWeight: '400',
+      fontWeightBold: '700',
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      scrollback: 10000,
+      tabStopWidth: 4,
+      allowProposedApi: true,
       convertEol: false,
+      disableStdin: false,
+      rightClickSelectsWord: true,
+      smoothScrollDuration: 100,
     });
     const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon();
+    
     term.loadAddon(fitAddon);
+    term.loadAddon(webLinksAddon);
     term.open(container);
     fitAddon.fit();
-  term.focus();
+    term.focus();
 
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;
@@ -148,12 +244,43 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
     const handleResize = () => {
       try {
         fitAddon.fit();
+        // Scroll to bottom after resize
+        setTimeout(() => term.scrollToBottom(), 50);
       } catch (error) {
         console.error('Console resize error:', error);
       }
     };
 
+    // Fit terminal multiple times with increasing delays to handle container sizing
+    const fitDelays = [50, 150, 300];
+    fitDelays.forEach(delay => {
+      setTimeout(() => {
+        try {
+          fitAddon.fit();
+          term.scrollToBottom();
+        } catch (error) {
+          console.error('Delayed fit error:', error);
+        }
+      }, delay);
+    });
+
     window.addEventListener('resize', handleResize);
+
+    // Add ResizeObserver to handle container size changes with debouncing
+    let resizeTimeout: NodeJS.Timeout;
+    const resizeObserver = new ResizeObserver(() => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        try {
+          fitAddon.fit();
+          // Give it a moment for the fit to complete, then scroll
+          setTimeout(() => term.scrollToBottom(), 50);
+        } catch (error) {
+          console.error('ResizeObserver error:', error);
+        }
+      }, 100);
+    });
+    resizeObserver.observe(container);
 
     // Send user input to the server, but DON'T echo locally
     // The server/VM will echo it back, preventing double-typing
@@ -178,6 +305,8 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
         }
         if (payload.type === 'data') {
           term.write(payload.payload);
+          // Auto-scroll to bottom when new data arrives
+          term.scrollToBottom();
           return;
         }
         if (payload.type === 'error') {
@@ -187,10 +316,12 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
         }
         if (payload.type === 'exit') {
           term.writeln(`\r\n[Console closed: code=${payload.code ?? 'null'} signal=${payload.signal ?? 'null'}]`);
+          term.scrollToBottom();
           return;
         }
       } catch (error) {
         term.write(event.data);
+        term.scrollToBottom();
       }
     };
 
@@ -208,6 +339,7 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close(1000, 'Console closed');
       }
@@ -269,12 +401,25 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
             {/* Fullscreen Toggle */}
             <button
               onClick={() => {
-                const elem = document.querySelector('iframe');
-                if (elem) {
-                  if (document.fullscreenElement) {
-                    document.exitFullscreen();
-                  } else {
-                    elem.requestFullscreen();
+                if (isRouter && terminalContainerRef.current) {
+                  // For serial console, fullscreen the terminal container
+                  const container = terminalContainerRef.current.parentElement?.parentElement;
+                  if (container) {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      container.requestFullscreen();
+                    }
+                  }
+                } else {
+                  // For VNC, fullscreen the iframe
+                  const elem = document.querySelector('iframe');
+                  if (elem) {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      elem.requestFullscreen();
+                    }
                   }
                 }
               }}
@@ -291,8 +436,9 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
 
             {/* Screenshot */}
             <button
+              onClick={takeScreenshot}
               className="px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-lab-gray rounded transition-colors"
-              title="Screenshot"
+              title="Screenshot (Copy terminal content to clipboard)"
             >
               <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -305,13 +451,26 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
 
             {/* Clipboard */}
             <button
+              onClick={copyToClipboard}
               className="px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-lab-gray rounded transition-colors"
-              title="Clipboard"
+              title="Copy selected text"
             >
               <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              Clipboard
+              Copy
+            </button>
+            
+            {/* Paste */}
+            <button
+              onClick={pasteFromClipboard}
+              className="px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-lab-gray rounded transition-colors"
+              title="Paste from clipboard"
+            >
+              <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+              Paste
             </button>
           </div>
 
@@ -428,33 +587,44 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
         )}
 
         {isRouter && showConsole && (
-          <div className="absolute inset-0 bg-[#0b0f19] border-t border-lab-gray-light/60 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-lab-gray-light/40">
+          <div className="absolute inset-0 bg-[#0a0e1a] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#0f1419] border-b border-lab-gray-light/40 shadow-md flex-shrink-0">
               <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="uppercase tracking-wide text-gray-300">Serial Console</span>
+                <span className="uppercase tracking-wide text-gray-300 font-semibold">Serial Console</span>
                 <span>•</span>
                 <span className={
                   consoleStatus === 'ready'
-                    ? 'text-green-400'
+                    ? 'text-green-400 font-medium'
                     : consoleStatus === 'connecting'
-                      ? 'text-yellow-400'
-                      : 'text-red-400'
+                      ? 'text-yellow-400 font-medium'
+                      : 'text-red-400 font-medium'
                 }>
-                  {consoleStatus === 'ready' && 'Connected'}
-                  {consoleStatus === 'connecting' && 'Connecting...'}
-                  {consoleStatus === 'error' && 'Error'}
-                  {consoleStatus === 'idle' && 'Idle'}
+                  {consoleStatus === 'ready' && '● Connected'}
+                  {consoleStatus === 'connecting' && '◌ Connecting...'}
+                  {consoleStatus === 'error' && '✕ Error'}
+                  {consoleStatus === 'idle' && '○ Idle'}
                 </span>
                 {consoleError && <span className="text-lab-warning">• {consoleError}</span>}
               </div>
               <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={toggleConsoleFullscreen} title="Toggle fullscreen">
+                  {isConsoleFullscreen ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  )}
+                </Button>
                 <Button size="sm" variant="ghost" onClick={onClose}>
                   Close
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <div ref={terminalContainerRef} className="w-full h-full p-4" />
+            <div className="flex-1 min-h-0 overflow-hidden bg-[#0a0e1a]">
+              <div ref={terminalContainerRef} className="w-full h-full px-4 pt-3 pb-6" style={{ overflow: 'hidden' }} />
             </div>
           </div>
         )}
@@ -466,34 +636,34 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
             isConsoleFullscreen
               ? 'fixed inset-0 z-[100]'
               : 'absolute inset-x-0 bottom-0'
-          } bg-[#0b0f19] border-t border-lab-gray-light/60 shadow-xl`}
+          } bg-[#0a0e1a] border-t border-lab-gray-light/60 shadow-xl flex flex-col`}
           style={!isConsoleFullscreen ? { height: `${consoleHeight}px` } : undefined}
         >
           {/* Resize handle (only in non-fullscreen mode) */}
           {!isConsoleFullscreen && (
             <div
-              className="absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-lab-primary/50 transition-colors z-10"
+              className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-lab-primary/50 transition-colors z-10 group"
               onMouseDown={handleResizeStart}
             >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-lab-gray-light/40 rounded-b" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-lab-gray-light/40 rounded-b group-hover:bg-lab-primary/60 transition-colors" />
             </div>
           )}
 
-          <div className="flex items-center justify-between px-4 py-2 border-b border-lab-gray-light/40">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-[#0f1419] border-b border-lab-gray-light/40 shadow-md flex-shrink-0">
             <div className="flex items-center gap-2 text-xs text-gray-400">
-              <span className="uppercase tracking-wide text-gray-300">Serial Console</span>
+              <span className="uppercase tracking-wide text-gray-300 font-semibold">Serial Console</span>
               <span>•</span>
               <span className={
                 consoleStatus === 'ready'
-                  ? 'text-green-400'
+                  ? 'text-green-400 font-medium'
                   : consoleStatus === 'connecting'
-                    ? 'text-yellow-400'
-                    : 'text-red-400'
+                    ? 'text-yellow-400 font-medium'
+                    : 'text-red-400 font-medium'
               }>
-                {consoleStatus === 'ready' && 'Connected'}
-                {consoleStatus === 'connecting' && 'Connecting...'}
-                {consoleStatus === 'error' && 'Error'}
-                {consoleStatus === 'idle' && 'Idle'}
+                {consoleStatus === 'ready' && '● Connected'}
+                {consoleStatus === 'connecting' && '◌ Connecting...'}
+                {consoleStatus === 'error' && '✕ Error'}
+                {consoleStatus === 'idle' && '○ Idle'}
               </span>
               {consoleError && <span className="text-lab-warning">• {consoleError}</span>}
             </div>
@@ -519,8 +689,8 @@ export const GuacamoleViewer: React.FC<GuacamoleViewerProps> = ({
               </Button>
             </div>
           </div>
-          <div className={`${isConsoleFullscreen ? 'h-[calc(100vh-48px)]' : 'h-[calc(100%-48px)]'} overflow-hidden p-4`}>
-            <div ref={terminalContainerRef} className="w-full h-full" />
+          <div className="flex-1 min-h-0 overflow-hidden bg-[#0a0e1a]">
+            <div ref={terminalContainerRef} className="w-full h-full px-4 pt-3 pb-6" style={{ overflow: 'hidden' }} />
           </div>
         </div>
       )}

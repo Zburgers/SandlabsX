@@ -76,47 +76,6 @@ start_node() {
     fi
 }
 
-# Function to configure a router
-configure_router() {
-    local node_id=$1
-    local hostname=$2
-    local if0_ip=$3
-    local if0_mask=$4
-    local if1_ip=$5
-    local if1_mask=$6
-    local routes=$7
-    
-    echo "🔧 Configuring router $hostname..."
-    
-    # Wait for router to boot (3 minutes for Cisco)
-    echo "   ⏳ Waiting for router to boot (60 seconds)..."
-    sleep 60
-    
-    # Build routes JSON array
-    local routes_json="[]"
-    if [ -n "$routes" ]; then
-        routes_json="$routes"
-    fi
-    
-    curl -sf -X POST "$API_BASE/nodes/$node_id/configure-router" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"hostname\": \"$hostname\",
-            \"enableSecret\": \"cisco123\",
-            \"interface0\": {
-                \"ip\": \"$if0_ip\",
-                \"mask\": \"$if0_mask\"
-            },
-            \"interface1\": {
-                \"ip\": \"$if1_ip\",
-                \"mask\": \"$if1_mask\"
-            },
-            \"routes\": $routes_json
-        }" > /dev/null
-    
-    echo "   ✅ Configuration sent"
-}
-
 # Wait for API
 wait_for_api
 
@@ -124,8 +83,8 @@ echo ""
 echo "🏗️  Creating nodes..."
 echo ""
 
-# Create Cisco Router
-router_id=$(create_node "Router" "router" 1024 1)
+# Create Cisco Router (no auto-config)
+router_id=$(create_node "Router1" "router" 1024 1)
 sleep 2
 
 # Create PC1 (Debian)
@@ -140,8 +99,8 @@ echo ""
 echo "🚀 Starting nodes..."
 echo ""
 
-# Start Router
-start_node "$router_id" "Router"
+# Start Router (allow IOS to finish booting manually)
+start_node "$router_id" "Router1"
 echo "   ⏳ Router boot time: ~3 minutes"
 sleep 5
 
@@ -154,17 +113,8 @@ start_node "$pc2_id" "PC2"
 sleep 5
 
 echo ""
-echo "⚙️  Configuring router..."
-echo ""
-
-# Configure Router
-# GigabitEthernet0/0: 192.168.1.1 (connects to PC1)
-# GigabitEthernet0/1: 192.168.2.1 (connects to PC2)
-configure_router "$router_id" "Router" "192.168.1.1" "255.255.255.0" "192.168.2.1" "255.255.255.0" ""
-
-echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ LAB SETUP COMPLETE!"
+echo "✅ LAB SETUP COMPLETE (manual router + PC config required)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "📊 Network Topology:"
@@ -185,39 +135,40 @@ echo "   Router: $router_id"
 echo "   PC1:    $pc1_id"
 echo "   PC2:    $pc2_id"
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📝 NEXT STEPS - Configure PCs"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "1. Open http://localhost:3000 in your browser"
-echo "2. Click on PC1 → Click VNC/Desktop button → Connect via Guacamole"
-echo "3. Login (default user: debian, no password or check cloud-init)"
-echo "4. Open terminal and run:"
-echo ""
-echo "   PC1 Commands:"
-echo "   -------------"
-echo "   sudo ip addr add 192.168.1.2/24 dev eth0"
-echo "   sudo ip link set eth0 up"
-echo "   sudo ip route add default via 192.168.1.1"
-echo "   ping 192.168.2.2  # Test connectivity to PC2"
-echo ""
-echo "5. Do the same for PC2:"
-echo ""
-echo "   PC2 Commands:"
-echo "   -------------"
-echo "   sudo ip addr add 192.168.2.2/24 dev eth0"
-echo "   sudo ip link set eth0 up"
-echo "   sudo ip route add default via 192.168.2.1"
-echo "   ping 192.168.1.2  # Test connectivity to PC1"
+echo "Bridges and TAP mapping (auto-created by backend):"
+echo "   sandlabx-br0 -> 192.168.1.0/24 : Router Gi0/0 (tap0) + PC1 (tap2)"
+echo "   sandlabx-br1 -> 192.168.2.0/24 : Router Gi0/1 (tap1) + PC2 (tap3)"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🌐 Access Points"
+echo "📝 NEXT STEPS - MANUAL ROUTER + PC CONFIG"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "   Frontend:  http://localhost:3000"
-echo "   Backend:   http://localhost:3001/api"
-echo "   Guacamole: http://localhost:8081/guacamole"
-echo "              (user: guacadmin, pass: guacadmin)"
+echo "Router CLI (serial console)"
+echo "--------------------------------------------"
+echo "hostname Router1"
+echo "no enable secret"
+echo "interface GigabitEthernet0/0"
+echo " ip address 192.168.1.1 255.255.255.0"
+echo " no shutdown"
+echo "exit"
+echo "interface GigabitEthernet0/1"
+echo " ip address 192.168.2.1 255.255.255.0"
+echo " no shutdown"
+echo "exit"
+echo "ip route 0.0.0.0 0.0.0.0 GigabitEthernet0/0"
+echo "end"
+echo "show ip interface brief"
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "PC1 (ens3)"
+echo "--------------------------------------------"
+echo "sudo ip addr flush dev ens3"
+echo "sudo ip addr add 192.168.1.2/24 dev ens3"
+echo "sudo ip route add default via 192.168.1.1 dev ens3"
+echo "ping 192.168.1.1"
 echo ""
+echo "PC2 (ens3)"
+echo "--------------------------------------------"
+echo "sudo ip addr flush dev ens3"
+echo "sudo ip addr add 192.168.2.2/24 dev ens3"
+echo "sudo ip route add default via 192.168.2.1 dev ens3"
+echo "ping 192.168.2.1"

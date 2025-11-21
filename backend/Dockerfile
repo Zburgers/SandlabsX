@@ -16,7 +16,7 @@ RUN apt-get update \
     ca-certificates \
     cpu-checker \
     bash \
-  && rm -rf /var/lib/apt/lists/*crw-rw-rw-. 1 root kvm 10, 232 Nov 18 20:00 /dev/kvm
+  && rm -rf /var/lib/apt/lists/*
 
 
 # Copy package files

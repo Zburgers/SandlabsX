@@ -246,8 +246,11 @@ class QemuManager {
     await this.createOverlay(node);
     
     // Determine if this is a router
-    const isRouter = node.osType === 'router' || node.baseImage === 'router';
+  const isRouter = node.osType === 'router' || node.baseImage === 'router';
     const isBazzite = node.osType === 'bazzite';
+
+  const ifupScript = process.env.QEMU_IFUP || '/etc/qemu-ifup';
+  const ifdownScript = process.env.QEMU_IFDOWN || '/etc/qemu-ifdown';
     
     // Check KVM availability and permissions
     let kvmAvailable = false;
@@ -298,6 +301,7 @@ class QemuManager {
       if (kvmAvailable) {
         qemuArgs.push('-enable-kvm', '-cpu', 'host');
         logger.info('Router Mode: KVM Hardware Acceleration');
+        
       } else {
         logger.warn('Router Mode: TCG Software Emulation (Expect high CPU usage)');
         // "core2duo" is known to be more stable for IOSv on TCG than default qemu64
@@ -310,10 +314,10 @@ class QemuManager {
         // Fixed Network Configuration for Lab Topology
         // Gi0/0 -> tap0 -> br0 (192.168.1.x)
         '-device', 'e1000,netdev=net0,mac=52:54:00:11:11:11',
-        '-netdev', 'tap,id=net0,ifname=tap0,script=/etc/qemu-ifup,downscript=/etc/qemu-ifdown',
+        '-netdev', `tap,id=net0,ifname=tap0,script=${ifupScript},downscript=${ifdownScript}`,
         // Gi0/1 -> tap1 -> br1 (192.168.2.x)
         '-device', 'e1000,netdev=net1,mac=52:54:00:22:22:22',
-        '-netdev', 'tap,id=net1,ifname=tap1,script=/etc/qemu-ifup,downscript=/etc/qemu-ifdown'
+        '-netdev', `tap,id=net1,ifname=tap1,script=${ifupScript},downscript=${ifdownScript}`
       );
 
       logger.info(`Router will boot in serial console (no VNC)`);
@@ -355,7 +359,7 @@ class QemuManager {
         '-serial', 'stdio',
         // Network - connected to shared bridge so VMs can talk to each other
         '-device', `e1000,netdev=net0,mac=${mac0}`,
-        '-netdev', `tap,id=net0,ifname=${tapIfName},script=/etc/qemu-ifup,downscript=/etc/qemu-ifdown`
+        '-netdev', `tap,id=net0,ifname=${tapIfName},script=${ifupScript},downscript=${ifdownScript}`
       );
       
       logger.info(`VNC Port: ${vncPort} (display :${vncDisplay})`);
@@ -880,10 +884,14 @@ class QemuManager {
       await sendCommand('configure terminal', /\(config\)#/, 5000);
       
       // Set hostname
-      await sendCommand(`hostname ${config.hostname}`, /\(config\)#/, 5000);
-      
-      // Set enable secret
-      await sendCommand(`enable secret ${config.enableSecret}`, /\(config\)#/, 5000);
+      await sendCommand(`hostname ${config.hostname || 'Router1'}`, /\(config\)#/, 5000);
+
+      // Set enable secret only if provided (allows password-less labs)
+      if (config.enableSecret && config.enableSecret.trim().length > 0) {
+        await sendCommand(`enable secret ${config.enableSecret}`, /\(config\)#/, 5000);
+      } else {
+        logger.info('Skipping enable secret configuration (no password requested)');
+      }
       
       // Configure first interface
       await sendCommand('interface FastEthernet0/0', /\(config-if\)#/, 5000);
