@@ -146,6 +146,89 @@ Once everything is running:
 6. **Wipe Node**: Click "Wipe" to reset to clean state
 
 ## 📁 Complete Project Structure
+## 🧭 Task 2 Routed Lab Workflow (Manual)
+
+The internship hand-off requires demonstrating a classic two-subnet routed lab (Cisco IOS router between two Debian PCs).  This workflow builds on the stack you just launched and focuses on the `setup-network-lab.sh` helper plus manual CLI work inside the VMs.  None of the existing documentation is removed; this section simply captures the exact commands that have been validated in the field.
+
+### 1. Provision the lab topology
+
+```bash
+./setup-network-lab.sh
+```
+
+What this script does:
+
+- Waits for the backend API on `http://localhost:3001`.
+- Creates three nodes (`Router1`, `PC1`, `PC2`) using the router and Debian base images.
+- Boots each node and prints their IDs for later start/stop actions.
+- Shows the automatically created Linux bridges and TAP assignments managed by the backend:
+
+| Bridge | Network | TAPs | Attached Nodes |
+| --- | --- | --- | --- |
+| `sandlabx-br0` | 192.168.1.0/24 | `tap0`, `tap2` | Router1 Gi0/0 ↔ PC1 ens3 |
+| `sandlabx-br1` | 192.168.2.0/24 | `tap1`, `tap3` | Router1 Gi0/1 ↔ PC2 ens3 |
+
+> Need to reconfigure the router automatically? The backend also exposes `POST /api/nodes/<id>/configure-router` (see `ROUTER-PARAMS-FIX.md`), but the CLI steps below remain the reference flow.
+
+### 2. Configure the router (IOS console)
+
+After the router finishes booting (≈2–3 minutes), open its console through Guacamole and enter:
+
+```
+hostname Router1
+no enable secret
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+exit
+interface GigabitEthernet0/1
+ ip address 192.168.2.1 255.255.255.0
+ no shutdown
+exit
+ip route 0.0.0.0 0.0.0.0 GigabitEthernet0/0
+end
+show ip interface brief
+show ip route
+```
+
+### 3. Configure the Debian PCs (serial console)
+
+Each PC exposes a single NIC `ens3`. Run the following on the respective consoles:
+
+**PC1 – Network 192.168.1.0/24**
+
+```bash
+sudo ip addr flush dev ens3
+sudo ip addr add 192.168.1.2/24 dev ens3
+sudo ip route add default via 192.168.1.1 dev ens3
+ping -c4 192.168.1.1
+```
+
+**PC2 – Network 192.168.2.0/24**
+
+```bash
+sudo ip addr flush dev ens3
+sudo ip addr add 192.168.2.2/24 dev ens3
+sudo ip route add default via 192.168.2.1 dev ens3
+ping -c4 192.168.2.1
+```
+
+### 4. Validate routing
+
+1. From PC1: `ping -c4 192.168.2.2`
+2. From PC2: `ping -c4 192.168.1.2`
+3. Optional: `traceroute 192.168.2.2` (PC1) and confirm Router1 is the single hop.
+4. On Router1: `show ip route` should display both directly connected /24 networks plus the static default route.
+
+### 5. Troubleshooting pointers
+
+- **Missing tap interface** – stop/start the affected node so the backend reattaches the TAP to the bridge (`brctl show sandlabx-br0`).
+- **Router stuck booting** – inspect `backend.log` or `docker logs sandlabx-backend` for QEMU errors; VNC ports are listed in `backend/nodes-state.json` if you need direct access.
+- **PC cannot reach router** – rerun the `ip addr` + `ip route` commands (the Debian image does not persist changes across wipes unless you commit them).
+- **Need a clean slate** – delete the nodes via the frontend/API and rerun `./setup-network-lab.sh`; overlays are recreated automatically.
+
+Capture successful ping evidence in `ROUTER-TESTING-GUIDE.md` or `ROUTER-QUICK-TEST.md` when preparing a final report.
+
 
 ```
 sandboxlabs/
