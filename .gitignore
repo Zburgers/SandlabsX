@@ -98,6 +98,12 @@ $RECYCLE.BIN/
 .nfs*
 
 
-# VM Images and disk files
-images/*.qcow2
-vms/*.qcow2
+# VM Images and disk files (NEVER commit these - too large)
+images/
+vms/
+*.qcow2
+*.vmdk
+*.vdi
+*.vhdx
+*.iso
+*.img
