@@ -6,9 +6,13 @@ const fs = require('fs').promises;
 const http = require('http');
 const multer = require('multer');
 const { WebSocketServer } = require('ws');
+const pinoHttp = require('pino-http');
 
 // Load environment variables
 dotenv.config();
+
+// Import logger
+const logger = require('./logger');
 
 // Import modules
 // Use PostgreSQL-backed NodeManager for better reliability and scalability
@@ -25,11 +29,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+// Request logging middleware (Pino HTTP)
+app.use(pinoHttp({ logger }));
 
 // Initialize managers
 const nodeManager = new NodeManager();
@@ -125,7 +126,7 @@ app.get('/api/nodes', async (req, res) => {
       count: nodes.length
     });
   } catch (error) {
-    console.error('Error listing nodes:', error);
+    logger.error({ err: error, action: 'listNodes' }, 'Error listing nodes');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to list nodes'
@@ -154,7 +155,7 @@ app.get('/api/nodes/:id', async (req, res) => {
       ...node
     });
   } catch (error) {
-    console.error('Error getting node:', error);
+    logger.error({ err: error, action: 'getNode' }, 'Error getting node');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get node'
@@ -185,7 +186,7 @@ app.post('/api/nodes', async (req, res) => {
       });
     }
 
-    console.log(`Creating new node: ${name || 'auto-generated'} (${osType || 'ubuntu'})`);
+    logger.info({ action: 'createNode', name, osType }, 'Creating new node ${name || 'auto - generated'} (${osType || 'ubuntu'})`);
 
     // Create node with overlay
     const node = await nodeManager.createNode(name, resolvedOsType, resources, { image });
@@ -195,7 +196,7 @@ app.post('/api/nodes', async (req, res) => {
       ...node
     });
   } catch (error) {
-    console.error('Error creating node:', error);
+    logger.error({ err: error, action: 'createNode' }, 'Error creating node');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to create node'
@@ -211,7 +212,7 @@ app.post('/api/nodes/:id/run', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`Starting node: ${id}`);
+    logger.info({ action: 'startNode', nodeId: id }, 'Starting node');
 
     // Get node info
     const node = await nodeManager.getNode(id);
@@ -237,7 +238,7 @@ app.post('/api/nodes/:id/run', async (req, res) => {
     if (node.osType !== 'router') {
       guacConnection = await guacamoleClient.registerConnection(node, vncPort);
     } else {
-      console.log(`  ⏩ Skipping Guacamole registration for router (serial console only)`);
+      logger.info({ nodeId: id, osType: 'router' }, 'Skipping Guacamole registration for router (serial console only)');
     }
 
     // Update node state
@@ -255,7 +256,7 @@ app.post('/api/nodes/:id/run', async (req, res) => {
       ...updatedNode
     });
   } catch (error) {
-    console.error('Error starting node:', error);
+    logger.error({ err: error, action: 'startNode' }, 'Error starting node');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to start node'
@@ -271,7 +272,7 @@ app.post('/api/nodes/:id/stop', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`Stopping node: ${id}`);
+    logger.info({ action: 'stopNode', nodeId: id }, 'Stopping node');
 
     const node = await nodeManager.getNode(id);
     if (!node) {
@@ -309,7 +310,7 @@ app.post('/api/nodes/:id/stop', async (req, res) => {
       ...updatedNode
     });
   } catch (error) {
-    console.error('Error stopping node:', error);
+    logger.error({ err: error, action: 'stopNode' }, 'Error stopping node');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to stop node'
@@ -325,7 +326,7 @@ app.post('/api/nodes/:id/wipe', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`Wiping node: ${id}`);
+    logger.info({ action: 'wipeNode', nodeId: id }, 'Wiping node');
 
     const node = await nodeManager.getNode(id);
     if (!node) {
@@ -359,7 +360,7 @@ app.post('/api/nodes/:id/wipe', async (req, res) => {
       ...updatedNode
     });
   } catch (error) {
-    console.error('Error wiping node:', error);
+    logger.error({ err: error, action: 'wipeNode' }, 'Error wiping node');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to wipe node'
@@ -376,7 +377,7 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
     const { id } = req.params;
     const config = req.body;
 
-    console.log(`Configuring router: ${id}`);
+    logger.info({ action: 'configureRouter', nodeId: id }, 'Configuring router');
 
     const node = await nodeManager.getNode(id);
     if (!node) {
@@ -386,7 +387,7 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
       });
     }
 
-    console.log(`  Node osType: ${node.osType}, os: ${node.os}`);
+    logger.debug({ nodeId: id, osType: node.osType, os: node.os }, 'Node type info');
 
     if (node.osType !== 'router' && node.os !== 'router') {
       return res.status(400).json({
@@ -411,7 +412,7 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
       hostname: config.hostname
     });
   } catch (error) {
-    console.error('Error configuring router:', error);
+    logger.error({ err: error, action: 'configureRouter' }, 'Error configuring router');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to configure router'
@@ -427,7 +428,7 @@ app.delete('/api/nodes/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`Deleting node: ${id}`);
+    logger.info({ action: 'deleteNode', nodeId: id }, 'Deleting node');
 
     const node = await nodeManager.getNode(id);
     if (!node) {
@@ -454,7 +455,7 @@ app.delete('/api/nodes/:id', async (req, res) => {
       id: id
     });
   } catch (error) {
-    console.error('Error deleting node:', error);
+    logger.error({ err: error, action: 'deleteNode' }, 'Error deleting node');
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to delete node'
@@ -471,7 +472,7 @@ app.get('/api/images', async (req, res) => {
       ...images
     });
   } catch (error) {
-    console.error('Error listing images:', error);
+    logger.error({ err: error, action: 'listImages' }, 'Error listing images');
     res.status(500).json({ success: false, error: 'Failed to list images' });
   }
 });
@@ -508,7 +509,7 @@ app.post('/api/images/custom', upload.single('image'), async (req, res) => {
       image
     });
   } catch (error) {
-    console.error('Error uploading image:', error);
+    logger.error({ err: error, action: 'uploadImage' }, 'Error uploading image');
     // Clean up on error
     if (req.file && req.file.path) {
       try {
@@ -536,7 +537,7 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  logger.error({ err }, 'Unhandled error');
   res.status(500).json({
     success: false,
     error: err.message || 'Internal server error'
@@ -590,11 +591,11 @@ async function initializeServer() {
           socket.close(1011, 'Console unavailable');
         }
       } catch (error) {
-        console.error('WebSocket connection error:', error.message);
+        logger.error({ err: error }, 'WebSocket connection error');
         try {
           socket.send(JSON.stringify({ type: 'error', message: 'Server error' }));
         } catch (sendError) {
-          console.error('WebSocket send error:', sendError.message);
+          logger.error({ err: sendError }, 'WebSocket send error');
         }
         socket.close(1011, 'Server error');
       }
@@ -613,41 +614,28 @@ async function initializeServer() {
           socket.destroy();
         }
       } catch (error) {
-        console.error('Upgrade error:', error.message);
+        logger.error({ err: error }, 'Upgrade error');
         socket.destroy();
       }
     });
 
     httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log('='.repeat(60));
-      console.log('🚀 SandBoxLabs Backend API Server');
-      console.log('='.repeat(60));
-      console.log(`✅ Server running on: http://localhost:${PORT}`);
-      console.log(`✅ API base URL: http://localhost:${PORT}/api`);
-      console.log(`✅ Environment: ${process.env.NODE_ENV}`);
-      console.log(`✅ Guacamole: ${process.env.GUAC_BASE_URL}`);
-      console.log('='.repeat(60));
-      console.log('\n📋 Available Endpoints:');
-      console.log('  GET    /api/health          - Health check');
-      console.log('  GET    /api/nodes           - List all nodes');
-      console.log('  GET    /api/nodes/:id       - Get node details');
-      console.log('  POST   /api/nodes           - Create new node');
-      console.log('  POST   /api/nodes/:id/run   - Start node');
-      console.log('  POST   /api/nodes/:id/stop  - Stop node');
-      console.log('  POST   /api/nodes/:id/wipe  - Wipe node');
-      console.log('  DELETE /api/nodes/:id       - Delete node');
-      console.log('='.repeat(60));
-      console.log('\n🎮 Ready to accept requests!\n');
+      logger.info({
+        port: PORT,
+        apiBaseUrl: `http://localhost:${PORT}/api`,
+        environment: process.env.NODE_ENV,
+        guacamole: process.env.GUAC_BASE_URL
+      }, '🚀 SandBoxLabs Backend API Server started');
     });
   } catch (error) {
-    console.error('Failed to initialize server:', error);
+    logger.fatal({ err: error }, 'Failed to initialize server');
     process.exit(1);
   }
 }
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('\n⚠️  SIGTERM received, shutting down gracefully...');
+  logger.warn('SIGTERM received, shutting down gracefully...');
   await qemuManager.cleanup();
   if (wsServer) {
     wsServer.clients.forEach(client => client.close(1001, 'Server shutting down'));
@@ -661,7 +649,7 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('SIGINT', async () => {
-  console.log('\n⚠️  SIGINT received, shutting down gracefully...');
+  logger.warn('SIGINT received, shutting down gracefully...');
   await qemuManager.cleanup();
   if (wsServer) {
     wsServer.clients.forEach(client => client.close(1001, 'Server shutting down'));
