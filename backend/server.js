@@ -65,6 +65,10 @@ let wsServer;
 // Import JWT auth middleware
 const authMiddleware = require('./middleware/auth');
 
+// Import Swagger UI
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
+
 // Health check endpoint (public)
 app.get('/api/health', (req, res) => {
   res.json({
@@ -77,6 +81,9 @@ app.get('/api/health', (req, res) => {
     }
   });
 });
+
+// Swagger UI (public)
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Apply JWT authentication to all subsequent /api routes
 app.use('/api', authMiddleware);
