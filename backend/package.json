@@ -8,16 +8,23 @@
     "dev": "nodemon server.js",
     "test": "echo \"No tests yet\" && exit 0"
   },
-  "keywords": ["qemu", "guacamole", "vm", "network-lab"],
+  "keywords": [
+    "qemu",
+    "guacamole",
+    "vm",
+    "network-lab"
+  ],
   "author": "SandBoxLabs",
   "license": "MIT",
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "express-jwt": "^8.5.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.0",
     "pg": "^8.11.0",
     "uuid": "^9.0.0",
-    "dotenv": "^16.0.3",
-    "cors": "^2.8.5",
-  "multer": "^2.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

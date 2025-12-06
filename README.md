@@ -408,13 +408,12 @@ docker exec -it postgres_guac psql -U guacamole -d guacamole_db -c "SELECT * FRO
 - ✅ Responsive design
 
 ### Backend API (Node.js/Express)
-- ✅ RESTful API with 8 endpoints
-- ✅ QEMU VM process management
-- ✅ QCOW2 overlay system (copy-on-write)
-- ✅ Dynamic VNC port allocation
-- ✅ Guacamole PostgreSQL integration
-- ✅ State persistence (JSON file)
-- ✅ Graceful shutdown handling
+- ✅ RESTful API with JWT authentication (protected routes)
+- ✅ QEMU VM lifecycle management
+- ✅ Image upload & custom QCOW2 support
+- ✅ Guacamole VNC integration
+- ✅ State persistence (PostgreSQL)
+- ✅ Health endpoint
 - ✅ Comprehensive error handling
 - ✅ Health monitoring
 

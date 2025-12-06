@@ -62,7 +62,10 @@ const upload = multer({
 let httpServer;
 let wsServer;
 
-// Health check endpoint
+// Import JWT auth middleware
+const authMiddleware = require('./middleware/auth');
+
+// Health check endpoint (public)
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -75,6 +78,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Apply JWT authentication to all subsequent /api routes
+app.use('/api', authMiddleware);
+
 // =======================
 // NODE ENDPOINTS
 // =======================
@@ -86,14 +92,14 @@ app.get('/api/health', (req, res) => {
 app.get('/api/nodes', async (req, res) => {
   try {
     const nodes = await nodeManager.listNodes();
-    
+
     // Sync status with actual QEMU processes
     for (const node of nodes) {
       const isActuallyRunning = qemuManager.isVMRunning(node.id);
-      
+
       // If DB says running but QEMU says stopped, update DB
       if (node.status === 'running' && !isActuallyRunning) {
-        await nodeManager.updateNode(node.id, { 
+        await nodeManager.updateNode(node.id, {
           status: 'stopped',
           stoppedAt: new Date()
         });
@@ -105,7 +111,7 @@ app.get('/api/nodes', async (req, res) => {
         node.status = 'running';
       }
     }
-    
+
     res.json({
       success: true,
       nodes: nodes,
@@ -128,14 +134,14 @@ app.get('/api/nodes/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const node = await nodeManager.getNode(id);
-    
+
     if (!node) {
       return res.status(404).json({
         success: false,
         error: 'Node not found'
       });
     }
-    
+
     res.json({
       success: true,
       ...node
@@ -171,12 +177,12 @@ app.post('/api/nodes', async (req, res) => {
         error: imageError.message || 'Invalid image selection'
       });
     }
-    
+
     console.log(`Creating new node: ${name || 'auto-generated'} (${osType || 'ubuntu'})`);
-    
+
     // Create node with overlay
     const node = await nodeManager.createNode(name, resolvedOsType, resources, { image });
-    
+
     res.status(201).json({
       success: true,
       ...node
@@ -197,9 +203,9 @@ app.post('/api/nodes', async (req, res) => {
 app.post('/api/nodes/:id/run', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log(`Starting node: ${id}`);
-    
+
     // Get node info
     const node = await nodeManager.getNode(id);
     if (!node) {
@@ -208,17 +214,17 @@ app.post('/api/nodes/:id/run', async (req, res) => {
         error: 'Node not found'
       });
     }
-    
+
     if (node.status === 'running') {
       return res.status(400).json({
         success: false,
         error: 'Node is already running'
       });
     }
-    
+
     // Start QEMU VM
     const vncPort = await qemuManager.startVM(node);
-    
+
     // Only register with Guacamole if this is NOT a router (routers use serial console only)
     let guacConnection = { id: null, url: null, pid: null };
     if (node.osType !== 'router') {
@@ -226,7 +232,7 @@ app.post('/api/nodes/:id/run', async (req, res) => {
     } else {
       console.log(`  ⏩ Skipping Guacamole registration for router (serial console only)`);
     }
-    
+
     // Update node state
     const updatedNode = await nodeManager.updateNode(id, {
       status: 'running',
@@ -236,7 +242,7 @@ app.post('/api/nodes/:id/run', async (req, res) => {
       pid: guacConnection.pid,
       startedAt: new Date().toISOString()
     });
-    
+
     res.json({
       success: true,
       ...updatedNode
@@ -257,9 +263,9 @@ app.post('/api/nodes/:id/run', async (req, res) => {
 app.post('/api/nodes/:id/stop', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log(`Stopping node: ${id}`);
-    
+
     const node = await nodeManager.getNode(id);
     if (!node) {
       return res.status(404).json({
@@ -267,20 +273,20 @@ app.post('/api/nodes/:id/stop', async (req, res) => {
         error: 'Node not found'
       });
     }
-    
+
     if (node.status !== 'running') {
       return res.status(400).json({
         success: false,
         error: 'Node is not running'
       });
     }
-    
+
     // Stop QEMU VM
     await qemuManager.stopVM(node);
-    
+
     // Unregister from Guacamole (optional, can keep for history)
     // await guacamoleClient.unregisterConnection(node.guacConnectionId);
-    
+
     // Update node state
     const updatedNode = await nodeManager.updateNode(id, {
       status: 'stopped',
@@ -290,7 +296,7 @@ app.post('/api/nodes/:id/stop', async (req, res) => {
       pid: null,
       stoppedAt: new Date().toISOString()
     });
-    
+
     res.json({
       success: true,
       ...updatedNode
@@ -311,9 +317,9 @@ app.post('/api/nodes/:id/stop', async (req, res) => {
 app.post('/api/nodes/:id/wipe', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log(`Wiping node: ${id}`);
-    
+
     const node = await nodeManager.getNode(id);
     if (!node) {
       return res.status(404).json({
@@ -321,15 +327,15 @@ app.post('/api/nodes/:id/wipe', async (req, res) => {
         error: 'Node not found'
       });
     }
-    
+
     // Stop VM if running
     if (node.status === 'running') {
       await qemuManager.stopVM(node);
     }
-    
+
     // Delete and recreate overlay
     await qemuManager.wipeOverlay(node);
-    
+
     // Update node state
     const updatedNode = await nodeManager.updateNode(id, {
       status: 'stopped',
@@ -339,7 +345,7 @@ app.post('/api/nodes/:id/wipe', async (req, res) => {
       pid: null,
       wipedAt: new Date().toISOString()
     });
-    
+
     res.json({
       success: true,
       message: 'Node wiped successfully',
@@ -362,9 +368,9 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
   try {
     const { id } = req.params;
     const config = req.body;
-    
+
     console.log(`Configuring router: ${id}`);
-    
+
     const node = await nodeManager.getNode(id);
     if (!node) {
       return res.status(404).json({
@@ -372,26 +378,26 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
         error: 'Node not found'
       });
     }
-    
+
     console.log(`  Node osType: ${node.osType}, os: ${node.os}`);
-    
+
     if (node.osType !== 'router' && node.os !== 'router') {
       return res.status(400).json({
         success: false,
         error: 'Node is not a router'
       });
     }
-    
+
     if (node.status !== 'running') {
       return res.status(400).json({
         success: false,
         error: 'Router must be running to configure'
       });
     }
-    
+
     // Auto-configure the router
     await qemuManager.autoConfigureRouter(id, config);
-    
+
     res.json({
       success: true,
       message: 'Router configuration sent',
@@ -413,9 +419,9 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
 app.delete('/api/nodes/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log(`Deleting node: ${id}`);
-    
+
     const node = await nodeManager.getNode(id);
     if (!node) {
       return res.status(404).json({
@@ -423,18 +429,18 @@ app.delete('/api/nodes/:id', async (req, res) => {
         error: 'Node not found'
       });
     }
-    
+
     // Stop VM if running
     if (node.status === 'running') {
       await qemuManager.stopVM(node);
     }
-    
+
     // Delete overlay file
     await qemuManager.deleteOverlay(node);
-    
+
     // Remove from state
     await nodeManager.deleteNode(id);
-    
+
     res.json({
       success: true,
       message: 'Node deleted successfully',
@@ -472,7 +478,7 @@ app.post('/api/images/custom', upload.single('image'), async (req, res) => {
 
     const uploadedPath = req.file.path;
     let finalImagePath = uploadedPath;
-    
+
     // Convert to QCOW2 if not already in that format
     const convertedPath = await qemuManager.ensureQcow2Format(uploadedPath);
     if (convertedPath !== uploadedPath) {
@@ -540,7 +546,7 @@ async function initializeServer() {
     await nodeManager.initialize();
     await guacamoleClient.initialize();
     await qemuManager.initialize();
-    
+
     // Start server
     httpServer = http.createServer(app);
     wsServer = new WebSocketServer({ noServer: true });
