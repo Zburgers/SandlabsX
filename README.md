@@ -418,6 +418,12 @@ docker exec -it postgres_guac psql -U guacamole -d guacamole_db -c "SELECT * FRO
 - ✅ Health monitoring
 - ✅ Rate limiting on expensive operations
 
+### API Testing
+To test the API endpoints, you can use the provided Postman collection:
+1. Import `backend/modules/postman.json` into Postman
+2. Set the `baseUrl` environment variable to `http://localhost:3001`
+3. Set the `token` environment variable with a valid JWT (obtained via login or generated manually)
+
 ### QEMU Integration
 - ✅ Overlay disk creation from base image
 - ✅ Dynamic VM spawning
