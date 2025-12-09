@@ -21,6 +21,9 @@ Complete index of all documentation files in the project.
 | **[backend/README.md](../backend/README.md)** | Backend API documentation and endpoints | `/backend/README.md` |
 | **[frontend/README.md](../frontend/README.md)** | Frontend UI documentation and components | `/frontend/README.md` |
 | **[docs/README.md](./README.md)** | This file - Documentation index | `/docs/README.md` |
+| **[docs/DATABASE-SCHEMA.md](./DATABASE-SCHEMA.md)** | Database tables, columns, indexes, FKs | `/docs/DATABASE-SCHEMA.md` |
+| **[docs/sandlab-prd-v1.1.md](./sandlab-prd-v1.1.md)** | Product Requirements Document | `/docs/sandlab-prd-v1.1.md` |
+| **[docs/IMAGE-FORMAT-GUIDE.md](./IMAGE-FORMAT-GUIDE.md)** | VM image format and upload guide | `/docs/IMAGE-FORMAT-GUIDE.md` |
 
 ---
 
@@ -35,10 +38,12 @@ Complete index of all documentation files in the project.
 1. **[STRUCTURE.md](../STRUCTURE.md)** - Understand the codebase organization
 2. **[backend/README.md](../backend/README.md)** - Backend API details
 3. **[frontend/README.md](../frontend/README.md)** - Frontend components and features
+4. **[DATABASE-SCHEMA.md](./DATABASE-SCHEMA.md)** - Database schema reference
 
 ### For Project Review
 1. **[PROJECT-SUMMARY.md](../PROJECT-SUMMARY.md)** - Deliverables and status
 2. **[README.md](../README.md)** - Complete documentation
+3. **[sandlab-prd-v1.1.md](./sandlab-prd-v1.1.md)** - Full PRD
 
 ---
 
@@ -56,15 +61,25 @@ sandboxlabs/
 │   └── README.md               # Frontend documentation
 │
 ├── 🔧 backend/
-│   └── README.md               # Backend documentation
+│   ├── README.md               # Backend API documentation
+│   └── schema/
+│       └── nodes-schema.sql    # Nodes + connections schema
 │
 └── 📚 docs/
-    └── README.md               # This index
+    ├── README.md               # This index
+    ├── DATABASE-SCHEMA.md      # Database tables reference
+    ├── sandlab-prd-v1.1.md     # Product Requirements Document
+    └── IMAGE-FORMAT-GUIDE.md   # VM image guide
 ```
 
 ---
 
 ## 📝 Document Changelog
+
+### December 2025:
+- Added DATABASE-SCHEMA.md with complete schema reference
+- Added links to PRD and image format documentation
+- Updated directory structure with schema files
 
 ### October 19, 2025:
 - Reorganized documentation index
