@@ -569,23 +569,62 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found',
-    path: req.url
+    code: 'NOT_FOUND',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Global error handler
+// Global error handler with sanitization
 app.use((err, req, res, next) => {
+  const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
+
+  // Log full error details server-side
+  logger.error({
+    err,
+    requestId,
+    userId: req.user?.id,
+    endpoint: req.originalUrl,
+    method: req.method
+  }, 'Unhandled error');
+
+  // Determine error type and sanitize response
+  let statusCode = 500;
+  let errorCode = 'INTERNAL_ERROR';
+  let clientMessage = 'Internal server error';
+
+  // Handle specific error types
   if (err.name === 'UnauthorizedError') {
-    return res.status(401).json({
-      success: false,
-      error: 'Invalid or missing authentication token'
-    });
+    statusCode = 401;
+    errorCode = 'UNAUTHORIZED';
+    clientMessage = 'Invalid or missing authentication token';
+  } else if (err.name === 'ValidationError' || err.type === 'entity.parse.failed') {
+    statusCode = 400;
+    errorCode = 'VALIDATION_ERROR';
+    clientMessage = 'Invalid request payload';
+  } else if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+    statusCode = 503;
+    errorCode = 'SERVICE_UNAVAILABLE';
+    clientMessage = 'Service temporarily unavailable';
+  } else if (err.code === 'ENOENT') {
+    statusCode = 404;
+    errorCode = 'NOT_FOUND';
+    clientMessage = 'Resource not found';
+  } else if (err.code === '23505') { // PostgreSQL unique violation
+    statusCode = 409;
+    errorCode = 'CONFLICT';
+    clientMessage = 'Resource already exists';
+  } else if (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
+    statusCode = 503;
+    errorCode = 'SERVICE_UNAVAILABLE';
+    clientMessage = 'Database connection failed';
   }
 
-  logger.error({ err }, 'Unhandled error');
-  res.status(500).json({
+  res.status(statusCode).json({
     success: false,
-    error: err.message || 'Internal server error'
+    error: clientMessage,
+    code: errorCode,
+    timestamp: new Date().toISOString(),
+    requestId
   });
 });
 
