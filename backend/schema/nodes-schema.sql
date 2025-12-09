@@ -50,13 +50,82 @@ CREATE TRIGGER update_sandlabx_nodes_modtime
 -- Console access logs (optional, for auditing)
 CREATE TABLE IF NOT EXISTS sandlabx_console_sessions (
   id SERIAL PRIMARY KEY,
-  node_id UUID NOT NULL REFERENCES sandlabx_nodes(id) ON DELETE CASCADE,
+  node_id UUID NOT NULL,
   client_ip VARCHAR(45),
   started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ended_at TIMESTAMP WITH TIME ZONE,
   
-  CONSTRAINT sandlabx_console_sessions_node_id_fkey FOREIGN KEY (node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE
+  CONSTRAINT sandlabx_console_sessions_node_id_fkey 
+    FOREIGN KEY (node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_sandlabx_console_sessions_node_id ON sandlabx_console_sessions(node_id);
 CREATE INDEX IF NOT EXISTS idx_sandlabx_console_sessions_started_at ON sandlabx_console_sessions(started_at DESC);
+
+-- -----------------------------------------------------------------------------
+-- Table: sandlabx_connections 
+-- Network connections (TAP interfaces, VLANs) between nodes within a lab
+-- Note: This must be after nodes table creation and after labs table in initdb
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sandlabx_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lab_id UUID NOT NULL,
+  source_node_id UUID NOT NULL,
+  target_node_id UUID NOT NULL,
+  type VARCHAR(50) DEFAULT 'tap',
+  source_interface VARCHAR(50),
+  target_interface VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT fk_sandlabx_connections_lab
+    FOREIGN KEY (lab_id) REFERENCES sandlabx_labs(id) ON DELETE CASCADE,
+  CONSTRAINT fk_sandlabx_connections_source
+    FOREIGN KEY (source_node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_sandlabx_connections_target
+    FOREIGN KEY (target_node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE,
+  CONSTRAINT sandlabx_connections_type_check
+    CHECK (type IN ('tap', 'vlan', 'bridge'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sandlabx_connections_lab_id ON sandlabx_connections(lab_id);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_connections_source_node_id ON sandlabx_connections(source_node_id);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_connections_target_node_id ON sandlabx_connections(target_node_id);
+
+-- -----------------------------------------------------------------------------
+-- Alter sandlabx_nodes to add FK relationships to users and labs
+-- These columns enable multi-tenancy and lab association
+-- -----------------------------------------------------------------------------
+ALTER TABLE sandlabx_nodes 
+  ADD COLUMN IF NOT EXISTS user_id UUID,
+  ADD COLUMN IF NOT EXISTS lab_id UUID;
+
+-- Add FK constraints (using DO block to handle "already exists" gracefully)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_sandlabx_nodes_user' 
+    AND table_name = 'sandlabx_nodes'
+  ) THEN
+    ALTER TABLE sandlabx_nodes
+      ADD CONSTRAINT fk_sandlabx_nodes_user 
+        FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE SET NULL;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_sandlabx_nodes_lab' 
+    AND table_name = 'sandlabx_nodes'
+  ) THEN
+    ALTER TABLE sandlabx_nodes
+      ADD CONSTRAINT fk_sandlabx_nodes_lab
+        FOREIGN KEY (lab_id) REFERENCES sandlabx_labs(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_sandlabx_nodes_user_id ON sandlabx_nodes(user_id);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_nodes_lab_id ON sandlabx_nodes(lab_id);
+
+-- Composite indexes for common query patterns (as specified in PRD)
+CREATE INDEX IF NOT EXISTS idx_sandlabx_nodes_user_lab_status 
+  ON sandlabx_nodes(user_id, lab_id, status);

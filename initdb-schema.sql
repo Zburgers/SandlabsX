@@ -791,3 +791,111 @@ JOIN guacamole_entity          ON permissions.username = guacamole_entity.name A
 JOIN guacamole_entity affected ON permissions.affected_username = affected.name AND guacamole_entity.type = 'USER'
 JOIN guacamole_user            ON guacamole_user.entity_id = affected.entity_id;
 
+-- =============================================================================
+-- SandlabX Application Tables
+-- =============================================================================
+-- These tables support the SandlabX network lab platform features:
+-- - Multi-tenant user management
+-- - Lab orchestration and persistence
+-- - Network topology connections
+-- - Custom image registry
+-- - Audit logging for compliance
+
+-- -----------------------------------------------------------------------------
+-- Table: sandlabx_users
+-- User accounts with role-based access control (admin/instructor/student)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sandlabx_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,  -- salted bcrypt
+  role VARCHAR(50) NOT NULL DEFAULT 'student',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT sandlabx_users_role_check 
+    CHECK (role IN ('admin', 'instructor', 'student'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sandlabx_users_email ON sandlabx_users(email);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_users_role ON sandlabx_users(role);
+
+-- -----------------------------------------------------------------------------
+-- Table: sandlabx_labs
+-- Lab templates and topology snapshots with sharing capabilities
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sandlabx_labs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  user_id UUID NOT NULL,
+  topology_json JSONB NOT NULL DEFAULT '{}',
+  template_name VARCHAR(255),
+  is_public BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT fk_sandlabx_labs_user
+    FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sandlabx_labs_user_id ON sandlabx_labs(user_id);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_labs_is_public ON sandlabx_labs(is_public);
+
+-- Trigger to update updated_at on labs
+CREATE OR REPLACE FUNCTION update_sandlabx_labs_modified()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE TRIGGER update_sandlabx_labs_modtime
+  BEFORE UPDATE ON sandlabx_labs
+  FOR EACH ROW
+  EXECUTE FUNCTION update_sandlabx_labs_modified();
+
+-- -----------------------------------------------------------------------------
+-- Table: sandlabx_images
+-- Custom VM image registry with format validation
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sandlabx_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL UNIQUE,
+  path VARCHAR(512) NOT NULL,
+  format VARCHAR(20) DEFAULT 'qcow2',
+  size_gb DECIMAL(10, 2),
+  os_type VARCHAR(50),
+  is_valid BOOLEAN DEFAULT TRUE,
+  user_id UUID,  -- NULL for system images
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT fk_sandlabx_images_user
+    FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE SET NULL,
+  CONSTRAINT sandlabx_images_format_check
+    CHECK (format IN ('qcow2', 'raw', 'vmdk'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sandlabx_images_os_type ON sandlabx_images(os_type);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_images_user_id ON sandlabx_images(user_id);
+
+-- -----------------------------------------------------------------------------
+-- Table: sandlabx_audit_log
+-- Security & compliance logging for all state-changing operations
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sandlabx_audit_log (
+  id SERIAL PRIMARY KEY,
+  user_id UUID,
+  action VARCHAR(100) NOT NULL,
+  resource_type VARCHAR(50),
+  resource_id UUID,
+  details JSONB,
+  success BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  
+  CONSTRAINT fk_sandlabx_audit_log_user
+    FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sandlabx_audit_log_user_id ON sandlabx_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_audit_log_action ON sandlabx_audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_audit_log_created_at ON sandlabx_audit_log(created_at);
