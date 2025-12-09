@@ -566,6 +566,70 @@ app.post('/api/images/custom', uploadImageLimiter, upload.single('image'), async
   }
 });
 
+/**
+ * POST /api/images/:id/validate
+ * Validate image integrity using qemu-img
+ */
+app.post('/api/images/:id/validate', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    logger.info({ action: 'validateImage', imageId: id }, 'Validating image');
+
+    // Resolve image path from ID
+    let imagePath;
+
+    // Check if it's a base image
+    const baseImagePath = qemuManager.getBaseImageForOS(id);
+    try {
+      await fs.access(baseImagePath);
+      imagePath = baseImagePath;
+    } catch (error) {
+      // Try custom images
+      const customPath = path.join(qemuManager.customImagesPath, id.endsWith('.qcow2') ? id : `${id}.qcow2`);
+      try {
+        await fs.access(customPath);
+        imagePath = customPath;
+      } catch (err) {
+        return res.status(404).json({
+          success: false,
+          error: 'Image not found',
+          code: 'NOT_FOUND',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    // Validate the image
+    const validationResult = await qemuManager.validateImage(imagePath);
+
+    res.json({
+      success: true,
+      id,
+      name: path.basename(imagePath),
+      ...validationResult
+    });
+  } catch (error) {
+    logger.error({ err: error, action: 'validateImage' }, 'Error validating image');
+
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Image file not found',
+        code: 'NOT_FOUND',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to validate image',
+      code: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // =======================
 // ERROR HANDLERS
 // =======================

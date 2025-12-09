@@ -993,6 +993,59 @@ class QemuManager {
       throw new Error(`Failed to convert image to QCOW2: ${error.message}`);
     }
   }
+
+  /**
+   * Validate image integrity using qemu-img
+   */
+  async validateImage(imagePath) {
+    logger.info(`Validating image: ${imagePath}`);
+
+    try {
+      // Check if file exists
+      await fs.access(imagePath);
+    } catch (error) {
+      throw new Error('Image file not found');
+    }
+
+    try {
+      // Run qemu-img info with JSON output
+      const { stdout: infoOutput } = await execAsync(`qemu-img info --output=json "${imagePath}"`, {
+        timeout: 30000
+      });
+
+      const info = JSON.parse(infoOutput);
+
+      // Run qemu-img check
+      let checkOutput = '';
+      let checkErrors = null;
+
+      try {
+        const { stdout } = await execAsync(`qemu-img check "${imagePath}"`, {
+          timeout: 30000
+        });
+        checkOutput = stdout;
+      } catch (error) {
+        // qemu-img check returns non-zero for corrupted images
+        checkErrors = error.stdout || error.stderr || error.message;
+      }
+
+      // Determine if image is valid
+      const isValid = !checkErrors && info.format === 'qcow2';
+
+      return {
+        isValid,
+        validationErrors: checkErrors,
+        format: info.format,
+        virtualSize: info['virtual-size'],
+        diskUsage: info['actual-size'],
+        lastValidatedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      logger.error('Error validating image:', { error: error.message });
+      throw new Error(`Failed to validate image: ${error.message}`);
+    }
+  }
 }
 
 module.exports = { QemuManager };
+
