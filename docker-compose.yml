@@ -12,6 +12,8 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./initdb-schema.sql:/docker-entrypoint-initdb.d/initdb.sql
       - ./backend/schema/nodes-schema.sql:/docker-entrypoint-initdb.d/nodes-schema.sql
+    ports:
+      - "5432:5432"
     networks:
       - sandboxlab-network
 
@@ -61,7 +63,7 @@ services:
     ports:
       - "3001:3001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/api/health" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -93,6 +95,7 @@ services:
 volumes:
   pgdata:
   backend-data:
+
 
 networks:
   sandboxlab-network:

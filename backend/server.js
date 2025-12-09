@@ -14,6 +14,13 @@ dotenv.config();
 // Import logger
 const logger = require('./logger');
 
+// Import rate limiters
+const {
+  createNodeLimiter,
+  startNodeLimiter,
+  uploadImageLimiter
+} = require('./middleware/rateLimit');
+
 // Import modules
 // Use PostgreSQL-backed NodeManager for better reliability and scalability
 const { NodeManager } = require('./modules/nodeManagerPostgres');
@@ -198,7 +205,7 @@ app.get('/api/nodes/:id', async (req, res) => {
  * POST /api/nodes
  * Create a new node (creates QCOW2 overlay)
  */
-app.post('/api/nodes', async (req, res) => {
+app.post('/api/nodes', createNodeLimiter, async (req, res) => {
   try {
     const { name, osType, resources, imageType, customImageName } = req.body;
     const resolvedOsType = osType || 'ubuntu';
@@ -239,7 +246,7 @@ app.post('/api/nodes', async (req, res) => {
  * POST /api/nodes/:id/run
  * Start a node (boot QEMU VM with overlay)
  */
-app.post('/api/nodes/:id/run', async (req, res) => {
+app.post('/api/nodes/:id/run', startNodeLimiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -509,7 +516,7 @@ app.get('/api/images', async (req, res) => {
 });
 
 // Added upload endpoint for custom QCOW2 images
-app.post('/api/images/custom', upload.single('image'), async (req, res) => {
+app.post('/api/images/custom', uploadImageLimiter, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Image file is required' });
@@ -568,6 +575,13 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid or missing authentication token'
+    });
+  }
+
   logger.error({ err }, 'Unhandled error');
   res.status(500).json({
     success: false,
