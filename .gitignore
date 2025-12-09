@@ -99,6 +99,7 @@ $RECYCLE.BIN/
 
 
 # VM Images and disk files (NEVER commit these - too large)
+overlays/
 images/
 vms/
 *.qcow2

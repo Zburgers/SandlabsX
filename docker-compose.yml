@@ -60,6 +60,12 @@ services:
       DB_PASSWORD: guacamole_pass
     ports:
       - "3001:3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     volumes:
       - backend-data:/app/data
       - ./images:/images

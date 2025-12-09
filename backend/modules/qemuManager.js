@@ -40,7 +40,7 @@ class QemuManager {
     const projectRoot = path.resolve(__dirname, '../../');
     this.imagesPath = path.join(projectRoot, 'images');
     this.customImagesPath = process.env.CUSTOM_IMAGES_PATH || path.join(this.imagesPath, 'custom');
-    
+
     // Map OS types to their cloud base images
     this.baseImages = {
       ubuntu: path.join(this.imagesPath, 'ubuntu-24-lts.qcow2'),   // Ubuntu 24 LTS Cloud Image
@@ -79,7 +79,7 @@ class QemuManager {
         description: 'Cisco IOS Router (Serial Console Only)'
       }
     };
-    
+
     this.baseImagePath = process.env.BASE_IMAGE_PATH || this.baseImages.default;
     this.overlaysPath = process.env.OVERLAYS_PATH || path.join(projectRoot, 'overlays');
     this.vmsPath = process.env.VMS_PATH || path.join(projectRoot, 'vms');
@@ -96,7 +96,7 @@ class QemuManager {
 
   async initialize() {
     logger.info('Initializing QemuManager...');
-    
+
     // Create directories if they don't exist
     try {
       await fs.mkdir(this.overlaysPath, { recursive: true });
@@ -196,10 +196,10 @@ class QemuManager {
    */
   async createOverlay(node) {
     logger.info(`Creating overlay for node ${node.id}...`);
-    
+
     const overlayPath = node.overlayPath;
     const baseImage = node.image && node.image.path ? node.image.path : this.getBaseImageForOS(node.osType);
-    
+
     try {
       // Check if overlay already exists
       try {
@@ -221,12 +221,12 @@ class QemuManager {
       // Create overlay using qemu-img
       const cmd = `qemu-img create -f qcow2 -b ${baseImage} -F qcow2 ${overlayPath}`;
       logger.info(`Running: ${cmd}`);
-      
+
       const { stdout, stderr } = await execAsync(cmd);
       if (stderr && !stderr.includes('Formatting')) {
         logger.warn('qemu-img stderr:', { stderr });
       }
-      
+
       logger.info(`Overlay created: ${overlayPath}`);
       return overlayPath;
     } catch (error) {
@@ -241,17 +241,17 @@ class QemuManager {
   async startVM(node) {
     const safeId = this.sanitizeId(node.id);
     logger.info(`Starting VM for node ${safeId}...`);
-    
+
     // Create overlay if it doesn't exist
     await this.createOverlay(node);
-    
+
     // Determine if this is a router
-  const isRouter = node.osType === 'router' || node.baseImage === 'router';
+    const isRouter = node.osType === 'router' || node.baseImage === 'router';
     const isBazzite = node.osType === 'bazzite';
 
-  const ifupScript = process.env.QEMU_IFUP || '/etc/qemu-ifup';
-  const ifdownScript = process.env.QEMU_IFDOWN || '/etc/qemu-ifdown';
-    
+    const ifupScript = process.env.QEMU_IFUP || '/etc/qemu-ifup';
+    const ifdownScript = process.env.QEMU_IFDOWN || '/etc/qemu-ifdown';
+
     // Check KVM availability and permissions
     let kvmAvailable = false;
     try {
@@ -280,7 +280,7 @@ class QemuManager {
 
     let vncPort = null;
     let vncDisplay = null;
-    
+
     if (isRouter) {
       // ========== ROUTER CONFIGURATION ==========
       logger.info(`Router configuration (serial console only)`);
@@ -301,11 +301,11 @@ class QemuManager {
       if (kvmAvailable) {
         qemuArgs.push('-enable-kvm', '-cpu', 'host');
         logger.info('Router Mode: KVM Hardware Acceleration');
-        
+
       } else {
         logger.warn('Router Mode: TCG Software Emulation (Expect high CPU usage)');
         // "core2duo" is known to be more stable for IOSv on TCG than default qemu64
-        qemuArgs.push('-cpu', 'core2duo'); 
+        qemuArgs.push('-cpu', 'core2duo');
       }
 
       qemuArgs.push(
@@ -322,24 +322,24 @@ class QemuManager {
 
       logger.info(`Router will boot in serial console (no VNC)`);
       logger.info(`Router boot time: ~2-3 minutes - please wait!`);
-      
+
     } else {
       // ========== STANDARD OS CONFIGURATION ==========
       logger.info(`Standard OS: ${node.osType}`);
-      
+
       // Get VNC port
       vncPort = node.vncPort || await this.getNextAvailablePort();
       vncDisplay = vncPort - 5900;
-      
+
       // Generate unique MAC address
       const mac0 = '52:54:00:12:36:' + Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
-      
+
       // Determine TAP interface based on Node Name for Lab Topology
       // PC1 -> tap2 -> br0
       // PC2 -> tap3 -> br1
-      let tapIfName = `tap-${safeId.substring(0,8)}`; // Default random
+      let tapIfName = `tap-${safeId.substring(0, 8)}`; // Default random
       const lowerName = (node.name || '').toLowerCase();
-      
+
       if (lowerName.includes('pc1') || lowerName.includes('pc 1')) {
         tapIfName = 'tap2';
         logger.info(`Node identified as PC1, assigning ${tapIfName} (br0)`);
@@ -361,12 +361,12 @@ class QemuManager {
         '-device', `e1000,netdev=net0,mac=${mac0}`,
         '-netdev', `tap,id=net0,ifname=${tapIfName},script=${ifupScript},downscript=${ifdownScript}`
       );
-      
+
       logger.info(`VNC Port: ${vncPort} (display :${vncDisplay})`);
     }
 
     logger.info(`Overlay: ${node.overlayPath}`);
-    
+
     try {
       // Spawn QEMU process
       const qemuProcess = spawn(qemuCommand, qemuArgs, {
@@ -390,17 +390,17 @@ class QemuManager {
       qemuProcess.stdout.on('data', (data) => {
         const output = data.toString();
         // logger.debug(`[${isRouter ? 'ROUTER' : 'VM'} Serial ${safeId.substring(0, 8)}] ${output.trim()}`);
-        
+
         // Broadcast to WebSocket clients
         const vmInfo = this.runningVMs.get(node.id);
         if (vmInfo && vmInfo.consoleClients) {
           for (const client of vmInfo.consoleClients) {
             try {
               if (client.socket.readyState === WebSocket.OPEN) {
-                client.socket.send(JSON.stringify({ 
-                  type: 'data', 
-                  stream: 'stdout', 
-                  payload: output 
+                client.socket.send(JSON.stringify({
+                  type: 'data',
+                  stream: 'stdout',
+                  payload: output
                 }));
               } else {
                 vmInfo.consoleClients.delete(client);
@@ -439,7 +439,7 @@ class QemuManager {
           }
         }
       });
-      
+
       // Handle stdin errors gracefully (common with routers)
       qemuProcess.stdin.on('error', (err) => {
         logger.warn(`[${safeId.substring(0, 8)}] stdin error (may be normal): ${err.message}`);
@@ -482,13 +482,13 @@ class QemuManager {
       }
 
       logger.info(`VM started: PID ${qemuProcess.pid}, VNC :${vncDisplay} (${vncPort})`);
-      
+
       if (isRouter) {
         logger.info(`Router console via Serial Console in UI`);
         logger.info(`Cisco boot time: ~3 minutes`);
         logger.info(`Skipping Guacamole registration for router (serial console only)`);
       }
-      
+
       return vncPort;
     } catch (error) {
       this.runningVMs.delete(node.id);
@@ -503,7 +503,7 @@ class QemuManager {
    */
   async stopVM(node) {
     logger.info(`Stopping VM for node ${node.id}...`);
-    
+
     const vmInfo = this.runningVMs.get(node.id);
     if (!vmInfo) {
       logger.info('VM is not running');
@@ -512,10 +512,10 @@ class QemuManager {
 
     try {
       const { process: qemuProcess } = vmInfo;
-      
+
       // Try graceful shutdown first (SIGTERM)
       qemuProcess.kill('SIGTERM');
-      
+
       // Wait up to 5 seconds for graceful shutdown
       await new Promise((resolve) => {
         const timeout = setTimeout(() => {
@@ -560,7 +560,7 @@ class QemuManager {
    */
   async wipeOverlay(node) {
     logger.info(`Wiping overlay for node ${node.id}...`);
-    
+
     try {
       // Delete existing overlay
       try {
@@ -574,7 +574,7 @@ class QemuManager {
 
       // Recreate overlay (and NVRAM if router)
       await this.createOverlay(node);
-      
+
       logger.info(`Overlay wiped for node ${node.id}`);
     } catch (error) {
       logger.error('Error wiping overlay:', { error });
@@ -587,7 +587,7 @@ class QemuManager {
    */
   async deleteOverlay(node) {
     logger.info(`Deleting overlay for node ${node.id}...`);
-    
+
     try {
       await fs.unlink(node.overlayPath);
       logger.info(`Overlay deleted: ${node.overlayPath}`);
@@ -606,10 +606,10 @@ class QemuManager {
     const { exec } = require('child_process');
     const { promisify } = require('util');
     const execAsync = promisify(exec);
-    
+
     const startPort = parseInt(process.env.VNC_START_PORT) || 5900;
     const maxPort = startPort + 100; // Check up to 100 ports
-    
+
     // Get ports currently used by our running VMs
     const usedByUs = new Set(
       Array.from(this.runningVMs.values()).map(vm => vm.vncPort)
@@ -620,7 +620,7 @@ class QemuManager {
       if (usedByUs.has(port)) {
         continue; // Skip ports we know we're using
       }
-      
+
       // Check if port is available on the system
       try {
         const { stdout } = await execAsync(`netstat -tln 2>/dev/null | grep :${port} || ss -tln | grep :${port}`);
@@ -631,7 +631,7 @@ class QemuManager {
       } catch (error) {
         // Command failed (no match found), port is available
       }
-      
+
       // Port is available!
       return port;
     }
@@ -641,11 +641,24 @@ class QemuManager {
   }
 
   /**
+   * Check QEMU health
+   */
+  async checkHealth() {
+    try {
+      await execAsync('qemu-system-x86_64 --version');
+      return true;
+    } catch (error) {
+      logger.error('Health check failed (QEMU):', { error: error.message });
+      return false;
+    }
+  }
+
+  /**
    * Cleanup all running VMs
    */
   async cleanup() {
     logger.info('Cleaning up QEMU processes...');
-    
+
     const promises = Array.from(this.runningVMs.keys()).map(async (nodeId) => {
       const vmInfo = this.runningVMs.get(nodeId);
       if (vmInfo && vmInfo.process) {
@@ -819,7 +832,7 @@ class QemuManager {
   async waitForPrompt(process, promptRegex, timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
       let buffer = '';
-      
+
       const onData = (data) => {
         buffer += data.toString();
         // Check last 1000 chars to avoid huge buffer
@@ -836,7 +849,7 @@ class QemuManager {
       };
 
       process.stdout.on('data', onData);
-      
+
       const timeoutId = setTimeout(() => {
         cleanup();
         reject(new Error(`Timeout waiting for prompt matching ${promptRegex}`));
@@ -879,10 +892,10 @@ class QemuManager {
 
       // Enter privileged mode
       await sendCommand('enable', /#/, 5000);
-      
+
       // Enter config mode
       await sendCommand('configure terminal', /\(config\)#/, 5000);
-      
+
       // Set hostname
       await sendCommand(`hostname ${config.hostname || 'Router1'}`, /\(config\)#/, 5000);
 
@@ -892,32 +905,32 @@ class QemuManager {
       } else {
         logger.info('Skipping enable secret configuration (no password requested)');
       }
-      
+
       // Configure first interface
       await sendCommand('interface FastEthernet0/0', /\(config-if\)#/, 5000);
       await sendCommand(`ip address ${config.interface0.ip} ${config.interface0.mask}`, /\(config-if\)#/, 5000);
       await sendCommand('no shutdown', /\(config-if\)#/, 5000);
       await sendCommand('exit', /\(config\)#/, 5000);
-      
+
       // Configure second interface
       await sendCommand('interface FastEthernet0/1', /\(config-if\)#/, 5000);
       await sendCommand(`ip address ${config.interface1.ip} ${config.interface1.mask}`, /\(config-if\)#/, 5000);
       await sendCommand('no shutdown', /\(config-if\)#/, 5000);
       await sendCommand('exit', /\(config\)#/, 5000);
-      
+
       // Add static routes
       if (config.routes) {
         for (const route of config.routes) {
           await sendCommand(`ip route ${route.network} ${route.mask} ${route.nextHop}`, /\(config\)#/, 5000);
         }
       }
-      
+
       // Exit config mode
       await sendCommand('end', /#/, 5000);
-      
+
       // Save configuration
       await sendCommand('write memory', /OK/, 10000);
-      
+
       logger.info(`Router configuration sent to ${config.hostname}`);
       return true;
     } catch (error) {
@@ -931,21 +944,21 @@ class QemuManager {
    */
   async ensureQcow2Format(imagePath) {
     logger.info(`Checking format of ${path.basename(imagePath)}...`);
-    
+
     try {
       // Detect the current format
       const { stdout } = await execAsync(`qemu-img info --output=json "${imagePath}"`);
       const info = JSON.parse(stdout);
       const currentFormat = info.format;
-      
+
       logger.info(`Current format: ${currentFormat}`);
-      
+
       // If already QCOW2, return as-is
       if (currentFormat === 'qcow2') {
         logger.info(`Image is already in QCOW2 format`);
         return imagePath;
       }
-      
+
       // Need to convert
       const ext = path.extname(imagePath);
       const baseName = path.basename(imagePath, ext);
@@ -953,27 +966,27 @@ class QemuManager {
         path.dirname(imagePath),
         `${baseName}_converted.qcow2`
       );
-      
+
       logger.info(`Converting ${currentFormat} to QCOW2...`);
       logger.info(`Source: ${imagePath}`);
       logger.info(`Target: ${convertedPath}`);
-      
+
       // Convert to QCOW2
       const cmd = `qemu-img convert -f ${currentFormat} -O qcow2 "${imagePath}" "${convertedPath}"`;
       await execAsync(cmd);
-      
+
       // Verify conversion
       const { stdout: verifyOutput } = await execAsync(`qemu-img info --output=json "${convertedPath}"`);
       const verifyInfo = JSON.parse(verifyOutput);
-      
+
       if (verifyInfo.format !== 'qcow2') {
         throw new Error(`Conversion failed: resulting format is ${verifyInfo.format}`);
       }
-      
+
       logger.info(`Conversion successful`);
       logger.info(`Original size: ${formatBytes(info['actual-size'] || info['virtual-size'])}`);
       logger.info(`Converted size: ${formatBytes(verifyInfo['actual-size'] || verifyInfo['virtual-size'])}`);
-      
+
       return convertedPath;
     } catch (error) {
       logger.error('Error converting image format:', { error });

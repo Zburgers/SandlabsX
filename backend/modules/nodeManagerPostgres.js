@@ -29,7 +29,7 @@ class NodeManager {
 
   async initialize() {
     console.log('📊 Initializing PostgreSQL-backed NodeManager...');
-    
+
     // Test connection
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
@@ -115,7 +115,7 @@ class NodeManager {
 
     for (const [key, value] of Object.entries(updates)) {
       const dbColumn = fieldMapping[key] || key;
-      
+
       if (key === 'resources') {
         // Handle nested resources object
         if (value.ram !== undefined) {
@@ -148,7 +148,7 @@ class NodeManager {
     `;
 
     const result = await this.pool.query(query, values);
-    
+
     if (result.rows.length === 0) {
       throw new Error('Node not found');
     }
@@ -163,14 +163,14 @@ class NodeManager {
     }
 
     await this.pool.query('DELETE FROM sandlabx_nodes WHERE id = $1', [id]);
-    
+
     console.log(`🗑️  Deleted node: ${node.name} (${id})`);
     return true;
   }
 
   async getNextAvailableVncPort() {
     const startPort = parseInt(process.env.VNC_START_PORT) || 5900;
-    
+
     const result = await this.pool.query(
       'SELECT vnc_port FROM sandlabx_nodes WHERE vnc_port IS NOT NULL ORDER BY vnc_port'
     );
@@ -210,6 +210,21 @@ class NodeManager {
         cpus: row.cpu_cores
       }
     };
+  }
+
+  /**
+   * Check database health
+   */
+  async checkHealth() {
+    try {
+      const client = await this.pool.connect();
+      await client.query('SELECT 1');
+      client.release();
+      return true;
+    } catch (error) {
+      console.error('Health check failed (DB):', error.message);
+      return false;
+    }
   }
 
   /**

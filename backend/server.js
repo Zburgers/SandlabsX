@@ -71,15 +71,46 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
 // Health check endpoint (public)
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
+// Health check endpoint (public)
+app.get('/api/health', async (req, res) => {
+  const dbHealth = await nodeManager.checkHealth();
+  const qemuHealth = await qemuManager.checkHealth();
+
+  // Check Guacamole (HTTP check)
+  let guacHealth = false;
+  try {
+    // Use fetch or http.get
+    const guacUrl = process.env.GUAC_BASE_URL || 'http://localhost:8081/guacamole';
+    // Simple check: if we get a response (even 404/302), service is up
+    const response = await fetch(guacUrl);
+    guacHealth = response.status < 500;
+  } catch (e) {
+    guacHealth = false;
+  }
+
+  const services = {
+    backend: 'running',
+    database: dbHealth ? 'connected' : 'disconnected',
+    qemu: qemuHealth ? 'available' : 'unavailable',
+    guacamole: guacHealth ? 'connected' : 'unreachable'
+  };
+
+  // Determine overall status
+  let status = 'healthy';
+  if (!dbHealth || !qemuHealth) {
+    status = 'unhealthy';
+  } else if (!guacHealth) {
+    status = 'degraded';
+  }
+
+  const statusCode = status === 'unhealthy' ? 503 : 200;
+
+  res.status(statusCode).json({
+    status,
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    services: {
-      backend: 'running',
-      guacamole: guacamoleClient.isConnected() ? 'connected' : 'disconnected',
-    }
+    services,
+    uptime: process.uptime()
   });
 });
 
@@ -186,7 +217,7 @@ app.post('/api/nodes', async (req, res) => {
       });
     }
 
-    logger.info({ action: 'createNode', name, osType }, 'Creating new node ${name || 'auto - generated'} (${osType || 'ubuntu'})`);
+    logger.info({ action: 'createNode', name, osType }, 'Creating new node');
 
     // Create node with overlay
     const node = await nodeManager.createNode(name, resolvedOsType, resources, { image });
