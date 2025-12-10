@@ -380,6 +380,250 @@ class LabManager {
     }
 
     /**
+     * Export lab for download
+     * @param {string} labId - Lab ID to export
+     * @param {string} userId - Requesting user's ID
+     * @param {string} userEmail - User's email (for exportedBy field)
+     * @returns {Object} Export-ready JSON object
+     */
+    async exportLab(labId, userId, userEmail = 'unknown') {
+        // Get lab (handles access check internally)
+        const lab = await this.getLab(labId, userId);
+
+        if (!lab) {
+            const error = new Error('Lab not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const topology = lab.topologyJson || { nodes: [], edges: [] };
+
+        // Build export object per PRD spec
+        const exportData = {
+            name: lab.name,
+            description: lab.description || null,
+            templateName: lab.templateName || null,
+            exportedAt: new Date().toISOString(),
+            exportedBy: userEmail,
+            nodes: (topology.nodes || []).map(node => ({
+                id: node.id,
+                name: node.name || node.data?.label || 'Unnamed',
+                osType: node.osType || node.data?.osType || 'ubuntu',
+                position: node.position || { x: 0, y: 0 },
+                resources: {
+                    vcpus: node.resources?.vcpus || node.data?.resources?.cpus || 1,
+                    memoryMb: node.resources?.memoryMb || node.data?.resources?.ram || 1024,
+                    diskGb: node.resources?.diskGb || node.data?.resources?.disk || 20
+                }
+            })),
+            connections: (topology.edges || []).map(edge => ({
+                id: edge.id,
+                source: edge.source,
+                target: edge.target,
+                sourceInterface: edge.sourceInterface || 'eth0',
+                targetInterface: edge.targetInterface || 'eth0',
+                type: edge.type || 'tap'
+            })),
+            metadata: {
+                version: '1.0',
+                sandlabxVersion: '1.1',
+                createdDate: lab.createdAt,
+                lastModified: lab.updatedAt
+            }
+        };
+
+        logger.info({ labId, userId }, 'Exported lab');
+        return exportData;
+    }
+
+    /**
+     * Validate import JSON structure
+     * @param {Object} labJson - The imported JSON to validate
+     * @returns {{ valid: boolean, error: string|null, warnings: string[] }}
+     */
+    validateImportStructure(labJson) {
+        const warnings = [];
+
+        if (!labJson || typeof labJson !== 'object') {
+            return { valid: false, error: 'Import data must be a JSON object', warnings };
+        }
+
+        // Nodes are required
+        if (!Array.isArray(labJson.nodes)) {
+            return { valid: false, error: 'Import must contain a nodes array', warnings };
+        }
+
+        // Connections are required (can be empty)
+        if (!Array.isArray(labJson.connections)) {
+            return { valid: false, error: 'Import must contain a connections array', warnings };
+        }
+
+        // Validate nodes
+        const nodeIds = new Set();
+        const allowedOsTypes = ['ubuntu', 'debian', 'alpine', 'fedora', 'arch', 'router', 'cisco-ios', 'custom'];
+
+        for (const node of labJson.nodes) {
+            if (!node.id) {
+                return { valid: false, error: 'Each node must have an id', warnings };
+            }
+
+            if (nodeIds.has(node.id)) {
+                return { valid: false, error: `Duplicate node id: ${node.id}`, warnings };
+            }
+            nodeIds.add(node.id);
+
+            // Check osType
+            if (node.osType && !allowedOsTypes.includes(node.osType)) {
+                warnings.push(`Node ${node.id} has unrecognized osType: ${node.osType}`);
+            }
+        }
+
+        // Validate connections reference valid nodes
+        for (const conn of labJson.connections) {
+            if (!conn.source || !conn.target) {
+                return { valid: false, error: 'Each connection must have source and target', warnings };
+            }
+
+            if (!nodeIds.has(conn.source)) {
+                warnings.push(`Connection references unknown source node: ${conn.source}`);
+            }
+            if (!nodeIds.has(conn.target)) {
+                warnings.push(`Connection references unknown target node: ${conn.target}`);
+            }
+        }
+
+        // Check metadata version
+        if (labJson.metadata?.version && labJson.metadata.version !== '1.0') {
+            warnings.push(`Import from different version: ${labJson.metadata.version}`);
+        }
+
+        return { valid: true, error: null, warnings };
+    }
+
+    /**
+     * Import lab from JSON
+     * @param {string} userId - User importing the lab
+     * @param {Object} labJson - The imported lab JSON (nodes, connections, metadata)
+     * @param {string} name - Name for the imported lab (overrides original)
+     * @param {boolean} isTemplate - Whether to mark as template
+     * @returns {Object} Created lab summary
+     */
+    async importLab(userId, labJson, name, isTemplate = false) {
+        // Validate structure
+        const validation = this.validateImportStructure(labJson);
+        if (!validation.valid) {
+            const error = new Error(validation.error);
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Generate new UUIDs for nodes to avoid conflicts
+        const idMapping = new Map();
+        const newNodes = labJson.nodes.map(node => {
+            const newId = uuidv4();
+            idMapping.set(node.id, newId);
+            return {
+                ...node,
+                id: newId
+            };
+        });
+
+        // Update connection references to use new node IDs
+        const newConnections = labJson.connections.map(conn => ({
+            ...conn,
+            id: uuidv4(),
+            source: idMapping.get(conn.source) || conn.source,
+            target: idMapping.get(conn.target) || conn.target
+        }));
+
+        // Build topology JSON in internal format
+        const topologyJson = {
+            nodes: newNodes.map(node => ({
+                id: node.id,
+                type: 'networkNode',
+                position: node.position || { x: 0, y: 0 },
+                data: {
+                    label: node.name,
+                    osType: node.osType || 'ubuntu',
+                    resources: {
+                        cpus: node.resources?.vcpus || 1,
+                        ram: node.resources?.memoryMb || 1024,
+                        disk: node.resources?.diskGb || 20
+                    }
+                }
+            })),
+            edges: newConnections.map(conn => ({
+                id: conn.id,
+                source: conn.source,
+                target: conn.target,
+                sourceInterface: conn.sourceInterface || 'eth0',
+                targetInterface: conn.targetInterface || 'eth0',
+                label: `${conn.sourceInterface || 'eth0'} ↔ ${conn.targetInterface || 'eth0'}`,
+                type: conn.type || 'tap'
+            }))
+        };
+
+        // Handle duplicate names by appending suffix
+        let labName = name || labJson.name || 'Imported Lab';
+        let nameAttempt = 0;
+        let finalName = labName;
+
+        while (true) {
+            const existing = await this.pool.query(
+                'SELECT id FROM sandlabx_labs WHERE user_id = $1 AND LOWER(name) = LOWER($2)',
+                [userId, finalName]
+            );
+
+            if (existing.rows.length === 0) break;
+
+            nameAttempt++;
+            finalName = `${labName} (${nameAttempt})`;
+
+            if (nameAttempt > 100) {
+                const error = new Error('Could not generate unique lab name');
+                error.statusCode = 400;
+                throw error;
+            }
+        }
+
+        // Create the lab
+        const id = uuidv4();
+        const result = await this.pool.query(`
+            INSERT INTO sandlabx_labs (
+                id, name, user_id, topology_json, template_name, is_public
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        `, [
+            id,
+            finalName,
+            userId,
+            JSON.stringify(topologyJson),
+            isTemplate ? (labJson.templateName || 'IMPORTED') : null,
+            false
+        ]);
+
+        const createdLab = this.dbRowToLab(result.rows[0]);
+
+        logger.info({
+            labId: id,
+            userId,
+            name: finalName,
+            nodeCount: newNodes.length,
+            connectionCount: newConnections.length
+        }, 'Imported lab');
+
+        return {
+            id: createdLab.id,
+            name: createdLab.name,
+            nodeCount: newNodes.length,
+            connectionCount: newConnections.length,
+            message: 'Lab imported successfully',
+            warnings: validation.warnings,
+            createdAt: createdLab.createdAt
+        };
+    }
+
+    /**
      * Convert database row to lab object (snake_case to camelCase)
      */
     dbRowToLab(row) {

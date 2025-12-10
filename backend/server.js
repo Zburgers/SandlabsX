@@ -825,6 +825,92 @@ app.delete('/api/labs/:id', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/labs/:id/export
+ * Export a lab as downloadable JSON
+ */
+app.get('/api/labs/:id/export', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { id } = req.params;
+
+    logger.info({ action: 'exportLab', userId, labId: id }, 'Exporting lab');
+
+    // Get user email if available (from token or default)
+    const userEmail = req.auth?.email || 'unknown@sandlabx.local';
+
+    const exportData = await labManager.exportLab(id, userId, userEmail);
+
+    // Set headers for file download
+    const filename = `${exportData.name.replace(/[^a-zA-Z0-9-_]/g, '_')}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json');
+
+    res.json(exportData);
+  } catch (error) {
+    logger.error({ err: error, action: 'exportLab' }, 'Error exporting lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to export lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+/**
+ * POST /api/labs/import
+ * Import a lab from JSON
+ */
+app.post('/api/labs/import', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { name, labJson, isTemplate } = req.body;
+
+    // Validate request body
+    if (!labJson) {
+      return res.status(400).json({
+        success: false,
+        error: 'labJson is required in request body',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    logger.info({ action: 'importLab', userId, name }, 'Importing lab');
+
+    const result = await labManager.importLab(userId, labJson, name, isTemplate);
+
+    res.status(201).json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    logger.error({ err: error, action: 'importLab' }, 'Error importing lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to import lab',
+      code: error.code || 'VALIDATION_ERROR'
+    });
+  }
+});
+
 // =======================
 // ERROR HANDLERS
 // =======================
