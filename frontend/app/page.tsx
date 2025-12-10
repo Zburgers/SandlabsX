@@ -23,12 +23,12 @@ export default function Home() {
   // Load nodes on component mount and set up polling
   useEffect(() => {
     loadNodes();
-    
+
     // Poll for status updates every 3 seconds
     const pollInterval = setInterval(() => {
       loadNodes();
     }, 3000);
-    
+
     return () => clearInterval(pollInterval);
   }, []);
 
@@ -79,11 +79,11 @@ export default function Home() {
       // Find the node to check if it's a router
       const node = nodes.find(n => n.id === id);
       const isRouter = node?.osType === 'router';
-      
+
       if (isRouter) {
         // For routers: Start async and immediately open console
         console.log('🌐 Starting router - opening console immediately...');
-        
+
         if (node) {
           setSelectedNode({ ...node, status: 'running' });
         }
@@ -100,10 +100,10 @@ export default function Home() {
           console.error('Router start error:', err);
           alert('Failed to start router: ' + (err instanceof Error ? err.message : 'Unknown error'));
         });
-        
+
         // Reload nodes in background
         setTimeout(() => loadNodes(), 2000);
-        
+
       } else {
         // For regular VMs: Wait for full startup
         const response = await apiClient.startNode(id);
@@ -213,6 +213,13 @@ export default function Home() {
                     <span>{nodes.filter(n => n.status === 'stopped').length} Stopped</span>
                   </div>
                 </div>
+                <a
+                  href="/lab"
+                  className="px-4 py-2 bg-lab-secondary/20 hover:bg-lab-secondary/30 text-lab-secondary border border-lab-secondary/30 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                >
+                  <span>🎨</span>
+                  <span>Canvas Editor</span>
+                </a>
                 <Button
                   variant="primary"
                   onClick={() => setIsCreateModalOpen(true)}

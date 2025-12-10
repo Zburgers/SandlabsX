@@ -89,6 +89,11 @@ services:
       NEXT_PUBLIC_GUAC_URL: http://localhost:8081/guacamole
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend/app:/app/app
+      - ./frontend/components:/app/components
+      - ./frontend/lib:/app/lib
+      - ./frontend/hooks:/app/hooks
     depends_on:
       - backend
     networks:
