@@ -60,6 +60,7 @@ services:
       DB_NAME: guacamole_db
       DB_USER: guacamole_user
       DB_PASSWORD: guacamole_pass
+      JWT_SECRET: sandlabx-secret-2025
     ports:
       - "3001:3001"
     healthcheck:

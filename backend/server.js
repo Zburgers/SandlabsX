@@ -27,6 +27,7 @@ const { NodeManager } = require('./modules/nodeManagerPostgres');
 const { GuacamoleClient } = require('./modules/guacamoleClient');
 const { QemuManager } = require('./modules/qemuManager');
 const { LabManager } = require('./modules/labManager');
+const { auditLogger } = require('./modules/auditLogger');
 
 // Initialize Express app
 const app = express();
@@ -247,8 +248,12 @@ app.post('/api/nodes', requireRole(['admin', 'instructor']), createNodeLimiter, 
 
     logger.info({ action: 'createNode', name, osType }, 'Creating new node');
 
-    // Create node with overlay
-    const node = await nodeManager.createNode(name, resolvedOsType, resources, { image });
+    // Create node with overlay - pass userId from JWT for FK
+    const userId = req.auth?.sub || null;
+    const node = await nodeManager.createNode(name, resolvedOsType, resources, { image, userId });
+
+    // Audit log
+    await auditLogger.logNodeCreate(userId, node.id, node.name, node.osType);
 
     res.status(201).json({
       success: true,
@@ -310,6 +315,10 @@ app.post('/api/nodes/:id/run', startNodeLimiter, async (req, res) => {
       startedAt: new Date().toISOString()
     });
 
+    // Audit log
+    const userId = req.auth?.sub || null;
+    await auditLogger.logNodeStart(userId, node.id, node.name);
+
     res.json({
       success: true,
       ...updatedNode
@@ -364,6 +373,10 @@ app.post('/api/nodes/:id/stop', async (req, res) => {
       stoppedAt: new Date().toISOString()
     });
 
+    // Audit log
+    const userId = req.auth?.sub || null;
+    await auditLogger.logNodeStop(userId, node.id, node.name);
+
     res.json({
       success: true,
       ...updatedNode
@@ -412,6 +425,10 @@ app.post('/api/nodes/:id/wipe', async (req, res) => {
       pid: null,
       wipedAt: new Date().toISOString()
     });
+
+    // Audit log
+    const userId = req.auth?.sub || null;
+    await auditLogger.logNodeWipe(userId, node.id, node.name);
 
     res.json({
       success: true,
@@ -507,6 +524,10 @@ app.delete('/api/nodes/:id', requireRole(['admin', 'instructor']), async (req, r
 
     // Remove from state
     await nodeManager.deleteNode(id);
+
+    // Audit log
+    const userId = req.auth?.sub || null;
+    await auditLogger.logNodeDelete(userId, id, node.name);
 
     res.json({
       success: true,
@@ -839,6 +860,91 @@ app.delete('/api/labs/:id', requireRole(['admin', 'instructor']), async (req, re
 });
 
 /**
+ * POST /api/labs/:id/start
+ * Start all nodes in a lab (spawn VMs from topology)
+ */
+app.post('/api/labs/:id/start', requireRole(['admin', 'instructor']), async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { id } = req.params;
+
+    logger.info({ action: 'startLab', userId, labId: id }, 'Starting lab');
+
+    const result = await labManager.startLab(id, userId, {
+      nodeManager,
+      qemuManager,
+      guacamoleClient
+    });
+
+    // Audit log
+    await auditLogger.logLabStart(userId, id, result.labName, result.started.length);
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    logger.error({ err: error, action: 'startLab' }, 'Error starting lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to start lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+/**
+ * POST /api/labs/:id/stop
+ * Stop all running nodes in a lab
+ */
+app.post('/api/labs/:id/stop', requireRole(['admin', 'instructor']), async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { id } = req.params;
+
+    logger.info({ action: 'stopLab', userId, labId: id }, 'Stopping lab');
+
+    const result = await labManager.stopLab(id, userId, {
+      nodeManager,
+      qemuManager
+    });
+
+    // Audit log
+    await auditLogger.logLabStop(userId, id, result.labName, result.stopped.length);
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    logger.error({ err: error, action: 'stopLab' }, 'Error stopping lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to stop lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+/**
  * GET /api/labs/:id/export
  * Export a lab as downloadable JSON
  */
@@ -1043,6 +1149,7 @@ async function initializeServer() {
     await guacamoleClient.initialize();
     await qemuManager.initialize();
     await labManager.initialize();
+    await auditLogger.initialize();
 
     // Start server
     httpServer = http.createServer(app);

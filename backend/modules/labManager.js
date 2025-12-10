@@ -624,6 +624,159 @@ class LabManager {
     }
 
     /**
+     * Get all nodes belonging to a lab
+     * Uses composite index idx_sandlabx_nodes_user_lab_status
+     * @param {string} labId - Lab UUID
+     * @returns {Array} Array of node objects
+     */
+    async getLabNodes(labId) {
+        const result = await this.pool.query(`
+            SELECT * FROM sandlabx_nodes 
+            WHERE lab_id = $1
+            ORDER BY created_at ASC
+        `, [labId]);
+
+        return result.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            osType: row.os_type,
+            status: row.status,
+            vncPort: row.vnc_port,
+            pid: row.pid
+        }));
+    }
+
+    /**
+     * Start all nodes in a lab
+     * Creates actual VM instances from topology blueprint
+     * @param {string} labId - Lab UUID
+     * @param {string} userId - Requesting user's ID
+     * @param {Object} nodeManager - NodeManager instance for creating nodes
+     * @param {Object} qemuManager - QemuManager instance for starting VMs
+     * @param {Object} guacamoleClient - GuacamoleClient for VNC registration
+     * @returns {Object} Start result with node statuses
+     */
+    async startLab(labId, userId, { nodeManager, qemuManager, guacamoleClient }) {
+        const lab = await this.getLab(labId, userId);
+        if (!lab) {
+            const error = new Error('Lab not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const topology = lab.topologyJson || { nodes: [], edges: [] };
+        const results = { started: [], failed: [], labId, labName: lab.name };
+
+        // Check if lab already has running nodes
+        const existingNodes = await this.getLabNodes(labId);
+        if (existingNodes.some(n => n.status === 'running')) {
+            return {
+                ...results,
+                message: 'Lab already has running nodes',
+                existingNodes: existingNodes.filter(n => n.status === 'running')
+            };
+        }
+
+        // Create and start nodes from topology blueprint
+        for (const topoNode of topology.nodes || []) {
+            try {
+                const nodeName = topoNode.data?.label || topoNode.name || `node-${topoNode.id.substring(0, 8)}`;
+                const osType = topoNode.data?.osType || topoNode.osType || 'ubuntu';
+                const resources = {
+                    ram: topoNode.data?.resources?.ram || 2048,
+                    cpus: topoNode.data?.resources?.cpus || 2
+                };
+
+                // Create node with lab_id FK
+                const node = await nodeManager.createNode(nodeName, osType, resources, {
+                    userId,
+                    labId
+                });
+
+                // Start the VM
+                const vncPort = await qemuManager.startVM(node);
+
+                // Register with Guacamole (skip for routers)
+                let guacConnection = { id: null, url: null };
+                if (osType !== 'router') {
+                    guacConnection = await guacamoleClient.registerConnection(node, vncPort);
+                }
+
+                // Update node with running state
+                await nodeManager.updateNode(node.id, {
+                    status: 'running',
+                    vncPort,
+                    guacConnectionId: guacConnection.id,
+                    guacUrl: guacConnection.url,
+                    startedAt: new Date().toISOString()
+                });
+
+                results.started.push({
+                    id: node.id,
+                    name: nodeName,
+                    osType,
+                    vncPort
+                });
+
+                logger.info({ labId, nodeId: node.id, nodeName }, 'Started lab node');
+            } catch (err) {
+                logger.error({ err, labId, topoNode: topoNode.id }, 'Failed to start lab node');
+                results.failed.push({
+                    topoNodeId: topoNode.id,
+                    error: err.message
+                });
+            }
+        }
+
+        results.message = `Started ${results.started.length} nodes, ${results.failed.length} failed`;
+        return results;
+    }
+
+    /**
+     * Stop all nodes in a lab
+     * @param {string} labId - Lab UUID
+     * @param {string} userId - Requesting user's ID
+     * @param {Object} nodeManager - NodeManager instance
+     * @param {Object} qemuManager - QemuManager instance
+     * @returns {Object} Stop result with node statuses
+     */
+    async stopLab(labId, userId, { nodeManager, qemuManager }) {
+        const lab = await this.getLab(labId, userId);
+        if (!lab) {
+            const error = new Error('Lab not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const nodes = await this.getLabNodes(labId);
+        const runningNodes = nodes.filter(n => n.status === 'running');
+        const results = { stopped: [], failed: [], labId, labName: lab.name };
+
+        for (const node of runningNodes) {
+            try {
+                const fullNode = await nodeManager.getNode(node.id);
+                if (fullNode && fullNode.status === 'running') {
+                    await qemuManager.stopVM(fullNode);
+                    await nodeManager.updateNode(node.id, {
+                        status: 'stopped',
+                        vncPort: null,
+                        pid: null,
+                        stoppedAt: new Date().toISOString()
+                    });
+                    results.stopped.push({ id: node.id, name: node.name });
+                    logger.info({ labId, nodeId: node.id }, 'Stopped lab node');
+                }
+            } catch (err) {
+                logger.error({ err, labId, nodeId: node.id }, 'Failed to stop lab node');
+                results.failed.push({ id: node.id, error: err.message });
+            }
+        }
+
+        results.message = `Stopped ${results.stopped.length} nodes, ${results.failed.length} failed`;
+        return results;
+    }
+
+    /**
      * Convert database row to lab object (snake_case to camelCase)
      */
     dbRowToLab(row) {

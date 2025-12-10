@@ -61,8 +61,8 @@ class NodeManager {
     const result = await this.pool.query(`
       INSERT INTO sandlabx_nodes (
         id, name, os_type, status, overlay_path,
-        ram_mb, cpu_cores, image_metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ram_mb, cpu_cores, image_metadata, user_id, lab_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `, [
       id,
@@ -72,7 +72,9 @@ class NodeManager {
       overlayPath,
       parseInt(resources.ram) || parseInt(process.env.QEMU_RAM) || 2048,
       parseInt(resources.cpus) || parseInt(process.env.QEMU_CPUS) || 2,
-      JSON.stringify(image)
+      JSON.stringify(image),
+      options.userId || null,
+      options.labId || null
     ]);
 
     const node = this.dbRowToNode(result.rows[0]);
