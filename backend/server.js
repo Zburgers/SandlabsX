@@ -26,6 +26,7 @@ const {
 const { NodeManager } = require('./modules/nodeManagerPostgres');
 const { GuacamoleClient } = require('./modules/guacamoleClient');
 const { QemuManager } = require('./modules/qemuManager');
+const { LabManager } = require('./modules/labManager');
 
 // Initialize Express app
 const app = express();
@@ -49,6 +50,7 @@ app.use(pinoHttp({ logger }));
 const nodeManager = new NodeManager();
 const guacamoleClient = new GuacamoleClient();
 const qemuManager = new QemuManager();
+const labManager = new LabManager();
 
 // Added upload middleware for custom disk images
 const upload = multer({
@@ -631,6 +633,199 @@ app.post('/api/images/:id/validate', async (req, res) => {
 });
 
 // =======================
+// LAB ENDPOINTS
+// =======================
+
+/**
+ * POST /api/labs
+ * Create a new lab with topology
+ */
+app.post('/api/labs', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { name, description, templateName, topologyJson, isPublic } = req.body;
+
+    logger.info({ action: 'createLab', userId, name }, 'Creating new lab');
+
+    const lab = await labManager.createLab(userId, {
+      name,
+      description,
+      templateName,
+      topologyJson,
+      isPublic
+    });
+
+    res.status(201).json(lab);
+  } catch (error) {
+    logger.error({ err: error, action: 'createLab' }, 'Error creating lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to create lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+/**
+ * GET /api/labs
+ * List user's labs with pagination
+ */
+app.get('/api/labs', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { page, limit, templateName, isPublic } = req.query;
+
+    logger.info({ action: 'listLabs', userId, page, limit }, 'Listing labs');
+
+    const result = await labManager.getLabs(userId, {
+      page,
+      limit,
+      templateName,
+      isPublic
+    });
+
+    res.json(result);
+  } catch (error) {
+    logger.error({ err: error, action: 'listLabs' }, 'Error listing labs');
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to list labs'
+    });
+  }
+});
+
+/**
+ * GET /api/labs/:id
+ * Get a single lab by ID
+ */
+app.get('/api/labs/:id', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { id } = req.params;
+
+    logger.info({ action: 'getLab', userId, labId: id }, 'Getting lab');
+
+    const lab = await labManager.getLab(id, userId);
+
+    if (!lab) {
+      return res.status(404).json({
+        success: false,
+        error: 'Lab not found',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    res.json(lab);
+  } catch (error) {
+    logger.error({ err: error, action: 'getLab' }, 'Error getting lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to get lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+/**
+ * PATCH /api/labs/:id
+ * Update a lab
+ */
+app.patch('/api/labs/:id', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { id } = req.params;
+    const { name, description, topologyJson, templateName, isPublic } = req.body;
+
+    logger.info({ action: 'updateLab', userId, labId: id }, 'Updating lab');
+
+    const lab = await labManager.updateLab(id, userId, {
+      name,
+      description,
+      topologyJson,
+      templateName,
+      isPublic
+    });
+
+    res.json(lab);
+  } catch (error) {
+    logger.error({ err: error, action: 'updateLab' }, 'Error updating lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to update lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+/**
+ * DELETE /api/labs/:id
+ * Delete a lab
+ */
+app.delete('/api/labs/:id', async (req, res) => {
+  try {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in token',
+        code: 'UNAUTHORIZED'
+      });
+    }
+
+    const { id } = req.params;
+
+    logger.info({ action: 'deleteLab', userId, labId: id }, 'Deleting lab');
+
+    const result = await labManager.deleteLab(id, userId);
+
+    res.json(result);
+  } catch (error) {
+    logger.error({ err: error, action: 'deleteLab' }, 'Error deleting lab');
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to delete lab',
+      code: error.code || 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// =======================
 // ERROR HANDLERS
 // =======================
 
@@ -708,6 +903,7 @@ async function initializeServer() {
     await nodeManager.initialize();
     await guacamoleClient.initialize();
     await qemuManager.initialize();
+    await labManager.initialize();
 
     // Start server
     httpServer = http.createServer(app);

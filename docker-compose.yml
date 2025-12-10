@@ -73,6 +73,8 @@ services:
       - ./images:/images
       - ./overlays:/overlays
       - ./vms:/vms
+      - ./backend/modules:/app/modules
+      - ./backend/server.js:/app/server.js
     depends_on:
       - postgres
       - guacamole
