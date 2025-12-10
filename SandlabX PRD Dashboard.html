@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SandlabX PRD Dashboard - AI Coder Ready</title>
+    <style>
+        :root {
+            --primary: #00d4ff;
+            --primary-dark: #0099cc;
+            --surface: #1a1f2e;
+            --surface-light: #252d3d;
+            --text: #e0e8ff;
+            --text-secondary: #a8b2d1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        header {
+            background: rgba(10, 15, 25, 0.95);
+            border-bottom: 2px solid var(--primary);
+            padding: 1.5rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .progress-bar {
+            flex: 1;
+            max-width: 400px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--info));
+            width: 37%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+
+        nav {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        nav button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        nav button:hover,
+        nav button.active {
+            color: var(--primary);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 0.8rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover,
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .feature-item {
+            padding: 1rem;
+            background: rgba(0, 212, 255, 0.05);
+            border-left: 3px solid;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .feature-item.done {
+            border-color: var(--success);
+        }
+
+        .feature-item.in-progress {
+            border-color: var(--warning);
+        }
+
+        .feature-item.planned {
+            border-color: var(--info);
+        }
+
+        .feature-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-name {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-done {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .badge-progress {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-planned {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--info);
+        }
+
+        .mini-progress {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .mini-progress-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(0, 212, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .phase-timeline {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding: 1rem 0;
+        }
+
+        .phase-box {
+            min-width: 200px;
+            padding: 1.5rem;
+            background: var(--surface-light);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .phase-box.active {
+            border-color: var(--primary);
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .phase-title {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .phase-time {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .phase-status {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .module-checklist {
+            list-style: none;
+        }
+
+        .module-checklist li {
+            padding: 0.7rem 0;
+            padding-left: 1.8rem;
+            position: relative;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .module-checklist li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        .module-checklist li.pending:before {
+            content: "○";
+            color: var(--info);
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border-left: 3px solid var(--primary);
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            color: #a8e6ce;
+        }
+
+        .assign-ticket {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(59, 130, 246, 0.05);
+            border: 1px solid var(--info);
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .assign-ticket textarea {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: var(--text);
+            padding: 0.8rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .assign-ticket button {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .assign-ticket button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid rgba(0, 212, 255, 0.1);
+            margin-top: 4rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+
+            .grid-2,
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .progress-bar {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">🏗️ SandlabX PRD Dashboard</div>
+            <div style="display: flex; align-items: center; gap: 2rem; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 90%;"></div>
+                    </div>
+                    <div class="progress-text">90% Complete</div>
+                </div>
+            </div>
+            <nav>
+                <button onclick="switchTab('overview')" class="tab-nav active">Overview</button>
+                <button onclick="switchTab('modules')" class="tab-nav">Modules</button>
+                <button onclick="switchTab('codebase')" class="tab-nav">Codebase</button>
+                <button onclick="switchTab('assign')" class="tab-nav">Assign Task</button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- OVERVIEW -->
+        <div id="overview" class="tab-content active">
+            <div class="grid grid-3" style="margin-bottom: 2rem;">
+                <div class="stat-box">
+                    <div class="stat-number">90%</div>
+                    <div class="stat-label">Overall Completion</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">15</div>
+                    <div class="stat-label">Feature Modules</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">1 Day</div>
+                    <div class="stat-label">To v1.0 Prod</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📋 Implementation Status by Category</div>
+                <div class="grid grid-2">
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 1rem;">Backend Core</h4>
+                        <ul class="module-checklist">
+                            <li>Node CRUD Operations (100%)</li>
+                            <li>Console Access (100%)</li>
+                            <li>Image Management (90%)</li>
+                            <li>Lab Orchestration (90%) - Export/Import Added</li>
+                            <li>Authentication (100%) - JWT Implemented</li>
+                            <li>RBAC Policies (100%) - Admin/Instructor Roles</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 1rem;">Frontend & DevOps</h4>
+                        <ul class="module-checklist">
+                            <li>Node Dashboard (80%)</li>
+                            <li>Console Viewers (90%)</li>
+                            <li>Canvas Editor (100%) - ReactFlow Implemented</li>
+                            <li class="pending">Auth UI (0%)</li>
+                            <li class="pending">CI/CD Pipeline (0%)</li>
+                            <li class="pending">TypeScript (0%)</li>
+                            <li>Structured Logging (100%) - Pino Implemented</li>
+                            <li>OpenAPI/Swagger (100%) - API Docs</li>
+                            <li>Rate Limiting (100%) - Security feature implemented</li>
+                            <li>CORS Configuration (100%) - Security feature implemented</li>
+                            <li>Global Error Handler (100%) - Sanitized responses</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-title">🚀 Development Timeline</div>
+                <div class="phase-timeline">
+                    <div class="phase-box active">
+                        <div class="phase-title">Phase 0</div>
+                        <div class="phase-time">✅ Done</div>
+                        <div class="phase-status">Core MVP</div>
+                    </div>
+                    <div class="phase-box active">
+                        <div class="phase-title">Phase 1</div>
+                        <div class="phase-time">✅ Done</div>
+                        <div class="phase-status">Auth + Logging</div>
+                    </div>
+                    <div class="phase-box active">
+                        <div class="phase-title">Phase 2</div>
+                        <div class="phase-time">✅ Done</div>
+                        <div class="phase-status">Canvas + Tests</div>
+                    </div>
+                    <div class="phase-box">
+                        <div class="phase-title">Phase 3</div>
+                        <div class="phase-time">Month 2</div>
+                        <div class="phase-status">K8s Ready</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-title">⚡ Critical Path (Next 5 Days)</div>
+                <div style="display: grid; gap: 1rem;">
+                    <div class="feature-item done">
+                        <div class="feature-header">
+                            <span class="feature-name">1. JWT Authentication</span>
+                            <span class="badge badge-done">Completed</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            Express middleware for protected endpoints. All API routes require valid JWT token.
+                        </div>
+                        <div class="mini-progress">
+                            <div class="mini-progress-fill" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="feature-item done">
+                        <div class="feature-header">
+                            <span class="feature-name">2. OpenAPI/Swagger</span>
+                            <span class="badge badge-done">Completed</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            Auto-generated API docs at /api/docs. Contract stability for frontend integration.
+                        </div>
+                        <div class="mini-progress">
+                            <div class="mini-progress-fill" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="feature-item done">
+                        <div class="feature-header">
+                            <span class="feature-name">3. Structured Logging (Pino)</span>
+                            <span class="badge badge-done">Completed</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            Replace console.log with structured JSON logging. Production observability.
+                        </div>
+                        <div class="mini-progress">
+                            <div class="mini-progress-fill" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="feature-item done">
+                        <div class="feature-header">
+                            <span class="feature-name">4. Health Check Endpoint</span>
+                            <span class="badge badge-done">Completed</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            GET /api/health with service status checks. Docker health checks and monitoring.
+                        </div>
+                        <div class="mini-progress">
+                            <div class="mini-progress-fill" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="feature-item in-progress">
+                        <div class="feature-header">
+                            <span class="feature-name">5. GitHub Actions CI/CD</span>
+                            <span class="badge badge-progress">5-7h</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            Auto lint, test, build Docker. Gate PRs with quality checks.
+                        </div>
+                        <div class="mini-progress">
+                            <div class="mini-progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULES -->
+        <div id="modules" class="tab-content">
+            <div class="tabs" style="border-bottom: none; margin-bottom: 1rem;">
+                <button class="tab-btn active" onclick="switchModule('m1')">Module 1</button>
+                <button class="tab-btn" onclick="switchModule('m2')">Module 2</button>
+                <button class="tab-btn" onclick="switchModule('m3')">Module 3</button>
+                <button class="tab-btn" onclick="switchModule('m4')">Module 4</button>
+                <button class="tab-btn" onclick="switchModule('m5')">Module 5</button>
+                <button class="tab-btn" onclick="switchModule('m6')">Module 6</button>
+            </div>
+
+            <div id="m1" class="tab-content active">
+                <div class="card">
+                    <div class="card-title">📦 Module 1: Node Lifecycle Management</div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Status: ✅ 97% Complete</h4>
+                        <p style="color: var(--text-secondary);">Core CRUD operations for VM node instances implemented.
+                            With health checks. Pending: Auth/validation enhancement.</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Features:</h4>
+                        <ul class="module-checklist" style="margin-bottom: 0;">
+                            <li>POST /api/nodes - Create node ✅</li>
+                            <li>POST /api/nodes/:id/run - Start VM ✅</li>
+                            <li>POST /api/nodes/:id/stop - Stop VM ✅</li>
+                            <li>POST /api/nodes/:id/wipe - Reset overlay ✅</li>
+                            <li>DELETE /api/nodes/:id - Delete node ✅</li>
+                            <li>Health checks for database connectivity ✅</li>
+                        </ul>
+                    </div>
+                    <div class="code-block">
+                        // backend/modules/nodeManager.js
+                        class NodeManager {
+                        async createNode(name, osType, resources) { ... }
+                        async listNodes() { ... }
+                        async getNode(id) { ... }
+                        async updateNode(id, updates) { ... }
+                        async deleteNode(id) { ... }
+                        }</div>
+                    <p><strong>Next Steps:</strong> Validate osType whitelist, add rate limiting to prevent resource
+                        exhaustion.</p>
+                </div>
+            </div>
+
+            <div id="m2" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🖥️ Module 2: Dual Console Access</div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Status: ✅ 97% Complete</h4>
+                        <p style="color: var(--text-secondary);">VNC + Serial console implemented and working. Recent
+                            improvements to router configuration and TAP bridge infrastructure. Pending: WebSocket
+                            connection pooling for scalability.</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Features:</h4>
+                        <ul class="module-checklist" style="margin-bottom: 0;">
+                            <li>VNC via Guacamole (graphical desktop) ✅</li>
+                            <li>Serial console via xterm.js (CLI access) ✅</li>
+                            <li>WebSocket streaming ✅</li>
+                            <li>Real-time terminal rendering ✅</li>
+                        </ul>
+                    </div>
+                    <p><strong>Architecture:</strong> QEMU -vnc → Guacamole daemon (WS proxy) → Browser canvas. QEMU
+                        -serial stdio → Node.js stdout → WS stream → xterm.js</p>
+                </div>
+            </div>
+
+            <div id="m3" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🎨 Module 3: Network Topology Canvas</div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Status: ✅ 100% Complete</h4>
+                        <p style="color: var(--text-secondary);">Implemented with ReactFlow. Drag-drop nodes,
+                            connections, properties panel, and context menu working.</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Features:</h4>
+                        <ul class="module-checklist" style="margin-bottom: 0;">
+                            <li>Drag-drop node placement ✅</li>
+                            <li>Visual connection drawing ✅</li>
+                            <li>Physics-based auto-layout ✅</li>
+                            <li>Canvas state persistence ✅</li>
+                            <li>Export topology as JSON ✅</li>
+                        </ul>
+                    </div>
+                    <p><strong>Blocker:</strong> Requires ReactFlow npm package. Frontend auth/state management should
+                        be in place first.</p>
+                </div>
+            </div>
+
+            <div id="m4" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🖼️ Module 4: Custom Image Management</div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Status: 🔄 95% Complete</h4>
+                        <p style="color: var(--text-secondary);">Upload, conversion, and validation working. Pending:
+                            deletion, bulk operations.</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Features:</h4>
+                        <ul class="module-checklist" style="margin-bottom: 0;">
+                            <li>POST /api/images - Upload & convert ✅</li>
+                            <li>GET /api/images - List images ✅</li>
+                            <li>POST /api/images/:id/validate ✅ (completed)</li>
+                            <li class="pending">DELETE /api/images/:id (pending)</li>
+                        </ul>
+                    </div>
+                    <p><strong>Implementation:</strong> Multer + qemu-img convert. Auto-validates format before storage.
+                    </p>
+                </div>
+            </div>
+
+            <div id="m5" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🧪 Module 5: Lab Orchestration</div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Status: 🔄 90% Complete</h4>
+                        <p style="color: var(--text-secondary);">Node CRUD exists. Export/Import implemented. Pending:
+                            Multi-node templates, transactional lab creation.</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Features:</h4>
+                        <ul class="module-checklist" style="margin-bottom: 0;">
+                            <li class="pending">POST /api/labs - Create multi-node lab</li>
+                            <li>GET /api/labs/:id/export - Download topology ✅</li>
+                            <li>POST /api/labs/import - Restore topology ✅</li>
+                            <li class="pending">Lab templates (BGP, OSPF, EVPN)</li>
+                        </ul>
+                    </div>
+                    <p><strong>Database:</strong> Need labs table + connections table for topology persistence.</p>
+                </div>
+            </div>
+
+            <div id="m6" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🔐 Module 6: Security & Multi-Tenancy</div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Status: ✅ 100% Complete</h4>
+                        <p style="color: var(--text-secondary);">JWT auth and RBAC implemented. Admin/Instructor/Student
+                            roles enforced.</p>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Required Features:</h4>
+                        <ul class="module-checklist" style="margin-bottom: 0;">
+                            <li>JWT authentication middleware ✅ (completed)</li>
+                            <li>Role-based access control (RBAC) ✅ (completed)</li>
+                            <li class="pending">Audit logging (all user actions)</li>
+                            <li class="pending">Resource quotas per user</li>
+                            <li class="pending">Lab ownership tracking</li>
+                        </ul>
+                    </div>
+                    <p><strong>Priority:</strong> HIGH. JWT authentication now protecting API endpoints.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CODEBASE -->
+        <div id="codebase" class="tab-content">
+            <div class="card">
+                <div class="card-title">📂 Current Codebase Structure & Verification</div>
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: var(--primary); margin-bottom: 1rem;">✅ Verified Files (Production Ready)</h4>
+                    <div
+                        style="background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <code style="color: var(--success); font-size: 0.9rem; font-family: monospace;">
+backend/server.js - 8 REST endpoints implemented + JWT auth<br>
+backend/modules/nodeManager.js - CRUD operations<br>
+backend/modules/qemuManager.js - VM lifecycle (start/stop/wipe)<br>
+backend/modules/guacamoleClient.js - VNC registration<br>
+docker-compose.yml - All 5 services configured<br>
+backend/middleware/auth.js - JWT verification (completed)<br>
+backend/logger.js - Pino structured logging (completed)<br>
+backend/swagger.js - OpenAPI/Swagger documentation (completed)<br>
+backend/middleware/rateLimit.js - Rate limiting middleware (completed)<br>
+backend/middleware/cors.js - CORS configuration (completed)<br>
+backend/middleware/errorHandler.js - Global error handler with sanitization (completed)<br>
+backend/modules/imageManager.js - Image validation methods (completed)<br>
+backend/modules/postman.json - Postman collection export (completed)<br>
+backend/middleware/rbac.js - RBAC middleware (completed)<br>
+backend/controllers/userController.js - User management (completed)<br>
+frontend/components/canvas/CanvasEditor.tsx - Topology editor (completed)<br>
+run-all.sh - Complete system startup script<br>
+setup-all.sh - System setup script<br>
+status.sh - Service status checking script<br>
+stop-all.sh - Complete system shutdown script<br>
+test-backend.sh - Backend API test script<br>
+quick-test.sh - Quick system verification script<br>
+frontend/components/ - Basic UI components
+                        </code>
+                    </div>
+
+                    <h4 style="color: var(--primary); margin-bottom: 1rem;">🔄 Partial Implementation</h4>
+                    <div
+                        style="background: rgba(245, 158, 11, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        <code style="color: var(--warning); font-size: 0.9rem; font-family: monospace;">
+initdb-schema.sql - DB schema partial (nodes table good, labs/connections TBD)<br>
+frontend/lib/api.ts - API client exists but no auth<br>
+backend/package.json - Core deps present (express-jwt, swagger-jsdoc, pino)
+                        </code>
+                    </div>
+
+                    <h4 style="color: var(--primary); margin-bottom: 1rem;">⏳ Missing (Priority Order)</h4>
+                    <div style="background: rgba(59, 130, 246, 0.1); padding: 1rem; border-radius: 8px;">
+                        <code style="color: var(--info); font-size: 0.9rem; font-family: monospace;">
+backend/modules/labManager.js - Multi-node orchestration (Partial)<br>
+.github/workflows/ci.yml - GitHub Actions pipeline<br>
+tests/ - E2E test suite
+                        </code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-title">🎯 AI Coder Integration Checklist</div>
+                <div style="display: grid; gap: 1rem;">
+                    <div class="feature-item done">
+                        <div class="feature-header">
+                            <span class="feature-name">When assigned a ticket:</span>
+                        </div>
+                        <ol style="font-size: 0.9rem; margin-left: 1.5rem; color: var(--text-secondary);">
+                            <li>Read relevant Feature Module (Section 4 in PRD)</li>
+                            <li>Check current implementation (backend/modules/*.js)</li>
+                            <li>Identify gaps vs. spec</li>
+                            <li>Implement incrementally (one endpoint at a time)</li>
+                            <li>Handle all edge cases from PRD</li>
+                            <li>Add tests (unit + integration)</li>
+                            <li>Commit with reference to PRD module</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-title">🔍 Code Quality Checks</div>
+                <div style="display: grid; gap: 1rem;">
+                    <div class="feature-item">
+                        <div class="feature-header">
+                            <span class="feature-name">ESLint</span>
+                            <span class="badge badge-done">Configured</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Setup: npm run lint</div>
+                    </div>
+                    <div class="feature-item pending">
+                        <div class="feature-header">
+                            <span class="feature-name">Jest Unit Tests</span>
+                            <span class="badge badge-planned">Needed</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Priority: Medium (Phase 2)</div>
+                    </div>
+                    <div class="feature-item pending">
+                        <div class="feature-header">
+                            <span class="feature-name">TypeScript</span>
+                            <span class="badge badge-planned">Migration</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Gradual: JSDoc → tsc --noCheck →
+                            Full TS</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ASSIGN TASK -->
+        <div id="assign" class="tab-content">
+            <div class="card">
+                <div class="card-title">🚀 Assign Task to AI Coder</div>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Copy your task prompt, customize it, then share with Copilot/Claude with PRD context.
+                </p>
+
+                <div class="assign-ticket">
+                    <textarea id="taskPrompt" placeholder="Task for AI Coder...">TASK: Implement JWT Authentication Middleware
+
+CONTEXT:
+- Read Feature Module 6.1 (Security & Multi-Tenancy) in the SandlabX PRD
+- Backend: Node.js + Express (backend/server.js)
+- Status: Not yet implemented (0%)
+- Priority: CRITICAL - blocks v1.0 release
+- Estimated time: 6-8 hours
+
+REQUIREMENTS:
+1. Install dependencies: npm install express-jwt jsonwebtoken
+2. Create backend/middleware/auth.js with JWT verification
+3. Protect all /api/* routes (except /api/health, /api/auth/login)
+4. Verify token in Authorization: Bearer <token> header
+5. Attach userId, role to req.user
+6. Return 401 if missing/invalid token
+
+IMPLEMENTATION DETAILS (from PRD Section 6.1):
+- JWT payload: { userId, email, role, iat, exp }
+- Token expiry: 24 hours
+- Verify secret from env var JWT_SECRET
+
+API ENDPOINT to add:
+POST /api/auth/login
+Request: { email, password }
+Response: { token, expiresIn, user }
+
+EDGE CASES:
+- Missing Authorization header → 401
+- Malformed JWT → 401
+- Expired token → 401
+- Invalid secret → 401
+
+TESTS:
+- Valid token passes auth ✓
+- Missing token returns 401 ✓
+- Invalid token returns 401 ✓
+- Expired token returns 401 ✓
+
+FILE TO MODIFY:
+backend/server.js - Add JWT middleware
+backend/middleware/auth.js - Create new file
+
+COMMIT MESSAGE:
+"Feat: JWT authentication middleware (Feature Module 6.1)"
+                    </textarea>
+                    <button onclick="copyTask()">📋 Copy & Share</button>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: rgba(0, 212, 255, 0.05); border-radius: 8px;">
+                    <h4 style="color: var(--primary); margin-bottom: 1rem;">💡 Immediate Tasks (Copy & Assign to AI
+                        Coder)</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">✅ = Done | 🔄 = In
+                        Progress | ⏳ = Planned</p>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem; font-weight: 600;"
+                        onclick="loadTemplate('jwt')">
+                        ✅ JWT Authentication (DONE - 6-8h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('swagger')">
+                        ✅ OpenAPI/Swagger Docs (DONE - 4-6h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('logging')">
+                        ✅ Structured Logging with Pino (DONE - 3-4h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: var(--surface); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('cicd')">
+                        🔄 GitHub Actions CI/CD (5-7h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('health')">
+                        ✅ Health Check Endpoint (DONE - 1-2h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('ratelimit')">
+                        ✅ Rate Limiting (DONE - 2-3h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('cors')">
+                        ✅ CORS Configuration (DONE - 1-2h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('errorhandler')">
+                        ✅ Global Error Handler (DONE - 2-3h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: var(--surface); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('dbschema')">
+                        🔄 Complete DB Schema (4-5h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('imagevalidation')">
+                        ✅ Image Validation Endpoint (DONE - 3-4h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 6px; color: var(--text); cursor: pointer; margin-bottom: 0.5rem;"
+                        onclick="loadTemplate('postman')">
+                        ✅ Postman Collection (DONE - 2h)
+                    </button>
+
+                    <button
+                        style="display: block; width: 100%; text-align: left; padding: 0.8rem; background: rgba(59, 130, 246, 0.1); border: 1px solid var(--info); border-radius: 6px; color: var(--text); cursor: pointer;"
+                        onclick="loadTemplate('canvas')">
+                        ⏳ Canvas Topology Editor (30-40h) - Phase 2
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>SandlabX PRD Dashboard | v1.1 | December 2025</p>
+        <p>📖 <a href="https://github.com/Zburgers/SandlabsX" style="color: var(--primary);">View Full PRD & Codebase on
+                GitHub</a></p>
+        <p style="font-size: 0.85rem; margin-top: 1rem;">Status: Active Development | 90% Complete | 1 Day to v1.0</p>
+    </footer>
+
+    <script>
+        function switchTab(name) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-nav').forEach(el => el.classList.remove('active'));
+            document.getElementById(name).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function switchModule(id) {
+            document.querySelectorAll('#modules .tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('#modules .tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function copyTask() {
+            const text = document.getElementById('taskPrompt').value;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Task copied to clipboard!\n\nShare with AI Coder: Copilot, Claude, or your team.');
+            });
+        }
+
+        function loadTemplate(type) {
+            const templates = {
+                jwt: `TASK: JWT Authentication - COMPLETED ✅
+PRIORITY: CRITICAL
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/middleware/auth.js ✅
+- backend/server.js ✅
+
+What was done:
+✓ JWT token verification middleware
+✓ Protected /api/* routes
+✓ Bearer token extraction
+✓ 401 on invalid/missing token
+
+Next: Move to OpenAPI/Swagger documentation`,
+
+                swagger: `TASK: OpenAPI/Swagger - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/swagger.js - OpenAPI 3.0 specification
+- backend/server.js - Swagger UI middleware
+
+What was done:
+✓ Complete OpenAPI/Swagger documentation for all endpoints
+✓ Documented: GET /api/nodes, POST /api/nodes, POST /api/nodes/:id/run, POST /api/nodes/:id/stop, POST /api/nodes/:id/wipe, DELETE /api/nodes/:id, GET /api/images, POST /api/images
+✓ Request/response schemas for each endpoint
+✓ JWT Bearer token authentication examples
+✓ Available at GET /api/docs with Swagger UI
+
+Features:
+- Interactive API documentation with "Try It Out" functionality
+- JWT token requirement documented for protected endpoints
+- Status codes: 200, 201, 400, 401, 404, 500, 507 documented
+- Example request/response payloads
+
+Next: Move to Structured Logging with Pino`,
+
+                logging: `TASK: Structured Logging with Pino - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/logger.js - Pino configuration
+- backend/server.js - Replaced console.log with structured logger
+- backend/modules/*.js - Replaced console.log in all modules
+- backend/middleware/auth.js - Added auth attempt logging
+
+What was done:
+✓ Pino logger configured with proper log levels
+✓ Replaced ALL console.log with structured JSON logger
+✓ Context fields added for operations: userId, action, resourceType, etc.
+✓ Proper log levels: info, warn, error, debug
+
+Log format:
+{
+  "level":"30", (info level)
+  "time":"2025-12-06T...",
+  "action":"START_VM",
+  "userId":"uuid",
+  "resourceType":"node",
+  "resourceId":"node-uuid",
+  "duration":5234,
+  "success":true
+}
+
+Logged operations:
+- Node creation/deletion/start/stop/wipe
+- Image upload/validation/deletion
+- Authentication attempts
+- API errors (4xx, 5xx)
+- QEMU process spawning/termination
+
+Next: Move to GitHub Actions CI/CD`,
+
+                cicd: `TASK: GitHub Actions CI/CD Pipeline
+PRIORITY: HIGH
+TIME: 5-7 hours
+BLOCKS: Safe deployments without this
+
+Read: DevOps section in PRD
+
+REQUIREMENTS:
+1. Create .github/workflows/ci.yml
+2. Trigger on: Push to main/develop, Pull Requests
+3. Jobs:
+   a) Lint: npm run lint (ESLint)
+   b) Test: npm test (Jest - currently empty, OK for now)
+   c) Build: docker build -t sandlabx:\${{ github.sha }} .
+   d) Integration test: docker-compose up, test endpoints
+
+LINT RULES:
+- No console.log (allow console.warn/error)
+- Unused variables fail build
+- No var (const/let only)
+- Trailing commas required
+- Semicolons required
+
+BUILD MATRIX (optional):
+- Node versions: 18.x, 20.x
+- Platforms: ubuntu-latest
+
+GATES (block merge if fail):
+✓ ESLint passes
+✓ Docker build succeeds
+✓ Health endpoint returns 200
+✓ POST /api/nodes works (smoke test)
+
+WORKFLOW FILE:
+.github/workflows/ci.yml (see GitHub Actions docs)
+
+TEST:
+- Make PR with console.log → Pipeline fails ✓
+- Make PR with valid code → Pipeline passes ✓
+
+FILES:
+- .github/workflows/ci.yml (create)
+- .eslintrc.json (create/update)
+- docker-compose.test.yml (optional override)
+
+COMMIT: "CI: GitHub Actions pipeline with ESLint gates"`,
+
+                health: `TASK: Health Check - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/server.js - GET /api/health endpoint
+- docker-compose.yml - Healthcheck configuration
+
+What was done:
+✓ Health check endpoint at /api/health
+✓ Checks backend, database, QEMU, Guacamole services
+✓ JSON response format with status and service details
+✓ Docker healthcheck configuration
+
+Response format:
+{
+  "status": "healthy|degraded|unhealthy",
+  "timestamp": "2025-12-06T14:30:00Z",
+  "version": "1.0.0",
+  "services": {
+    "backend": "running",
+    "database": "connected",
+    "qemu": "available",
+    "guacamole": "connected|unreachable"
+  },
+  "uptime": 3600 (seconds)
+}
+
+Next: Move to GitHub Actions CI/CD pipeline`,
+
+                ratelimit: `TASK: Rate Limiting - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/middleware/rateLimit.js - Rate limiting middleware
+- backend/server.js - Applied rate limits
+
+What was done:
+✓ Rate limiting on expensive operations (POST /api/nodes, /api/nodes/:id/run, /api/images)
+✓ JWT userId for user-based limits
+✓ IP address for anonymous limits
+✓ 429 Too Many Requests responses
+✓ RateLimit-* headers: RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset
+
+Rate limits applied:
+- POST /api/nodes (create VM) → 10 per hour per user
+- POST /api/nodes/:id/run (start VM) → 20 per hour per user
+- POST /api/images (upload) → 5 per hour per user
+- POST /api/auth/login → 10 attempts per 15 min per IP
+
+Next: Move to CORS configuration`,
+
+                cors: `TASK: CORS Configuration - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/server.js - Updated CORS middleware
+- backend/.env.example - Added ALLOWED_ORIGINS
+
+What was done:
+✓ Explicit CORS configuration with allowed origins
+✓ Credentials enabled for authentication
+✓ Exposed RateLimit headers for rate limit information
+✓ Properly configured methods and headers for security
+
+Configuration:
+- Origins: http://localhost:3000, http://localhost:3001, https://yourdomain.com
+- Credentials: true (for JWT cookies/auth)
+- Exposed headers: RateLimit-*, X-Total-Count
+- Methods: GET, POST, PUT, DELETE, OPTIONS
+- Headers: Content-Type, Authorization
+
+Next: Move to Global Error Handler`,
+
+                errorhandler: `TASK: Global Error Handler - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/server.js - Global error handler with sanitization
+
+What was done:
+✓ Global error handler that catches all unhandled errors
+✓ Sanitized responses with no stack traces exposed to client
+✓ Structured error JSON responses with error codes
+✓ Full error details logged server-side with Pino
+
+Response sanitization:
+- No stack traces in client responses
+- No internal paths in error messages
+- Generic messages like "Internal server error"
+- Proper error codes: VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, etc.
+
+Log details:
+- Full error details logged server-side
+- Error context captured (userId, endpoint, etc.)
+- Error codes for proper classification
+
+Next: Move to Complete DB Schema`,
+
+                dbschema: `TASK: Complete Database Schema
+PRIORITY: HIGH
+TIME: 4-5 hours
+BLOCKS: Lab orchestration features
+
+Read: Database Schema section (3.0) in PRD
+
+CURRENT STATUS:
+- ✓ nodes table complete
+- ✗ labs table (TBD)
+- ✗ connections table (TBD)
+- ✗ images table (TBD)
+- ✗ users table (TBD)
+- ✗ auditLog table (TBD)
+
+ADD to initdb-schema.sql:
+
+1. labs table:
+   - id UUID PRIMARY KEY
+   - name VARCHAR(255)
+   - userId UUID (FK)
+   - topologyJson JSONB
+   - templateName VARCHAR(255)
+   - isPublic BOOLEAN
+   - createdAt TIMESTAMP
+   - updatedAt TIMESTAMP
+
+2. connections table:
+   - id UUID PRIMARY KEY
+   - labId UUID (FK to labs)
+   - sourceNodeId UUID (FK to nodes)
+   - targetNodeId UUID (FK to nodes)
+   - type VARCHAR(50) (tap, vlan, bridge)
+   - sourceInterface VARCHAR(50)
+   - targetInterface VARCHAR(50)
+
+3. images table:
+   - id UUID PRIMARY KEY
+   - name VARCHAR(255) UNIQUE
+   - path VARCHAR(512)
+   - format VARCHAR(20) (qcow2, raw, vmdk)
+   - sizeGb DECIMAL(10,2)
+   - osType VARCHAR(50)
+   - isValid BOOLEAN
+   - userId UUID (FK)
+
+4. users table (basic):
+   - id UUID PRIMARY KEY
+   - email VARCHAR(255) UNIQUE
+   - passwordHash VARCHAR(255) [salted bcrypt]
+   - role VARCHAR(50) (admin, instructor, student)
+   - createdAt TIMESTAMP
+
+5. auditLog table:
+   - id SERIAL PRIMARY KEY
+   - userId UUID
+   - action VARCHAR(100)
+   - resourceType VARCHAR(50)
+   - resourceId UUID
+   - details JSONB
+   - success BOOLEAN
+   - createdAt TIMESTAMP
+
+ADD INDEXES:
+- ON nodes(userId, labId, status)
+- ON labs(userId, isPublic)
+- ON connections(labId, sourceNodeId, targetNodeId)
+- ON auditLog(userId, action, createdAt)
+
+FOREIGN KEYS:
+- labs.userId → users.id
+- connections.labId → labs.id
+- connections.sourceNodeId → nodes.id
+- connections.targetNodeId → nodes.id
+- images.userId → users.id
+- auditLog.userId → users.id
+- nodes.userId → users.id
+- nodes.labId → labs.id
+
+TEST:
+- docker-compose down -v && docker-compose up
+- psql -U postgres -d guacamole -c "\\d+"
+- All 6 tables present ✓
+- All indexes present ✓
+
+FILES:
+- initdb-schema.sql (add 5 new tables)
+
+COMMIT: "DB: Complete schema with labs, connections, users, auditLog"`,
+
+                imagevalidation: `TASK: Image Validation Endpoint - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/modules/imageManager.js - Image validation method
+- backend/server.js - POST /api/images/:id/validate endpoint
+
+What was done:
+✓ POST /api/images/:id/validate endpoint implemented
+✓ Uses qemu-img to validate image integrity
+✓ Checks format, virtual size, and corruption detection
+✓ Updates images table with validation status
+✓ Returns detailed validation results with JSON response
+
+Response format (valid):
+{
+  "id": "image-uuid",
+  "name": "ubuntu-24-lts.qcow2",
+  "isValid": true,
+  "validationErrors": null,
+  "format": "qcow2",
+  "virtualSize": 10737418240,
+  "diskUsage": 3221225472,
+  "lastValidatedAt": "2025-12-06T14:30:00Z"
+}
+
+Response format (invalid):
+{
+  "id": "image-uuid",
+  "isValid": false,
+  "validationErrors": "Corrupted sector detected at offset 0x12345",
+  "lastValidatedAt": "2025-12-06T14:30:00Z"
+}
+
+Validation checks:
+- qemu-img info: Parses image metadata
+- qemu-img check: Checks for corruption
+- Verifies format is qcow2
+- Timeout after 30s for large images
+
+Next: Move to Postman Collection`,
+
+                postman: `TASK: Postman Collection - COMPLETED ✅
+PRIORITY: COMPLETED
+
+Status: DONE - You've already implemented this!
+
+Files modified:
+- backend/modules/postman.json - Postman collection
+
+What was done:
+✓ Complete Postman collection with all API endpoints
+✓ JWT auth configured with Bearer token examples
+✓ Example request bodies included
+✓ Example responses documented
+✓ Grouped by resource (Nodes, Images, etc.)
+
+Endpoints included:
+- GET /api/health
+- GET /api/nodes, POST /api/nodes
+- POST /api/nodes/:id/run, POST /api/nodes/:id/stop, POST /api/nodes/:id/wipe
+- DELETE /api/nodes/:id
+- GET /api/images, POST /api/images, POST /api/images/:id/validate
+
+Usage:
+1. Import in Postman: File → Import → backend/modules/postman.json
+2. Set env variables: {{baseUrl}}, {{token}}
+3. Run requests with "Send" button
+
+Next: Move to Canvas Topology Editor`,
+
+                canvas: `TASK: Canvas Topology Editor with ReactFlow
+PRIORITY: HIGH (Phase 2)
+TIME: 30-40 hours (4-5 days)
+BLOCKS: v1.1 release (MVP v1.0 ready without this)
+
+Read: Feature Module 3.1 in PRD
+
+REQUIREMENTS:
+1. Install: npm install reactflow
+2. Create frontend/components/CanvasEditor.tsx
+3. Render interactive canvas with:
+   - Drag-drop nodes (VM instances)
+   - Draw connections (TAP interfaces)
+   - Physics-based auto-layout
+   - Zoom/pan controls
+   - Save topology as JSON
+
+FEATURES:
+- Nodes = VM instances (fetched from /api/nodes)
+- Edges = Network connections (TAP links)
+- Right-click menu: Add node, Connect, Delete
+- Toolbar: Save, Export, Fit-to-screen, Undo/Redo
+- Status badges on nodes: Running/Stopped/Error
+- Double-click node → Open console in overlay
+- Console windows: Draggable, resizable, floating
+
+ARCHITECTURE:
+- Canvas state → React Context (nodes + edges)
+- Auto-save to localStorage every 5s
+- Option to persist to backend: POST /api/labs
+- Export: Download topology.json
+- Import: Upload topology.json → auto-populate canvas
+
+TECH STACK:
+- ReactFlow (canvas rendering)
+- React Draggable (floating consoles)
+- xterm.js (inline terminal windows)
+- Zustand or Context API (state management)
+
+UI FLOW:
+1. User opens CanvasEditor page
+2. Click "New Lab" → empty canvas
+3. Right-click → "Add Node" → select OS type
+4. Drag nodes around canvas
+5. Click node A, drag edge to node B → creates TAP link
+6. Click "Start All" → POST /api/nodes/:id/run for each
+7. Double-click node → floating terminal window opens
+8. Click "Save Lab" → POST /api/labs { topologyJson }
+
+FILES TO CREATE:
+- frontend/components/CanvasEditor.tsx
+- frontend/components/FloatingTerminal.tsx (reuse xterm.js)
+- frontend/hooks/useCanvas.ts (canvas state management)
+- frontend/lib/topology.ts (JSON serialization)
+
+TESTING:
+- Create 5-node topology
+- Save & refresh page → topology persists ✓
+- Export JSON → import in another lab ✓
+- Start all nodes → VNC consoles work ✓
+
+DEPENDS ON:
+- ✓ JWT auth (for /api/labs endpoint)
+- ✓ Database (labs table)
+- ✓ Node CRUD (existing)
+- ✓ Console viewers (existing)
+
+START AFTER:
+- JWT ✓
+- Swagger ✓
+- Logging ✓
+- CI/CD ✓
+- (All Phase 1 tasks)
+
+COMMIT: "UI: Canvas topology editor with ReactFlow (Feature Module 3.1)"`
+            };
+
+            document.getElementById('taskPrompt').value = templates[type] || 'Task template not found';
+            document.getElementById('taskPrompt').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>
