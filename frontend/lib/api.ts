@@ -11,7 +11,9 @@ import type {
   ImageInfo,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// Normalize base URL: strip trailing /api if present, then add /api
+// This ensures consistent behavior whether NEXT_PUBLIC_API_URL includes /api or not
+const API_BASE_URL = ((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '')) + '/api';
 
 class ApiClient {
   private baseUrl: string;
@@ -25,10 +27,14 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      // Get token from localStorage
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
           ...options.headers,
         },
       });
@@ -36,6 +42,10 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        // If we get a 401, the token might be expired or invalid
+        if (response.status === 401) {
+          this.clearAuth();
+        }
         return {
           success: false,
           error: data.error || data.message || 'Request failed',
@@ -52,6 +62,14 @@ class ApiClient {
         success: false,
         error: error instanceof Error ? error.message : 'Network error',
       };
+    }
+  }
+
+  // Method to clear authentication data
+  private clearAuth() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
   }
 
@@ -73,7 +91,7 @@ class ApiClient {
         cpus: data.resources.cpu,
       } : undefined,
     };
-    
+
     return this.request<CreateNodeResponse>('/nodes', {
       method: 'POST',
       body: JSON.stringify(backendRequest),

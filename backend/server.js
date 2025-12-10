@@ -155,6 +155,9 @@ app.use('/api', authMiddleware);
 // Enrich user with role from database after JWT auth
 app.use('/api', enrichUserRole);
 
+// Auth Routes (Protected)
+app.post('/api/auth/change-password', authController.changePassword);
+
 // =======================
 // NODE ENDPOINTS
 // =======================

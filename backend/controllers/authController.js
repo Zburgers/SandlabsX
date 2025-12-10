@@ -174,4 +174,88 @@ const login = async (req, res) => {
     }
 };
 
-module.exports = { register, login };
+/**
+ * POST /api/auth/change-password
+ * Change user password
+ */
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user?.id; // From JWT token
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'User not authenticated',
+                code: 'UNAUTHORIZED'
+            });
+        }
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current password and new password required',
+                code: 'VALIDATION_ERROR'
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                error: 'New password must be at least 8 characters',
+                code: 'VALIDATION_ERROR'
+            });
+        }
+
+        // Get current user
+        const userResult = await pool.query(
+            'SELECT password_hash FROM sandlabx_users WHERE id = $1',
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found',
+                code: 'NOT_FOUND'
+            });
+        }
+
+        const user = userResult.rows[0];
+
+        // Verify current password
+        if (!verifyPassword(currentPassword, user.password_hash)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current password is incorrect',
+                code: 'INVALID_PASSWORD'
+            });
+        }
+
+        // Hash new password
+        const newPasswordHash = hashPassword(newPassword);
+
+        // Update password
+        await pool.query(
+            'UPDATE sandlabx_users SET password_hash = $1 WHERE id = $2',
+            [newPasswordHash, userId]
+        );
+
+        logger.info({ action: 'changePassword', userId }, 'User password changed');
+
+        res.json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+
+    } catch (error) {
+        logger.error({ err: error, action: 'changePassword' }, 'Password change failed');
+        res.status(500).json({
+            success: false,
+            error: 'Password change failed',
+            code: 'INTERNAL_ERROR'
+        });
+    }
+};
+
+module.exports = { register, login, changePassword };

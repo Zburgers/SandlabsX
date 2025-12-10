@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
+import { isAuthenticated, fetchUserProfile } from '../../lib/auth';
 
 export default function AuthPage() {
     const router = useRouter();
@@ -11,6 +12,22 @@ export default function AuthPage() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Check if user is already authenticated on mount
+    useEffect(() => {
+        const checkAuth = async () => {
+            if (isAuthenticated()) {
+                // Verify token is still valid
+                const result = await fetchUserProfile();
+                if (result.success) {
+                    // User is authenticated, redirect to dashboard
+                    router.push('/');
+                }
+            }
+        };
+
+        checkAuth();
+    }, [router]);
 
     // Clear error when switching modes
     useEffect(() => {
@@ -25,10 +42,11 @@ export default function AuthPage() {
         setError(null);
 
         const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        // Normalize: strip trailing /api if present to avoid double /api paths
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '');
 
         try {
-            const res = await fetch(`${apiUrl}${endpoint}`, {
+            const res = await fetch(`${baseUrl}${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

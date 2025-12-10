@@ -7,6 +7,10 @@ import { Button } from '../components/Button';
 import { NodeCard } from '../components/NodeCard';
 import { CreateNodeModal } from '../components/CreateNodeModal';
 import { apiClient } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
+import { useRouter } from 'next/navigation';
+import { AccountDropdown } from '../components/AccountDropdown';
+import { User } from '../lib/auth';
 
 const GuacamoleViewer = dynamic(
   () => import('../components/GuacamoleViewer').then((mod) => mod.GuacamoleViewer),
@@ -14,23 +18,56 @@ const GuacamoleViewer = dynamic(
 );
 
 export default function Home() {
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
+
   const [nodes, setNodes] = useState<Node[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load nodes on component mount and set up polling
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+  // If not authenticated, redirect to auth page
   useEffect(() => {
-    loadNodes();
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth');
+    }
+  }, [authLoading, isAuthenticated]);
 
-    // Poll for status updates every 3 seconds
-    const pollInterval = setInterval(() => {
+  // Load nodes on component mount and set up polling
+  // This hook must always be called, even if we're going to return early
+  useEffect(() => {
+    // Only load nodes if authenticated
+    if (!authLoading && isAuthenticated) {
       loadNodes();
-    }, 3000);
 
-    return () => clearInterval(pollInterval);
-  }, []);
+      // Poll for status updates every 3 seconds
+      const pollInterval = setInterval(() => {
+        loadNodes();
+      }, 3000);
+
+      return () => clearInterval(pollInterval);
+    }
+  }, [authLoading, isAuthenticated]); // Added dependencies
+
+  // NOW we can do early returns after all hooks are called
+  // If authentication is still loading or user is not loaded yet, show loading
+  if (authLoading || (!isAuthenticated && !user)) {
+    return (
+      <div className="min-h-screen bg-lab-darker grid-pattern flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lab-primary mx-auto mb-4"></div>
+          <p className="text-gray-400">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated (shouldn't normally happen due to redirect, but as a safety check)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const loadNodes = async () => {
     // Only show loading on initial load
@@ -227,6 +264,8 @@ export default function Home() {
                 >
                   Add Node
                 </Button>
+                {/* Account Dropdown */}
+                {user && <AccountDropdown user={user} />}
               </div>
             </div>
           </div>
