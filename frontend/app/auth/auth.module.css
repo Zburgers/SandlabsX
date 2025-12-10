@@ -1,0 +1,194 @@
+/* Deep Void Background */
+.authContainer {
+  background-color: #0d1117;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.03) 0%, transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Abstract Network Nodes (Background Animation) */
+.networkNodes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.node {
+  position: absolute;
+  background: #00f0ff;
+  border-radius: 50%;
+  opacity: 0.2;
+  animation: float 10s infinite ease-in-out;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, -20px); }
+}
+
+/* Glassmorphic Card */
+.authCard {
+  background: rgba(13, 17, 23, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Terminal Input Fields */
+.inputGroup {
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.inputLabel {
+  display: block;
+  color: #8b949e;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+  font-family: 'Inter', monospace;
+}
+
+.inputField {
+  width: 100%;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.75rem 1rem 0.75rem 2.5rem; /* Space for icon */
+  color: #c9d1d9;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.inputField:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.2);
+  background: #0d1117;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 12px;
+  top: 38px; /* Adjust based on label height */
+  color: #8b949e;
+  transition: color 0.2s ease;
+}
+
+.inputField:focus + .inputIcon,
+.inputGroup:focus-within .inputIcon {
+  color: #00f0ff;
+}
+
+/* Electric Blue Button */
+.submitButton {
+  width: 100%;
+  background: linear-gradient(135deg, #00f0ff 0%, #00a8ff 100%);
+  border: none;
+  border-radius: 6px;
+  padding: 0.875rem;
+  color: #000;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.submitButton:hover {
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.submitButton:active {
+  transform: translateY(1px);
+}
+
+/* Toggle Switch */
+.toggleContainer {
+  display: flex;
+  background: #161b22;
+  border-radius: 999px;
+  padding: 4px;
+  margin-bottom: 2rem;
+  border: 1px solid #30363d;
+}
+
+.toggleButton {
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+}
+
+.toggleButton.active {
+  background: #21262d;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Logo Shimmer */
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+  text-align: center;
+  background: linear-gradient(to right, #fff 0%, #8b949e 50%, #fff 100%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+.subtitle {
+  text-align: center;
+  color: #8b949e;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.error {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+  color: #ff6b6b;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  text-align: center;
+}

@@ -90,7 +90,13 @@ const {
   requireNodeAccess,
   enrichUserRole
 } = require('./middleware/rbac');
+
 const userController = require('./controllers/userController');
+const authController = require('./controllers/authController');
+
+// Auth Routes (Public)
+app.post('/api/auth/login', authController.login);
+app.post('/api/auth/register', authController.register);
 
 // Import Swagger UI
 const swaggerUi = require('swagger-ui-express');
