@@ -74,6 +74,8 @@ services:
       - ./overlays:/overlays
       - ./vms:/vms
       - ./backend/modules:/app/modules
+      - ./backend/middleware:/app/middleware
+      - ./backend/controllers:/app/controllers
       - ./backend/server.js:/app/server.js
     depends_on:
       - postgres

@@ -81,6 +81,16 @@ let wsServer;
 // Import JWT auth middleware
 const authMiddleware = require('./middleware/auth');
 
+// Import RBAC middleware and user controller
+const {
+  requireRole,
+  requireOwnership,
+  requireLabAccess,
+  requireNodeAccess,
+  enrichUserRole
+} = require('./middleware/rbac');
+const userController = require('./controllers/userController');
+
 // Import Swagger UI
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
@@ -134,6 +144,9 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Apply JWT authentication to all subsequent /api routes
 app.use('/api', authMiddleware);
+
+// Enrich user with role from database after JWT auth
+app.use('/api', enrichUserRole);
 
 // =======================
 // NODE ENDPOINTS
@@ -213,7 +226,7 @@ app.get('/api/nodes/:id', async (req, res) => {
  * POST /api/nodes
  * Create a new node (creates QCOW2 overlay)
  */
-app.post('/api/nodes', createNodeLimiter, async (req, res) => {
+app.post('/api/nodes', requireRole(['admin', 'instructor']), createNodeLimiter, async (req, res) => {
   try {
     const { name, osType, resources, imageType, customImageName } = req.body;
     const resolvedOsType = osType || 'ubuntu';
@@ -470,7 +483,7 @@ app.post('/api/nodes/:id/configure-router', async (req, res) => {
  * DELETE /api/nodes/:id
  * Delete a node completely (stop VM, delete overlay, remove from state)
  */
-app.delete('/api/nodes/:id', async (req, res) => {
+app.delete('/api/nodes/:id', requireRole(['admin', 'instructor']), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -640,7 +653,7 @@ app.post('/api/images/:id/validate', async (req, res) => {
  * POST /api/labs
  * Create a new lab with topology
  */
-app.post('/api/labs', async (req, res) => {
+app.post('/api/labs', requireRole(['admin', 'instructor']), async (req, res) => {
   try {
     const userId = req.auth?.sub;
     if (!userId) {
@@ -756,7 +769,7 @@ app.get('/api/labs/:id', async (req, res) => {
  * PATCH /api/labs/:id
  * Update a lab
  */
-app.patch('/api/labs/:id', async (req, res) => {
+app.patch('/api/labs/:id', requireRole(['admin', 'instructor']), async (req, res) => {
   try {
     const userId = req.auth?.sub;
     if (!userId) {
@@ -796,7 +809,7 @@ app.patch('/api/labs/:id', async (req, res) => {
  * DELETE /api/labs/:id
  * Delete a lab
  */
-app.delete('/api/labs/:id', async (req, res) => {
+app.delete('/api/labs/:id', requireRole(['admin', 'instructor']), async (req, res) => {
   try {
     const userId = req.auth?.sub;
     if (!userId) {
@@ -910,6 +923,46 @@ app.post('/api/labs/import', async (req, res) => {
     });
   }
 });
+
+// =======================
+// USER ENDPOINTS (Admin)
+// =======================
+
+/**
+ * GET /api/users/me
+ * Get current user profile
+ */
+app.get('/api/users/me', userController.getCurrentUser);
+
+/**
+ * GET /api/users
+ * List all users (admin only)
+ */
+app.get('/api/users', requireRole(['admin']), userController.listUsers);
+
+/**
+ * GET /api/users/:id
+ * Get user by ID (admin only)
+ */
+app.get('/api/users/:id', requireRole(['admin']), userController.getUser);
+
+/**
+ * POST /api/users
+ * Create a new user (admin only)
+ */
+app.post('/api/users', requireRole(['admin']), userController.createUser);
+
+/**
+ * PATCH /api/users/:id/role
+ * Update user role (admin only)
+ */
+app.patch('/api/users/:id/role', requireRole(['admin']), userController.updateUserRole);
+
+/**
+ * DELETE /api/users/:id
+ * Delete a user (admin only)
+ */
+app.delete('/api/users/:id', requireRole(['admin']), userController.deleteUser);
 
 // =======================
 // ERROR HANDLERS
