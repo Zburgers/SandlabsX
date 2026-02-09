@@ -145,6 +145,287 @@ Once everything is running:
 5. **Stop Node**: Click "Stop" button
 6. **Wipe Node**: Click "Wipe" to reset to clean state
 
+---
+
+## 📖 User Guide - Step by Step Demo
+
+This section provides a complete visual walkthrough of SandBoxLabs from a student user's perspective, demonstrating both **Dashboard Mode** and **Canvas Editor Mode**.
+
+### 1. Login to SandLabX
+
+Start by navigating to `http://localhost:3000` and logging in with your credentials.
+
+![Login Page](./docs/screenshots/01-login-page.png)
+
+**Test Credentials:**
+- Email: `ekagra7865@gmail.com`
+- Password: `123nakshatra`
+
+---
+
+### 2. Dashboard Overview
+
+After login, you'll see the main dashboard showing all your virtual machines (nodes). The dashboard displays:
+
+- **Statistics**: Total nodes, running/stopped counts, total vCPUs
+- **Node Cards**: Each VM is displayed as a card with details
+- **Quick Actions**: Start, Stop, Wipe, Delete buttons per node
+- **Navigation**: Access to Canvas Editor mode via top navigation
+
+![Dashboard Overview](./docs/screenshots/02-dashboard-overview.png)
+
+In this example, there are 2 existing nodes:
+- **Cisco Router** (💻 node-13a636d7) - Stopped, 1 CPU, 1024MB RAM
+- **Alpine Linux** (🏔️ node-6ad540ac) - Stopped, 1 CPU, 1024MB RAM, VNC port 5900
+
+---
+
+### 3. Starting Virtual Machines
+
+Click the **"▶️ Start"** button on any node to boot the virtual machine. The system will:
+
+1. Allocate VNC port (if using VNC console)
+2. Spawn QEMU process with your configured resources
+3. Connect to Guacamole for console access
+4. Update status to "Running"
+
+![One VM Running](./docs/screenshots/04-one-vm-running.png)
+
+**Status Indicators:**
+- **● Green** = Running
+- **○ Gray** = Stopped
+
+---
+
+### 4. Both VMs Running
+
+You can run multiple VMs simultaneously. The header statistics update in real-time:
+
+![Both VMs Running](./docs/screenshots/05-both-vms-running.png)
+
+Notice:
+- Header now shows **"● 2 Running"** and **"○ 0 Stopped"**
+- Each running node shows a **"🖥️ Connect Console"** button
+- **Stop**, **Wipe**, and **Delete** actions are available
+
+---
+
+### 5. Accessing VM Consoles
+
+#### Serial Console (Cisco Router)
+
+Click **"🖥️ Connect Console"** on the Cisco Router node to access its serial console. The router boots and displays:
+
+- SeaBIOS boot screen
+- iPXE network boot
+- GRUB bootloader
+- IOS router prompt (when fully booted)
+
+![Router Serial Console](./docs/screenshots/06-router-serial-console.png)
+
+**Console Features:**
+- Real-time terminal streaming via WebSocket
+- Keyboard input support
+- Copy/paste functionality
+- Ctrl+Alt+Del button
+- Fullscreen mode
+
+---
+
+#### VNC Console (Alpine Linux)
+
+Click **"🖥️ Connect Console"** on the Alpine Linux node to access its graphical VNC console via Apache Guacamole.
+
+![Alpine VNC Console](./docs/screenshots/07-alpine-vnc-console.png)
+
+**VNC Console Features:**
+- Browser-based graphical desktop access
+- Apache Guacamole integration
+- No VNC client installation required
+- Mouse and keyboard passthrough
+- Copy/paste support (Ctrl+Alt+Shift)
+- Screenshot and fullscreen capabilities
+
+**Guacamole Connection Details:**
+- Protocol: VNC
+- Port: 5900 (auto-assigned)
+- Status: Active
+
+---
+
+### 6. Canvas Editor Mode - Network Topology Designer
+
+Click **"🎨 Canvas Editor"** in the top navigation to switch to the visual network topology designer.
+
+![Canvas Network Topology](./docs/screenshots/08-canvas-network-topology.png)
+
+**Canvas Editor Features:**
+- **Visual Node Representation**: All VMs displayed as draggable nodes
+- **Real-time Status**: Node colors and badges reflect current state
+- **Mini Map**: Bottom-right overview of entire topology
+- **Toolbar Controls**:
+  - ➕ Add Node
+  - 🔍+ Zoom In
+  - 🔍- Zoom Out
+  - 📐 Fit View
+  - 📊 Auto Layout
+  - 📤 Export Topology
+  - 🗑️ Delete Selected
+
+---
+
+### 7. Node Properties Panel
+
+Select any node in the Canvas Editor to view its detailed properties in the right panel.
+
+![Node Properties Panel](./docs/screenshots/09-node-properties-panel.png)
+
+**Properties Displayed:**
+- **Name**: Unique node identifier
+- **OS Type**: Operating system with icon
+- **Status**: Running/Stopped indicator
+- **Resources**: vCPU cores and RAM allocation
+- **Actions**: Stop, Wipe, Delete buttons
+
+**Quick Actions from Canvas:**
+- **⏹ Stop**: Shutdown the VM
+- **🔄 Wipe**: Reset to clean state (disabled while running)
+- **🗑️ Delete Node**: Remove completely
+
+---
+
+### 8. Creating New Nodes
+
+Click **"➕ Add Node"** from either the Dashboard or Canvas Editor to create a new virtual machine.
+
+![Add Node Modal](./docs/screenshots/10-add-node-modal.png)
+
+**Node Creation Options:**
+
+**1. Node Name (Optional)**
+- Custom name for easy identification
+- Auto-generated if left blank (e.g., `node-13a636d7`)
+
+**2. Operating System Selection**
+- 🐧 **Ubuntu** - Ubuntu Server 24.04 LTS
+- 🌀 **Debian** - Debian 12 Bookworm
+- 🏔️ **Alpine** - Alpine Linux 3.X (lightweight)
+- 🎩 **Fedora** - Fedora Server
+- 🌐 **Cisco Router** - Cisco IOS Router
+
+**3. Resource Allocation**
+- **vCPU**: 1-8 cores (slider)
+- **RAM**: 512MB - 16GB (slider)
+
+**4. Actions**
+- **Cancel**: Close modal without creating
+- **Create Node**: Provision the new VM
+
+The system will:
+1. Create QCOW2 overlay disk (copy-on-write from base image)
+2. Register node in database
+3. Display new node card on dashboard
+4. Node starts in "Stopped" state, ready to boot
+
+---
+
+## 🎯 Key Features Demonstrated
+
+### Dashboard Mode
+✅ Real-time VM management with status updates (5-second polling)  
+✅ Start/Stop/Wipe operations per node  
+✅ Resource information display (CPU, RAM, Disk)  
+✅ Direct console access (Serial + VNC)  
+✅ Node creation wizard  
+✅ Multi-VM support with independent lifecycle  
+
+### Canvas Editor Mode
+✅ Visual network topology designer  
+✅ Drag-and-drop node arrangement  
+✅ Real-time status synchronization  
+✅ Properties panel for detailed node info  
+✅ Zoom, pan, and auto-layout controls  
+✅ Export topology configuration  
+✅ Mini-map for large topologies  
+
+### Console Access
+✅ **Serial Console** for router/CLI-based systems (WebSocket streaming)  
+✅ **VNC Console** for graphical desktop environments (Apache Guacamole)  
+✅ Full keyboard and mouse support  
+✅ Copy/paste functionality  
+✅ Fullscreen mode  
+✅ Multi-tab support for accessing multiple consoles simultaneously  
+
+### VM Management
+✅ **Instant provisioning** using QCOW2 overlays (no disk copying)  
+✅ **Wipe feature** resets VM to clean state without recreating  
+✅ **Resource limits** configurable per VM (CPU, RAM)  
+✅ **Persistent storage** - all VM data survives container restarts  
+✅ **Dynamic VNC port allocation** for multi-VM environments  
+
+---
+
+## 🔄 Common Workflows
+
+### Creating and Accessing a New Lab Environment
+
+1. Click **"+ Add Node"** button
+2. Select operating system (e.g., Ubuntu)
+3. Adjust resources (2 vCPU, 2GB RAM)
+4. Click **"Create Node"**
+5. Wait for node card to appear (1-2 seconds)
+6. Click **"▶️ Start"** to boot VM
+7. Wait for status to change to "● Running" (3-5 seconds)
+8. Click **"🖥️ Connect Console"** to access
+9. Work in your VM environment
+10. Click **"Stop"** when finished
+
+### Designing Network Topologies
+
+1. Click **"🎨 Canvas Editor"** in top navigation
+2. View existing nodes on canvas
+3. Click **"➕ Add Node"** to create new VMs
+4. Drag nodes to arrange topology visually
+5. Click **"📊 Auto Layout"** for automatic organization
+6. Select nodes to view/edit properties
+7. Click **"📤 Export Topology"** to save configuration
+8. Click **"← Back to Dashboard"** to return to node management
+
+### Resetting a VM to Clean State
+
+1. Ensure VM is **stopped** (click "Stop" if running)
+2. Click **"Wipe Disk"** button on node card
+3. Confirm the action
+4. System deletes overlay and recreates from base image (5-10 seconds)
+5. VM is now in fresh state, identical to first boot
+6. Click **"▶️ Start"** to boot the clean VM
+
+---
+
+## 💡 Tips and Best Practices
+
+**Console Access:**
+- Open multiple consoles in separate browser tabs for multi-VM workflows
+- Use serial console for CLI-based systems (routers, servers)
+- Use VNC console for desktop environments (Ubuntu Desktop, Fedora Workstation)
+
+**Resource Management:**
+- Start with minimal resources (1 CPU, 1GB RAM) and increase if needed
+- Monitor system resources when running multiple VMs
+- Stop unused VMs to free up system resources
+
+**Network Lab Design:**
+- Use Canvas Editor to visualize complex topologies
+- Name nodes descriptively (e.g., "web-server-1", "db-primary")
+- Export topology configuration before making major changes
+
+**VM Maintenance:**
+- Use **Wipe** instead of **Delete** if you want to keep the node configuration
+- **Delete** removes the node completely (overlay + database record)
+- **Wipe** keeps the node but resets disk to clean state
+
+---
+
 ## 📁 Complete Project Structure
 ## 🧭 Task 2 Routed Lab Workflow (Manual)
 
