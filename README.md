@@ -55,37 +55,76 @@ A production-ready network lab virtualization platform that enables users to cre
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      USER BROWSER                            │
-│                   http://localhost:3000                      │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                  ┌────────▼────────┐
-                  │  Frontend UI    │  Next.js 15 + React 19
-                  │   Port 3000     │  Canvas Editor + Dashboard
-                  └────────┬────────┘
-                           │ REST API (JWT Auth)
-                  ┌────────▼────────┐
-                  │  Backend API    │  Node.js + Express
-                  │   Port 3001     │  VM Lifecycle Management
-                  └────┬───────┬────┘
-                       │       │
-         ┌─────────────┘       └──────────────┐
-         │                                     │
-  ┌──────▼──────┐                    ┌────────▼────────┐
-  │ QEMU Manager│                    │  PostgreSQL DB   │
-  │  (Overlays) │                    │   Port 5432      │
-  └──────┬──────┘                    └────────┬─────────┘
-         │                                     │
-  ┌──────▼──────────┐              ┌──────────▼─────────┐
-  │  QEMU/KVM VMs   │              │  Guacamole Web     │
-  │  VNC: 5900+     │◄─────────────┤  Port 8081         │
-  │  (*.qcow2)      │     VNC      └──────────┬─────────┘
-  └─────────────────┘              ┌──────────▼─────────┐
-                                   │  Guacd VNC Proxy   │
-                                   │  Port 4822         │
-                                   └────────────────────┘
+```mermaid
+graph TB
+    subgraph "User Browser"
+        A["🌐 User Interface<br/>http://localhost:3000"]
+    end
+    
+    subgraph "Frontend Layer"
+        B["📱 Frontend UI<br/>Next.js 15 + React 19<br/>Canvas Editor + Dashboard"]
+    end
+    
+    subgraph "Backend Layer"
+        C["⚙️ Backend API<br/>Node.js + Express<br/>VM Lifecycle Management"]
+        D["🔐 Authentication<br/>JWT Tokens<br/>Role-Based Access Control"]
+        E["📊 Audit Logging<br/>Action Tracking<br/>Security Monitoring"]
+    end
+    
+    subgraph "Virtualization Layer"
+        F["⚡ QEMU/KVM Manager<br/>Overlay Management<br/>VM Orchestration"]
+        G["💾 Base Images<br/>QCOW2 Files<br/>Ubuntu, Debian, Alpine, etc."]
+        H["🔄 VM Overlays<br/>Copy-on-Write<br/>Per-VM Disks"]
+    end
+    
+    subgraph "Database Layer"
+        I["🗄️ PostgreSQL DB<br/>Guacamole Schema<br/>User & Connection Data"]
+    end
+    
+    subgraph "Console Access Layer"
+        J["🖥️ Apache Guacamole<br/>Browser-based Console<br/>VNC/SSH/RDP Gateway"]
+        K["🔗 Guacd VNC Proxy<br/>Connection Broker<br/>Protocol Translation"]
+    end
+    
+    subgraph "VM Instances"
+        L["🖥️ VM Instance 1<br/>QEMU/KVM Process<br/>VNC:5900"]
+        M["🖥️ VM Instance 2<br/>QEMU/KVM Process<br/>VNC:5901"]
+        N["🖥️ VM Instance N<br/>QEMU/KVM Process<br/>VNC:59xx"]
+    end
+
+    %% Connections
+    A -- "REST API (JWT)" --> B
+    B -- "API Calls" --> C
+    C -- "Authentication" --> D
+    C -- "Log Events" --> E
+    C -- "Manage VMs" --> F
+    F -- "Reference" --> G
+    F -- "Create/Manage" --> H
+    F -- "Register Conn." --> I
+    C -- "Store Data" --> I
+    F -- "Start VMs" --> L
+    F -- "Start VMs" --> M
+    F -- "Start VMs" --> N
+    L -- "VNC" --> K
+    M -- "VNC" --> K
+    N -- "VNC" --> K
+    K -- "Proxy" --> J
+    J -- "Browser Access" --> A
+    
+    %% Styling
+    classDef frontend fill:#e1f5fe
+    classDef backend fill:#f3e5f5
+    classDef db fill:#e8f5e8
+    classDef virtualization fill:#fff3e0
+    classDef console fill:#fce4ec
+    classDef vm fill:#fafafa
+    
+    class A,B frontend
+    class C,D,E backend
+    class I db
+    class F,G,H virtualization
+    class J,K console
+    class L,M,N vm
 ```
 
 **Technology Stack:**
