@@ -397,9 +397,9 @@ netstat -tlnp | grep 590
 
 ## 🔒 Security Notes
 
-⚠️ **This is a prototype for internship evaluation**
+⚠️ **Development Configuration - Requires Hardening for Production**
 
-For production use, add:
+For production deployment, implement:
 - Authentication/authorization
 - Input validation and sanitization
 - Rate limiting
@@ -409,8 +409,8 @@ For production use, add:
 
 ## 📄 License
 
-MIT - For educational/evaluation purposes
+MIT License
 
-## 👨‍💻 Author
+## 👨‍💻 Project
 
-SandBoxLabs Internship Project
+SandBoxLabs - Network Lab Management System
