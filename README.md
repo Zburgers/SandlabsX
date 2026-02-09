@@ -1,10 +1,11 @@
+```
 ███████╗ █████╗ ███╗   ██╗██████╗ ██╗      █████╗ ██████╗ ██╗  ██╗
 ██╔════╝██╔══██╗████╗  ██║██╔══██╗██║     ██╔══██╗██╔══██╗╚██╗██╔╝
 ███████╗███████║██╔██╗ ██║██║  ██║██║     ███████║██████╔╝ ╚███╔╝ 
 ╚════██║██╔══██║██║╚██╗██║██║  ██║██║     ██╔══██║██╔══██╗ ██╔██╗ 
 ███████║██║  ██║██║ ╚████║██████╔╝███████╗██║  ██║██████╔╝██╔╝ ██╗
 ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝
-
+```
 # SandLabX - Browser-Based Network Virtualization Platform
 
 A production-ready network lab virtualization platform that enables users to create, manage, and access virtual machines through a modern web interface. Built with QEMU/KVM for bare-metal performance, Apache Guacamole for browser-based console access, and React for an intuitive user experience.
