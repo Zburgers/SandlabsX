@@ -8,6 +8,7 @@ A production-ready network lab virtualization platform that enables users to cre
 
 - **[Quick Start Guide](./QUICK-START.md)** - Get running in 1 command
 - **[Project Structure](./STRUCTURE.md)** - Directory layout
+- **[Agents Documentation](./AGENTS.md)** - Complete project context and implementation details
 - **[Backend API Docs](./backend/README.md)** - API endpoints
 - **[Frontend Docs](./frontend/README.md)** - UI components
 - **[Documentation Index](./docs/README.md)** - All docs
