@@ -798,15 +798,3 @@ docker-compose up --build
 
 **Built with ❤️ for network engineers, students, and lab enthusiasts**
 
-- [ ] Change all default passwords (Guacamole, PostgreSQL, admin user)
-- [ ] Use strong JWT secret (minimum 32 characters, random)
-- [ ] Enable HTTPS/TLS with valid SSL certificates
-- [ ] Configure firewall rules (only expose 443/80, block 3001/8081/5432)
-- [ ] Remove `privileged: true` from Docker Compose (use device passthrough)
-- [ ] Enable PostgreSQL SSL connections
-- [ ] Implement rate limiting on all API endpoints
-- [ ] Configure CORS for production domain only
-- [ ] Enable audit logging and monitoring
-- [ ] Regular security updates for base images
-- [ ] Implement backup strategy for PostgreSQL and overlays
-
