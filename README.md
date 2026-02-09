@@ -111,13 +111,13 @@ graph TB
     K -- "Proxy" --> J
     J -- "Browser Access" --> A
     
-    %% Styling
-    classDef frontend fill:#e1f5fe
-    classDef backend fill:#f3e5f5
-    classDef db fill:#e8f5e8
-    classDef virtualization fill:#fff3e0
-    classDef console fill:#fce4ec
-    classDef vm fill:#fafafa
+    %% Styling with better contrast
+    classDef frontend fill:#4FC3F7,stroke:#0288D1,stroke-width:2px,color:#000
+    classDef backend fill:#81C784,stroke:#388E3C,stroke-width:2px,color:#000
+    classDef db fill:#FFB74D,stroke:#F57C00,stroke-width:2px,color:#000
+    classDef virtualization fill:#A1887F,stroke:#5D4037,stroke-width:2px,color:#FFF
+    classDef console fill:#BA68C8,stroke:#7B1FA2,stroke-width:2px,color:#FFF
+    classDef vm fill:#E0E0E0,stroke:#424242,stroke-width:2px,color:#000
     
     class A,B frontend
     class C,D,E backend
