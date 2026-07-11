@@ -1,393 +1,97 @@
-# SandLabX Frontend
+# SandLabX frontend
 
-Modern, dark-themed network lab interface built with Next.js, React, and Tailwind CSS.
+The SandLabX web application is built with Next.js 15, React 19, TypeScript, Tailwind CSS, React Flow, and xterm.js. It provides node lifecycle controls, a topology canvas, image selection, authentication workflows, and browser console access.
 
-## 📚 Related Documentation
-
-- **[Main README](../README.md)** - Complete project documentation
-- **[Quick Start Guide](../QUICK-START.md)** - Get the entire system running
-- **[Backend README](../backend/README.md)** - Backend API documentation
-- **[Project Summary](../PROJECT-SUMMARY.md)** - Deliverables overview
-- **[Documentation Index](../docs/README.md)** - All documentation files
-
-## 🎨 Features
-
-- **Dark Theme**: Professional lab environment aesthetic
-- **Real-time Node Management**: Create, start, stop, and wipe VMs
-- **Integrated Console**: Guacamole console embedded in the interface
-- **Responsive Design**: Works on desktop and tablet devices
-- **Full Backend Integration**: ✅ Connected to working API
-- **TypeScript**: Fully typed for better DX
-
-## 🏗️ Project Structure
-
-```
-frontend/
-├── app/
-│   ├── globals.css         # Global styles with custom dark theme
-│   ├── layout.tsx           # Root layout component
-│   └── page.tsx             # Main page (node dashboard)
-│
-├── components/
-│   ├── Button.tsx           # Reusable button component
-│   ├── StatusBadge.tsx      # Node status indicator
-│   ├── NodeCard.tsx         # Individual node display
-│   ├── CreateNodeModal.tsx  # Modal for creating new nodes
-│   └── GuacamoleViewer.tsx  # Full-screen console viewer
-│
-├── lib/
-│   ├── types.ts             # TypeScript interfaces
-│   ├── api.ts               # API client (TODO markers for backend)
-│   └── mockData.ts          # Mock data for development
-│
-├── public/                  # Static assets
-├── package.json             # Dependencies
-├── tsconfig.json            # TypeScript configuration
-├── tailwind.config.js       # Tailwind CSS configuration
-├── next.config.js           # Next.js configuration
-└── .env.local               # Environment variables
-
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Backend API (optional, uses mock data if not available)
-
-### Installation
+## Development
 
 ```bash
 cd frontend
-npm install
-```
-
-### Development
-
-```bash
+npm install --no-audit --no-fund
 npm run dev
 ```
 
-Opens at http://localhost:3000
+The development server listens on `http://localhost:3000`.
 
-### Build for Production
+Production compilation:
 
 ```bash
 npm run build
 npm start
 ```
 
-## 🎨 Color Scheme
+The Dockerfile uses Next.js standalone output and runs the production server as an unprivileged user.
 
-Custom dark theme optimized for network lab environments:
-
-- **Background**: `#0a0e27` (lab-dark)
-- **Card Background**: `#1e293b` (lab-gray)
-- **Primary**: `#00d9ff` (lab-primary) - Cyan accent
-- **Secondary**: `#7b2cbf` (lab-secondary) - Purple
-- **Success**: `#10b981` (lab-accent) - Green
-- **Danger**: `#ef4444` (lab-danger) - Red
-- **Warning**: `#f59e0b` (lab-warning) - Orange
-
-## 📋 Components Overview
-
-### Button
-
-Reusable button with variants and loading states.
-
-```tsx
-<Button variant="primary" loading={loading} onClick={handleClick}>
-  Click Me
-</Button>
-```
-
-Variants: `primary`, `secondary`, `danger`, `ghost`
-
-### StatusBadge
-
-Displays node status with animated indicators.
-
-```tsx
-<StatusBadge status="running" />
-```
-
-Status: `running`, `stopped`, `starting`, `stopping`, `error`
-
-### NodeCard
-
-Complete node information and controls.
-
-```tsx
-<NodeCard
-  node={node}
-  onStart={handleStart}
-  onStop={handleStop}
-  onWipe={handleWipe}
-  onConnect={handleConnect}
-/>
-```
-
-### CreateNodeModal
-
-Modal dialog for creating new nodes with image selection and resource configuration.
-
-```tsx
-<CreateNodeModal
-  isOpen={isOpen}
-  onClose={handleClose}
-  onCreate={handleCreate}
-/>
-```
-
-### GuacamoleViewer
-
-Full-screen iframe viewer for Guacamole console.
-
-```tsx
-<GuacamoleViewer node={selectedNode} onClose={handleClose} />
-```
-
-## 🔌 API Integration
-
-The frontend is **fully integrated** with the backend API. All API calls are implemented in `lib/api.ts`.
-
-### Example API Usage
-
-```typescript
-import { listNodes, createNode, startNode, stopNode, wipeNode } from '@/lib/api';
-
-// List nodes
-const nodes = await listNodes();
-console.log(nodes);
-
-// Create node
-await createNode({
-  name: 'my-node',
-  osType: 'ubuntu',
-  resources: { ram: 2048, cpus: 2 }
-});
-
-// Start node
-await startNode(nodeId);
-
-// Stop node
-await stopNode(nodeId);
-
-// Wipe node
-await wipeNode(nodeId);
-
-// Delete node
-await deleteNode(nodeId);
-```
-
-### Backend API Endpoints (✅ All Working)
-
-All endpoints are fully implemented and functional:
-
-- ✅ `GET /api/health` - Health check
-- ✅ `GET /api/nodes` - List all nodes
-- ✅ `GET /api/nodes/:id` - Get node details
-- ✅ `POST /api/nodes` - Create new node
-- ✅ `POST /api/nodes/:id/run` - Start node
-- ✅ `POST /api/nodes/:id/stop` - Stop node
-- ✅ `POST /api/nodes/:id/wipe` - Wipe and recreate overlay
-- ✅ `DELETE /api/nodes/:id` - Delete node
-
-## 🎯 Production Mode
-
-The frontend is configured for production use with the backend API. Mock data support has been removed in favor of real API integration.
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Edit `.env.local`:
+## Configuration
 
 ```env
-# Backend API base URL
-NEXT_PUBLIC_API_URL=http://localhost:3001/api
-
-# Guacamole URL
-NEXT_PUBLIC_GUACAMOLE_URL=http://localhost:8081/guacamole
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_GUAC_URL=http://localhost:8081/guacamole
 ```
 
-### Tailwind Configuration
+These values are injected by Docker Compose for the standard local stack.
 
-Custom colors and theme settings in `tailwind.config.js`.
+## Project structure
 
-### TypeScript Configuration
-
-Strict mode enabled for better type safety in `tsconfig.json`.
-
-## 🎯 Features Status
-
-### ✅ Fully Implemented & Working
-
-- [x] Dark theme with custom colors
-- [x] Node list display
-- [x] Node cards with status indicators
-- [x] Create node modal with image selection
-- [x] Resource configuration (CPU, RAM)
-- [x] Start/Stop/Wipe/Delete actions
-- [x] Guacamole console integration (iframe)
-- [x] Full-screen console viewer
-- [x] Loading states and animations
-- [x] Responsive grid layout
-- [x] TypeScript types for all data structures
-- [x] **Full API integration with backend**
-- [x] **Error handling from API**
-- [x] **Real-time node management**
-- [x] **Node deletion**
-
-### 📋 Base Images Supported
-
-- [x] Ubuntu 24 LTS (Fully working)
-- [x] Alpine Linux 3 (Fully working)
-- [x] Debian 13 (Fully working)
-
-### ⏳ Future Enhancements
-
-- [ ] Real-time status updates via websockets
-- [ ] Node renaming
-- [ ] Advanced filtering/search
-- [ ] Bulk operations
-- [ ] Node cloning
-
-## 🎨 Customization
-
-### Adding New Base Images
-
-1. Edit `lib/mockData.ts`:
-
-```typescript
-export const baseImages: BaseImage[] = [
-  {
-    id: 'myimage-1.0',
-    name: 'My Image 1.0',
-    type: 'custom',
-    size: '500 MB',
-    description: 'My custom image',
-    available: true, // Set to true when backend supports it
-  },
-  // ... existing images
-];
+```text
+frontend/
+├── app/          Next.js routes, layouts, and global styles
+├── components/   Dashboard, canvas, node, modal, and console components
+├── hooks/        Reusable client-side state and lifecycle hooks
+├── lib/          API client, shared types, and utilities
+├── public/       Static assets
+├── Dockerfile    Standalone production build
+└── next.config.js
 ```
 
-2. Add icon in `components/NodeCard.tsx`:
+## Main product surfaces
 
-```typescript
-const getImageIcon = (type: string) => {
-  const icons: Record<string, string> = {
-    // ... existing
-    custom: '🎯', // Your icon
-  };
-  return icons[type] || '💻';
-};
-```
+- **Dashboard:** node status, resources, and lifecycle actions
+- **Topology canvas:** visual nodes and network links
+- **Image selection:** built-in and custom image choices
+- **Serial console:** xterm.js-based terminal access
+- **Graphical console:** Guacamole-backed browser sessions
+- **Authentication:** login and protected application state
 
-### Changing Theme Colors
+## API integration
 
-Edit `tailwind.config.js`:
+The API client under `lib/` should remain the only place that knows backend URL construction and transport details. UI components should consume typed functions rather than construct `fetch` calls directly.
 
-```javascript
-theme: {
-  extend: {
-    colors: {
-      'lab-primary': '#YOUR_COLOR',
-      // ... other colors
-    }
-  }
-}
-```
+Backend endpoint groups currently include:
 
-## 🐛 Troubleshooting
+- `/api/auth`
+- `/api/nodes`
+- `/api/images`
+- `/api/labs`
+- `/api/users`
 
-### Port 3000 already in use
+API failures should be presented with actionable messages and should never silently replace persisted state with mock data.
+
+## Frontend development rules
+
+- Keep server and client component boundaries explicit.
+- Keep shared request and response shapes in `lib/types.ts`.
+- Avoid duplicating node or image state across unrelated components.
+- Prefer reusable hooks for polling, WebSocket state, and mutations.
+- Preserve keyboard access and visible focus behavior for canvas and modal actions.
+- Treat destructive operations such as wipe and delete as confirmed actions.
+- Do not hard-code service URLs in components.
+
+## Validation before a pull request
 
 ```bash
-# Kill process on port 3000
-lsof -ti:3000 | xargs kill -9
-
-# Or use different port
-npm run dev -- -p 3001
+npm run build
 ```
 
-### Build errors
+The current package also contains a legacy `next lint` script. Until lint configuration is migrated to a direct ESLint command, the production build is the required frontend CI gate.
 
-```bash
-# Clear cache and reinstall
-rm -rf .next node_modules
-npm install
-npm run dev
-```
+## Near-term frontend improvements
 
-### TypeScript errors
+- Managed-image operation progress and failure recovery
+- Lab spec import/export from the topology canvas
+- VM snapshot and clone controls
+- Bulk node start, stop, and reset operations
+- Search and filtering for large labs
+- Event-driven status updates instead of fixed polling
+- Resource quota and capacity visibility
 
-```bash
-# Regenerate types
-npm run dev
-# TypeScript will auto-generate types on first run
-```
-
-## 📊 Performance
-
-- **Initial Load**: < 1s
-- **Time to Interactive**: < 2s
-- **Bundle Size**: ~200KB gzipped
-- **Lighthouse Score**: 95+ (Performance)
-
-## 🔐 Security Notes
-
-- API calls should use authentication (TODO)
-- Guacamole URLs should be secured
-- Input validation on all forms
-- XSS protection via React
-- CSRF protection needed for API
-
-## 📚 Tech Stack
-
-- **Framework**: Next.js 15
-- **UI Library**: React 19
-- **Styling**: Tailwind CSS 4
-- **Language**: TypeScript 5
-- **Build Tool**: SWC (via Next.js)
-
-## 🚀 Quick Start
-
-### Start the Full Stack
-
-```bash
-# From project root
-./run-all.sh
-
-# Wait 20 seconds, then open:
-# http://localhost:3000
-```
-
-### Manual Start
-
-```bash
-# Terminal 1 - Docker services
-docker-compose up -d
-
-# Terminal 2 - Backend
-cd backend && npm start
-
-# Terminal 3 - Frontend
-cd frontend && npm run dev
-```
-
-## 📝 Notes
-
-- ✅ Frontend is fully integrated with backend
-- ✅ All API endpoints are working
-- ✅ Real QEMU VMs are created and managed
-- ✅ Guacamole console URLs are generated by backend
-- ✅ Components are reusable and well-typed
-- ✅ Dark theme is optimized for prolonged use
-- ✅ Console viewer supports full Guacamole features
-
----
-
-**Production Ready!** The frontend and backend are fully integrated and working.
+See the root [README](../README.md) and [architecture guide](../docs/ARCHITECTURE.md).
