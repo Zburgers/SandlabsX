@@ -1,49 +1,67 @@
-version: "3.9"
+name: sandlabx
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   postgres:
     image: postgres:16
     container_name: sandlabx-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: guacamole_user
-      POSTGRES_PASSWORD: guacamole_pass
-      POSTGRES_DB: guacamole_db
+      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./initdb-schema.sql:/docker-entrypoint-initdb.d/initdb.sql
-      - ./backend/schema/nodes-schema.sql:/docker-entrypoint-initdb.d/nodes-schema.sql
+      - ./initdb-schema.sql:/docker-entrypoint-initdb.d/10-guacamole.sql:ro
+      - ./backend/schema/nodes-schema.sql:/docker-entrypoint-initdb.d/20-sandlabx.sql:ro
     ports:
-      - "5432:5432"
-    networks:
-      - sandboxlab-network
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [sandlabx-network]
+    logging: *default-logging
 
   guacd:
     image: guacamole/guacd:1.5.4
     container_name: sandlabx-guacd
-    networks:
-      - sandboxlab-network
+    restart: unless-stopped
+    networks: [sandlabx-network]
+    logging: *default-logging
 
   guacamole:
     image: guacamole/guacamole:1.5.4
     container_name: sandlabx-guacamole
+    restart: unless-stopped
     environment:
       GUACD_HOSTNAME: guacd
       POSTGRES_HOSTNAME: postgres
-      POSTGRES_DATABASE: guacamole_db
-      POSTGRES_USER: guacamole_user
-      POSTGRES_PASSWORD: guacamole_pass
+      POSTGRES_DATABASE: ${POSTGRES_DB:-guacamole_db}
+      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
     ports:
-      - "8081:8080"
+      - "${GUACAMOLE_PORT:-8081}:8080"
     depends_on:
-      - guacd
-      - postgres
-    networks:
-      - sandboxlab-network
+      postgres:
+        condition: service_healthy
+      guacd:
+        condition: service_started
+    networks: [sandlabx-network]
+    logging: *default-logging
 
   backend:
     build: ./backend
     container_name: sandlabx-backend
-    privileged: true
+    restart: unless-stopped
+    init: true
+    privileged: ${SANDLABX_PRIVILEGED:-false}
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -52,61 +70,75 @@ services:
       - /dev/kvm:/dev/kvm
       - /dev/net/tun:/dev/net/tun
     environment:
-      DATABASE_URL: postgresql://guacamole_user:guacamole_pass@postgres:5432/guacamole_db
+      PORT: 3001
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
       GUAC_BASE_URL: http://guacamole:8080/guacamole
       STATE_FILE: /app/data/nodes-state.json
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: guacamole_db
-      DB_USER: guacamole_user
-      DB_PASSWORD: guacamole_pass
-      JWT_SECRET: sandlabx-secret-2025
+      DB_NAME: ${POSTGRES_DB:-guacamole_db}
+      DB_USER: ${POSTGRES_USER:-guacamole_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+      JWT_SECRET: ${JWT_SECRET:-change-this-development-secret}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      CUSTOM_IMAGES_PATH: /images/custom
+      IMAGE_CATALOG_PATH: /images/catalog.json
+      OVERLAYS_PATH: /overlays
+      VMS_PATH: /vms
     ports:
-      - "3001:3001"
+      - "${BACKEND_PORT:-3001}:3001"
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3001/api/health" ]
+      test: ["CMD", "curl", "-fsS", "http://localhost:3001/api/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 10
+      start_period: 30s
+    stop_grace_period: 30s
     volumes:
       - backend-data:/app/data
       - ./images:/images
       - ./overlays:/overlays
       - ./vms:/vms
+      - ./pids:/pids
       - ./backend/modules:/app/modules
       - ./backend/middleware:/app/middleware
       - ./backend/controllers:/app/controllers
+      - ./backend/cli:/app/cli
       - ./backend/server.js:/app/server.js
     depends_on:
-      - postgres
-      - guacamole
-    networks:
-      - sandboxlab-network
+      postgres:
+        condition: service_healthy
+      guacamole:
+        condition: service_started
+    networks: [sandlabx-network]
+    logging: *default-logging
 
   frontend:
     build: ./frontend
     container_name: sandlabx-frontend
+    restart: unless-stopped
+    init: true
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-      NEXT_PUBLIC_GUAC_URL: http://localhost:8081/guacamole
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_GUAC_URL: ${NEXT_PUBLIC_GUAC_URL:-http://localhost:8081/guacamole}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     volumes:
       - ./frontend/app:/app/app
       - ./frontend/components:/app/components
       - ./frontend/lib:/app/lib
       - ./frontend/hooks:/app/hooks
     depends_on:
-      - backend
-    networks:
-      - sandboxlab-network
+      backend:
+        condition: service_healthy
+    networks: [sandlabx-network]
+    logging: *default-logging
 
 volumes:
   pgdata:
   backend-data:
 
-
 networks:
-  sandboxlab-network:
+  sandlabx-network:
     driver: bridge
