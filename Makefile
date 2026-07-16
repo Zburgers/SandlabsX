@@ -22,7 +22,7 @@ prepare:
 	@printf 'Runtime directories are ready.\n'
 
 doctor:
-	@./scripts/dev-doctor.sh
+	@bash ./scripts/dev-doctor.sh
 
 install:
 	cd backend && npm install --no-audit --no-fund
