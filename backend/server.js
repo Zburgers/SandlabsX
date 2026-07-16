@@ -35,6 +35,8 @@ const { OperationRepository } = require('./modules/operationRepository');
 const { createCapsuleRouter } = require('./modules/capsuleRouter');
 const { runMigrations } = require('./modules/migrationRunner');
 const { ImagePipeline } = require('./modules/imagePipeline');
+const { VerificationRunner } = require('./modules/verificationRunner');
+const { CheckpointService } = require('./modules/checkpointService');
 
 // Initialize Express app
 const app = express();
@@ -73,6 +75,11 @@ const capsulePool = new Pool({
 const capsuleRepository = new CapsuleRepository({ pool: capsulePool });
 const instanceRepository = new InstanceRepository({ pool: capsulePool });
 const operationRepository = new OperationRepository({ pool: capsulePool });
+const verificationRunner = new VerificationRunner();
+const checkpointService = new CheckpointService({
+  root: process.env.CHECKPOINTS_PATH || path.join(process.cwd(), 'checkpoints'),
+  overlayRoot: process.env.OVERLAYS_PATH || path.join(process.cwd(), 'overlays')
+});
 const imagePipeline = new ImagePipeline({
   root: process.env.CUSTOM_IMAGES_PATH,
   catalog: process.env.IMAGE_CATALOG_PATH
@@ -190,6 +197,8 @@ app.use('/api', createCapsuleRouter({
   capsules: capsuleRepository,
   instances: instanceRepository,
   operations: operationRepository,
+  verificationRunner,
+  checkpointService,
   compilerOptions: {
     overlaysRoot: process.env.OVERLAYS_PATH || path.join(process.cwd(), 'overlays'),
     hostCapabilities: { architecture: process.arch === 'x64' ? 'x86_64' : process.arch, acceleration: process.env.SANDLABX_ACCELERATION || 'tcg', maxVcpus: Number(process.env.SANDLABX_MAX_VCPUS || 512), maxMemoryMiB: Number(process.env.SANDLABX_MAX_MEMORY_MIB || 1048576) }

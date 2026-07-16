@@ -110,3 +110,41 @@ export interface ListNodesResponse {
   nodes: Node[];
   count: number;
 }
+
+export interface CapsuleDocument {
+  apiVersion: string;
+  kind: 'LabCapsule';
+  metadata: { name: string; displayName?: string; description?: string; tags?: string[] };
+  [key: string]: unknown;
+}
+
+export interface CapsuleRecord {
+  id: string;
+  ownerId: string;
+  revision: number;
+  status: string;
+  document: CapsuleDocument;
+}
+
+export interface CapsuleVersion {
+  id: string;
+  capsuleId: string;
+  versionNumber: number;
+  document: CapsuleDocument;
+  contentSha256: string;
+}
+
+export interface LabInstance {
+  id: string;
+  capsuleVersionId: string;
+  name: string;
+  state: string;
+  desiredState: string;
+}
+
+export interface LabOperation {
+  id: string;
+  type: string;
+  state: string;
+  progress: number;
+}

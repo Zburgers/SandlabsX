@@ -83,7 +83,43 @@ CREATE TABLE IF NOT EXISTS sandlabx_instance_events (
   UNIQUE (operation_id, sequence)
 );
 
+CREATE TABLE IF NOT EXISTS sandlabx_verification_runs (
+  id UUID PRIMARY KEY,
+  instance_id UUID NOT NULL REFERENCES sandlabx_lab_instances(id) ON DELETE CASCADE,
+  owner_user_id UUID NOT NULL,
+  capsule_version_id UUID NOT NULL REFERENCES sandlabx_capsule_versions(id) ON DELETE RESTRICT,
+  scenario_id VARCHAR(128),
+  status VARCHAR(16) NOT NULL CHECK (status IN ('RUNNING', 'PASSED', 'FAILED', 'CANCELLED')),
+  result JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS sandlabx_checkpoints (
+  id UUID PRIMARY KEY,
+  instance_id UUID NOT NULL REFERENCES sandlabx_lab_instances(id) ON DELETE CASCADE,
+  owner_user_id UUID NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  state VARCHAR(16) NOT NULL CHECK (state IN ('CREATING', 'READY', 'RESTORED', 'FAILED')),
+  manifest JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sandlabx_artifacts (
+  id UUID PRIMARY KEY,
+  instance_id UUID NOT NULL REFERENCES sandlabx_lab_instances(id) ON DELETE CASCADE,
+  owner_user_id UUID NOT NULL,
+  type VARCHAR(64) NOT NULL,
+  storage_path TEXT NOT NULL,
+  sha256 VARCHAR(64) NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  redacted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_sandlabx_capsules_owner ON sandlabx_capsules(owner_user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sandlabx_instances_owner ON sandlabx_lab_instances(owner_user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sandlabx_operations_queue ON sandlabx_operations(state, created_at);
 CREATE INDEX IF NOT EXISTS idx_sandlabx_instance_events_instance ON sandlabx_instance_events(instance_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_verification_runs_instance ON sandlabx_verification_runs(instance_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sandlabx_checkpoints_instance ON sandlabx_checkpoints(instance_id, created_at DESC);

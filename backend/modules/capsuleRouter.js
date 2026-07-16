@@ -6,7 +6,7 @@ const { safeName } = require('./imagePipeline');
 
 function createCapsuleRouter(options) {
   const router = express.Router();
-  const { capsules, instances, operations, imagePaths = {}, compilerOptions = {}, runner } = options;
+  const { capsules, instances, operations, imagePaths = {}, compilerOptions = {}, runner, verificationRunner, checkpointService } = options;
   const owner = req => req.auth?.sub || req.user?.id;
   const requireOwner = (req, res) => {
     const userId = owner(req);
@@ -80,6 +80,30 @@ function createCapsuleRouter(options) {
   router.get('/operations/:id', async (req, res) => { const userId = requireOwner(req, res); if (!userId) return; try { const operation = await operations.get(req.params.id, userId); return operation ? res.json({ success: true, operation }) : res.status(404).json({ success: false, code: 'NOT_FOUND' }); } catch (error) { return sendError(res, error); } });
   router.post('/operations/:id/cancel', async (req, res) => { const userId = requireOwner(req, res); if (!userId) return; try { const operation = operations.requestCancel ? await operations.requestCancel(req.params.id, userId) : await operations.update(req.params.id, { state: 'CANCELLING' }); return operation ? res.status(202).json({ success: true, operation }) : res.status(404).json({ success: false, code: 'NOT_FOUND' }); } catch (error) { return sendError(res, error); } });
   router.get('/operations/:id/events', async (req, res) => { const userId = requireOwner(req, res); if (!userId) return; try { const operation = await operations.get(req.params.id, userId); if (!operation) return res.status(404).json({ success: false, code: 'NOT_FOUND' }); return res.json({ success: true, events: await operations.listEvents(operation.id) }); } catch (error) { return sendError(res, error); } });
+  router.post('/instances/:id/verifications', async (req, res) => {
+    const userId = requireOwner(req, res); if (!userId) return;
+    try {
+      if (!verificationRunner) throw Object.assign(new Error('Verification runner is unavailable'), { code: 'VERIFICATION_UNAVAILABLE' });
+      const instance = await instances.get(req.params.id, userId); if (!instance) return res.status(404).json({ success: false, code: 'NOT_FOUND' });
+      const version = await capsules.getVersion(instance.capsuleVersionId, userId); if (!version) return res.status(404).json({ success: false, code: 'NOT_FOUND' });
+      const scenario = req.body.scenario || version.document.scenarios.find(item => item.id === req.body.scenarioId) || version.document.scenarios[0];
+      if (!scenario) return res.status(400).json({ success: false, code: 'SCENARIO_REQUIRED' });
+      const plan = compilePlan(version.document, { ...compilerOptions, imagePaths: resolvePaths(version.document), instanceId: instance.id });
+      return res.status(201).json({ success: true, verification: await verificationRunner.run(scenario, { plan, artifactsRoot: req.body.artifactsRoot, readSerial: options.readSerial }) });
+    } catch (error) { return sendError(res, error); }
+  });
+  router.post('/instances/:id/checkpoints', async (req, res) => {
+    const userId = requireOwner(req, res); if (!userId) return;
+    try { if (!checkpointService) throw Object.assign(new Error('Checkpoint service is unavailable'), { code: 'CHECKPOINT_UNAVAILABLE' }); const instance = await instances.get(req.params.id, userId); if (!instance) return res.status(404).json({ success: false, code: 'NOT_FOUND' }); return res.status(201).json({ success: true, checkpoint: await checkpointService.create(instance, userId, req.body.nodes || [], { name: req.body.name }) }); } catch (error) { return sendError(res, error); }
+  });
+  router.get('/instances/:id/checkpoints', async (req, res) => {
+    const userId = requireOwner(req, res); if (!userId) return;
+    try { if (!checkpointService) throw Object.assign(new Error('Checkpoint service is unavailable'), { code: 'CHECKPOINT_UNAVAILABLE' }); const instance = await instances.get(req.params.id, userId); if (!instance) return res.status(404).json({ success: false, code: 'NOT_FOUND' }); return res.json({ success: true, checkpoints: await checkpointService.list(instance, userId) }); } catch (error) { return sendError(res, error); }
+  });
+  router.post('/instances/:id/checkpoints/:checkpointId/restore', async (req, res) => {
+    const userId = requireOwner(req, res); if (!userId) return;
+    try { if (!checkpointService) throw Object.assign(new Error('Checkpoint service is unavailable'), { code: 'CHECKPOINT_UNAVAILABLE' }); const instance = await instances.get(req.params.id, userId); if (!instance) return res.status(404).json({ success: false, code: 'NOT_FOUND' }); return res.status(202).json({ success: true, checkpoint: await checkpointService.restore(instance, userId, req.params.checkpointId) }); } catch (error) { return sendError(res, error); }
+  });
   return router;
 }
 

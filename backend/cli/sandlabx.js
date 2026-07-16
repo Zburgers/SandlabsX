@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { ImagePipeline } = require('../modules/imagePipeline');
 const { normalizeLabSpec, planInstall, validateLabSpec } = require('../modules/labSpec');
+const { capsuleHash, normalizeCapsule, validateCapsule } = require('../modules/capsuleSchema');
 
 function parse(argv) {
   const positional = [];
@@ -41,6 +42,10 @@ Image commands:
 Lab commands:
   sandlabx lab validate <file.json>
   sandlabx lab normalize <file.json> [output.json]
+
+Capsule commands:
+  sandlabx capsule validate <file.json> [--published]
+  sandlabx capsule normalize <file.json> [output.json]
 
 Global flags:
   --json
@@ -108,6 +113,21 @@ async function labCommand(action, args) {
   throw Object.assign(new Error(`Unknown lab command: ${action || '(missing)'}`), { code: 'USAGE_ERROR' });
 }
 
+async function capsuleCommand(action, args, flags) {
+  const input = required(args[0], 'Capsule JSON path');
+  const capsule = JSON.parse(await fs.readFile(input, 'utf8'));
+  if (action === 'validate') {
+    const result = validateCapsule(capsule, { requireDigests: bool(flags.published) });
+    return { ...result, ...(result.valid ? { contentHash: capsuleHash(normalizeCapsule(capsule, { requireDigests: bool(flags.published) })) } : {}) };
+  }
+  if (action === 'normalize') {
+    const normalized = normalizeCapsule(capsule, { requireDigests: bool(flags.published) });
+    if (args[1]) { await fs.writeFile(args[1], `${JSON.stringify(normalized, null, 2)}\n`, { flag: 'wx' }); return { success: true, output: args[1], contentHash: capsuleHash(normalized) }; }
+    return normalized;
+  }
+  throw Object.assign(new Error(`Unknown capsule command: ${action || '(missing)'}`), { code: 'USAGE_ERROR' });
+}
+
 function required(value, name) {
   if (!value) throw Object.assign(new Error(`Missing ${name}`), { code: 'USAGE_ERROR' });
   return value;
@@ -125,6 +145,8 @@ async function main() {
     ? await imageCommand(action, args, flags)
     : group === 'lab'
       ? await labCommand(action, args)
+      : group === 'capsule'
+        ? await capsuleCommand(action, args, flags)
       : (() => { throw Object.assign(new Error(`Unknown command group: ${group}`), { code: 'USAGE_ERROR' }); })();
 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
