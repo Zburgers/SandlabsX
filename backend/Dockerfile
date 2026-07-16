@@ -1,48 +1,37 @@
-FROM node:18-bullseye-slim
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Install QEMU and required tools (Debian apt packages are more reliable here)
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    qemu-system-x86 \
-    qemu-utils \
+    bash \
     bridge-utils \
+    ca-certificates \
+    cpu-checker \
+    curl \
     iproute2 \
     iptables \
     procps \
-    curl \
+    qemu-system-x86 \
+    qemu-utils \
     wget \
-    ca-certificates \
-    cpu-checker \
-    bash \
   && rm -rf /var/lib/apt/lists/*
 
-
-# Copy package files
 COPY package*.json ./
+RUN npm install --omit=dev --no-audit --no-fund \
+  && npm cache clean --force
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy application files
 COPY . .
 
-# Copy initialization scripts
 COPY init-images.sh /usr/local/bin/init-images.sh
 COPY setup-network.sh /usr/local/bin/setup-network.sh
-RUN chmod +x /usr/local/bin/init-images.sh
-RUN chmod +x /usr/local/bin/setup-network.sh
+RUN chmod +x /usr/local/bin/init-images.sh /usr/local/bin/setup-network.sh \
+  && mkdir -p /overlays /images/custom /vms /pids /app/data
 
-# Create directories
-RUN mkdir -p /overlays /images /app/data
-
-# Expose port
+ENV NODE_ENV=production
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -fsS http://localhost:3001/api/health || exit 1
 
-# Start with network setup, then image initialization, then server
-CMD ["/bin/bash", "-c", "/usr/local/bin/setup-network.sh && /usr/local/bin/init-images.sh && node server.js"]
+CMD ["/bin/bash", "-c", "/usr/local/bin/setup-network.sh && /usr/local/bin/init-images.sh && exec node server.js"]

@@ -1,124 +1,95 @@
-# SandBoxLabs - Project Structure
+# SandLabX project structure
 
-## 📚 Related Documentation
+## Repository layout
 
-- **[Main README](./README.md)** - Complete project documentation
-- **[Quick Start Guide](./QUICK-START.md)** - Get running in 1 command
-- **[Project Summary](./PROJECT-SUMMARY.md)** - Overview and deliverables
-- **[Backend API Docs](./backend/README.md)** - API endpoints
-- **[Frontend Docs](./frontend/README.md)** - UI components
-- **[Documentation Index](./docs/README.md)** - All documentation files
-
-## 📁 Directory Layout
-
-```
-sandboxlabs/
-├── 📄 README.md                # Complete project documentation
-├── 📄 QUICK-START.md           # Quick setup guide
-├── 📄 CHEAT-SHEET.txt          # Command reference
-├── 📄 PROJECT-SUMMARY.md       # Project overview
-├── 📄 STATUS.md                # Current status
-├── 📄 STRUCTURE.md             # This file
-│
-├── 🔧 Core Scripts
-│   ├── run-all.sh              # Start everything
-│   ├── stop-all.sh             # Stop everything
-│   ├── status.sh               # Check status
-│   ├── setup-all.sh            # Initial setup
-│   ├── quick-test.sh           # Quick health check
-│   └── test-backend.sh         # Backend tests
-│
-├── 🐳 Infrastructure
-│   ├── docker-compose.yml      # Docker services
-│   └── initdb-schema.sql       # Guacamole DB schema
-│
-├── 🎨 Frontend (Next.js/React)
-│   ├── app/
-│   │   ├── page.tsx            # Main dashboard
-│   │   ├── layout.tsx          # Root layout
-│   │   └── globals.css         # Styles
-│   ├── components/
-│   │   ├── NodeCard.tsx
-│   │   ├── CreateNodeModal.tsx
-│   │   ├── GuacamoleViewer.tsx
-│   │   ├── StatusBadge.tsx
-│   │   └── Button.tsx
-│   ├── lib/
-│   │   ├── api.ts              # API client
-│   │   ├── types.ts            # TypeScript types
-│   │   └── mockData.ts         # Mock data
-│   ├── package.json
-│   └── README.md
-│
-├── 🔧 Backend (Node.js/Express)
-│   ├── server.js               # Main API server
+```text
+SandlabsX/
+├── .github/workflows/
+│   └── ci.yml                    Backend, frontend, Compose, and Docker checks
+├── backend/
+│   ├── cli/
+│   │   └── sandlabx.js           Image and lab developer CLI
+│   ├── controllers/              Authentication and user controllers
+│   ├── middleware/               JWT, RBAC, rate limits, and errors
 │   ├── modules/
-│   │   ├── nodeManager.js      # Node state management
-│   │   ├── qemuManager.js      # QEMU lifecycle
-│   │   └── guacamoleClient.js  # Guacamole integration
-│   ├── .env                    # Configuration
+│   │   ├── imagePipeline.js      Transactional managed image lifecycle
+│   │   ├── labSpec.js            Lab validation and installer planning
+│   │   ├── qemuManager.js        Existing VM orchestration
+│   │   ├── nodeManagerPostgres.js
+│   │   ├── labManager.js
+│   │   ├── guacamoleClient.js
+│   │   └── auditLogger.js
+│   ├── schema/                   PostgreSQL schema additions
+│   ├── test/                     Node test runner suites
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── README.md
+│   └── server.js                 Express composition root
+├── frontend/
+│   ├── app/                      Next.js routes and layouts
+│   ├── components/               Dashboard, canvas, modal, and console UI
+│   ├── hooks/                    Client state and lifecycle hooks
+│   ├── lib/                      API client and shared types
+│   ├── public/                   Static assets
+│   ├── Dockerfile
 │   ├── package.json
 │   └── README.md
-│
-├── 💾 VM Storage
-│   ├── images/                 # Base OS images
-│   │   ├── ubuntu-24-lts.qcow2
-│   │   ├── alpine-3.qcow2
-│   │   └── debian-13.qcow2
-│   ├── overlays/               # Node overlays (runtime)
-│   └── vms/                    # Legacy VM storage
-│
-├── 🗄️ Database
-│   └── pgdata/                 # PostgreSQL data (runtime)
-│
-└── 📚 Documentation
-    └── docs/
-        └── README.md           # Additional docs
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── IMAGE-PIPELINE.md
+│   ├── DATABASE-SCHEMA.md
+│   ├── IMAGE-FORMAT-GUIDE.md
+│   ├── README.md
+│   └── archive/                  Historical documentation
+├── examples/labs/
+│   └── basic-routing.json        Declarative topology example
+├── images/
+│   ├── catalog.json              Curated downloadable images
+│   └── custom/                   Managed custom QCOW2 images
+├── overlays/                     Per-node copy-on-write disks
+├── scripts/
+│   └── dev-doctor.sh             Host virtualization preflight
+├── vms/                          VM runtime storage
+├── .env.example                  Runtime configuration template
+├── AGENTS.md                     Contributor and agent operating guide
+├── CONTRIBUTING.md               Development workflow
+├── docker-compose.yml            Local stack orchestration
+├── initdb-schema.sql             Guacamole database initialization
+├── Makefile                      Common developer commands
+├── QUICK-START.md
+└── README.md
 ```
 
-## 🎯 Key Files
+## Ownership boundaries
 
-### Essential Documentation
-- **README.md** - Start here! Complete setup and usage guide
-- **QUICK-START.md** - Get running in 1 command
-- **CHEAT-SHEET.txt** - Common commands and API examples
+| Area | Responsibility |
+| --- | --- |
+| `backend/server.js` | HTTP composition, middleware, and route registration |
+| `backend/controllers/` | Request-to-domain adaptation |
+| `backend/modules/` | Business and infrastructure services |
+| `backend/cli/` | Non-HTTP developer and operational workflows |
+| `backend/test/` | Isolated domain and tooling regression coverage |
+| `frontend/lib/` | Typed transport and shared client contracts |
+| `frontend/components/` | Reusable user-interface behavior |
+| `images/` | Immutable base images and managed appliance metadata |
+| `overlays/` | Disposable or resettable VM write layers |
+| `docs/` | Current focused guides and archived historical context |
 
-### Main Scripts
-- **run-all.sh** - One command to start everything
-- **stop-all.sh** - Clean shutdown
-- **status.sh** - Check all services
+## Runtime data
 
-### Configuration
-- **docker-compose.yml** - Infrastructure definition
-- **backend/.env** - Backend configuration
-- **frontend/.env.local** - Frontend configuration
+The following paths are intentionally not committed:
 
-## 🚀 Quick Access
+- Downloaded and converted disk images
+- QCOW2 overlays
+- VM runtime data
+- PostgreSQL volume data
+- process IDs and logs
+- local environment files
 
-### URLs
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001/api
-- Guacamole: http://localhost:8081/guacamole
+`images/catalog.json`, examples, documentation, schemas, and source code remain version controlled.
 
-### Key Commands
-```bash
-# Start
-./run-all.sh
+## Architectural direction
 
-# Check status
-./status.sh
+The backend is currently a modular monolith. That is intentional: VM lifecycle operations need strong local coordination and do not benefit from premature network-service boundaries. Internal modules should become more cohesive before considering separate processes.
 
-# Stop
-./stop-all.sh
-```
-
-## 📊 Project Stats
-- Frontend: ~1,063 LOC (TypeScript/React)
-- Backend: ~800 LOC (JavaScript/Express)
-- Documentation: ~2,000 lines
-- Scripts: ~15 shell scripts
-- Total: Production-ready lab environment
-
----
-
-For complete documentation, see **README.md**
+The largest remaining extraction target is `qemuManager.js`, which should be decomposed internally into process, disk, network, and console services while preserving its public interface.

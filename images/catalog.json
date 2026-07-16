@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "images": [
+    {
+      "id": "ubuntu-24.04",
+      "name": "Ubuntu Server 24.04 LTS",
+      "description": "Official Ubuntu Noble amd64 cloud image.",
+      "url": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
+      "tags": ["linux", "ubuntu", "cloud", "server"],
+      "maxBytes": 8589934592
+    },
+    {
+      "id": "debian-12",
+      "name": "Debian 12 GenericCloud",
+      "description": "Official Debian Bookworm amd64 GenericCloud image.",
+      "url": "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2",
+      "tags": ["linux", "debian", "cloud", "server"],
+      "maxBytes": 8589934592
+    }
+  ]
+}

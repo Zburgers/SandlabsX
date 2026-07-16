@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "name": "Basic routing lab",
+    "description": "One router connecting two Linux hosts.",
+    "tags": ["routing", "starter"]
+  },
+  "nodes": {
+    "router1": {
+      "image": "router",
+      "role": "router",
+      "resources": { "cpus": 1, "memoryMiB": 2048 },
+      "position": { "x": 400, "y": 180 }
+    },
+    "client1": {
+      "image": "ubuntu-24.04",
+      "role": "host",
+      "resources": { "cpus": 1, "memoryMiB": 2048 },
+      "position": { "x": 160, "y": 420 }
+    },
+    "client2": {
+      "image": "debian-12",
+      "role": "host",
+      "resources": { "cpus": 1, "memoryMiB": 2048 },
+      "position": { "x": 640, "y": 420 }
+    }
+  },
+  "links": [
+    {
+      "a": { "node": "router1", "interface": "eth0" },
+      "b": { "node": "client1", "interface": "eth0" }
+    },
+    {
+      "a": { "node": "router1", "interface": "eth1" },
+      "b": { "node": "client2", "interface": "eth0" }
+    }
+  ]
+}

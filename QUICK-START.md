@@ -1,190 +1,131 @@
+# SandLabX quick start
 
-# 🚀 QUICK START - RUN IN 1 COMMAND
+## 1. Prepare the host
 
-## The Simplest Way to Start Everything
-
-### 1️⃣ ONE COMMAND TO START EVERYTHING:
+SandLabX requires a Linux host with Docker Compose, KVM support, and TUN/TAP networking.
 
 ```bash
-cd /path/to/sandboxlabs
-./run-all.sh
+git clone https://github.com/Zburgers/SandlabsX.git
+cd SandlabsX
+cp .env.example .env
+make prepare
+make doctor
 ```
 
-**That's it!** This single command will:
-- ✅ Install all dependencies (backend + frontend)
-- ✅ Start Docker services (Guacamole, PostgreSQL, Guacd)
-- ✅ Start Backend API server (port 3001)
-- ✅ Start Frontend dev server (port 3000)
-- ✅ Run everything in the background
+Resolve failed doctor checks before starting the stack. A KVM warning is not fatal, but virtual machines will use much slower software emulation.
 
-**Wait 20 seconds** for everything to start, then open:
-👉 **http://localhost:3000**
-
----
-
-## 2️⃣ Check Status
+## 2. Start SandLabX
 
 ```bash
-./status.sh
+make up
+docker compose ps
+curl http://localhost:3001/api/health
 ```
 
-Shows you what's running and what's not.
+Open the web interface at `http://localhost:3000`.
 
----
+Other local endpoints:
 
-## 3️⃣ Stop Everything
+- API documentation: `http://localhost:3001/api/docs`
+- Guacamole: `http://localhost:8081/guacamole`
+- PostgreSQL: `localhost:5432`
 
-```bash
-./stop-all.sh
-```
+The project currently includes development administrator credentials:
 
-Stops all services cleanly.
+- Email: `admin@sandlabx.com`
+- Password: `admin123`
 
----
+Replace all development credentials and secrets before exposing the stack outside a trusted machine.
 
-## 📋 All Commands (From Root Directory)
+## 3. Install a cloud image
 
-| Command | What It Does |
-|---------|--------------|
-| `./run-all.sh` | **START EVERYTHING** (Docker + Backend + Frontend) |
-| `./stop-all.sh` | **STOP EVERYTHING** |
-| `./status.sh` | Check what's running |
-| `tail -f backend.log` | View backend logs |
-| `tail -f frontend.log` | View frontend logs |
-| `docker-compose logs -f` | View Docker logs |
-
----
-
-## 🌐 Access URLs
-
-Once everything is running:
-
-| Service | URL |
-|---------|-----|
-| **Frontend UI** (main app) | http://localhost:3000 |
-| **Backend API** | http://localhost:3001/api |
-| **API Health Check** | http://localhost:3001/api/health |
-| **Guacamole Console** | http://localhost:8081/guacamole |
-
-**Guacamole Login:**
-- Username: `guacadmin`
-- Password: `guacadmin`
-
----
-
-## 🎮 Using The Application
-
-1. Open **http://localhost:3000**
-2. Click **"Add Node"** button
-3. Enter a name (or leave blank for auto-name)
-4. Click **Create**
-5. Node appears in the list
-6. Click **"Run"** to start the VM
-7. Click **"Connect"** to open console
-8. Use **"Stop"** to shut down
-9. Use **"Wipe"** to reset to clean state
-
----
-
-## 🐛 Troubleshooting
-
-### If something doesn't start:
+The curated image catalog can download and convert supported cloud images into managed standalone QCOW2 files.
 
 ```bash
-# Check status
-./status.sh
-
-# Check logs
-tail -f backend.log
-tail -f frontend.log
-docker-compose logs
-```
-
-### Common Issues:
-
-**"Port already in use"**
-```bash
-# Stop everything first
-./stop-all.sh
-
-# Kill any orphan processes
-pkill -f "next dev"
-pkill -f "node.*server"
-
-# Try again
-./run-all.sh
-```
-
-**"Docker services not starting"**
-```bash
-docker-compose down
-docker-compose up -d
-```
-
-**"Backend not responding"**
-```bash
-# Check backend log
-tail -f backend.log
-
-# Manually test
 cd backend
-node server.js
+npm install --no-audit --no-fund
+npm run image:doctor
+npm run sandlabx -- image pull ubuntu-24.04
+npm run image:list
 ```
 
----
-
-## 📦 First Time Setup (Optional)
-
-If `./run-all.sh` doesn't work the first time, run setup first:
+Import a local appliance image:
 
 ```bash
-# Install dependencies manually
+npm run sandlabx -- image import /path/to/appliance.vmdk \
+  --name appliance \
+  --display-name "Lab appliance"
+```
+
+Inspect or validate an image without importing it:
+
+```bash
+npm run sandlabx -- image inspect /path/to/appliance.vmdk
+npm run sandlabx -- image validate /path/to/base.qcow2
+```
+
+## 4. Prepare an ISO installation
+
+ISO files need an installation VM rather than direct disk conversion. Generate a deterministic installation plan:
+
+```bash
+npm run sandlabx -- image plan-install /path/to/debian.iso \
+  --name debian-desktop \
+  --disk-size 32G \
+  --cpus 2 \
+  --memory 4096 \
+  --vnc 5990
+```
+
+The command prints the exact disk-creation and QEMU launch arguments. An optional `--seed /path/to/seed.iso` can attach unattended-installation metadata.
+
+## 5. Validate a lab definition
+
+```bash
+npm run sandlabx -- lab validate ../examples/labs/basic-routing.json
+```
+
+Create a deterministic normalized copy for version control:
+
+```bash
+npm run sandlabx -- lab normalize \
+  ../examples/labs/basic-routing.json \
+  /tmp/basic-routing.normalized.json
+```
+
+## 6. Operate the stack
+
+```bash
+make logs       # Follow service logs
+make ps         # Inspect service state
+make restart    # Restart services
+make down       # Stop services
+```
+
+Stopping the stack retains PostgreSQL data, managed images, and VM overlays. Review disk files explicitly before deleting persistent data.
+
+## Troubleshooting
+
+Run the preflight again:
+
+```bash
+make doctor
+```
+
+Inspect health and recent logs:
+
+```bash
+docker compose ps
+docker compose logs --tail=200 backend postgres guacamole
+curl -v http://localhost:3001/api/health
+```
+
+For image-specific failures:
+
+```bash
 cd backend
-npm install
-
-cd ../frontend
-npm install
-
-cd ..
-
-# Then start
-./run-all.sh
+npm run image:doctor
+npm run sandlabx -- image inspect /path/to/image
 ```
 
----
-
-## 🎯 Directory Structure
-
-```
-/path/to/sandboxlabs/  ← PROJECT ROOT
-├── run-all.sh         ← START EVERYTHING
-├── stop-all.sh        ← STOP EVERYTHING  
-├── status.sh          ← CHECK STATUS
-├── backend/           ← Backend API code
-├── frontend/          ← Frontend UI code
-├── docker-compose.yml ← Docker services
-└── [logs and pid files created automatically]
-```
-
----
-
-## 💡 Tips
-
-1. **Always run from the root directory** (where run-all.sh is located)
-2. **Wait 20-30 seconds** after running `./run-all.sh` for everything to start
-3. **Check logs** if something doesn't work: `tail -f backend.log`
-4. **Use status.sh** to see what's running
-5. **Always stop cleanly** with `./stop-all.sh` before shutting down
-
----
-
-## 🚀 Ready to Use!
-
-```bash
-cd /path/to/sandboxlabs
-./run-all.sh
-# Wait 20 seconds...
-# Open http://localhost:3000
-```
-
-**That's all you need!** 🎉
+See [Managed image pipeline](docs/IMAGE-PIPELINE.md) and [Architecture](docs/ARCHITECTURE.md) for deeper operational details.

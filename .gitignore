@@ -1,50 +1,48 @@
-# Runtime logs and process IDs
+# Logs and process state
 *.log
 *.pid
+pids/
 
-./images
-
-# Node modules
+# Dependencies and build output
 node_modules/
 **/node_modules/
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-!.env.example
-
-# Build outputs
 frontend/.next/
 frontend/out/
 frontend/build/
 backend/dist/
 backend/build/
+coverage/
+.nyc_output/
+.cache/
 
-# Runtime state
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Runtime databases and state
+pgdata/
 backend/nodes-state.json
 
-# PostgreSQL data
-pgdata/
+# VM runtime data and large disk formats
+overlays/
+vms/
+*.qcow2
+*.vmdk
+*.vdi
+*.vhd
+*.vhdx
+*.iso
+*.img
+*.raw
 
-# QEMU overlays (generated at runtime)
-overlays/*.qcow2
-!overlays/.gitkeep
-
-# OS files
-.DS_Store
-Thumbs.db
-.directory
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*.swn
-.project
-.classpath
-.settings/
+# Keep the appliance catalog while ignoring downloaded images
+images/*
+!images/catalog.json
+!images/custom/
+images/custom/*
+!images/custom/.gitkeep
 
 # Temporary files
 *.tmp
@@ -52,26 +50,21 @@ Thumbs.db
 *.bak
 *~
 
-# Package manager
-package-lock.json.bak
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.directory
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Package manager diagnostics
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-
-# Testing
-coverage/
-*.coverage
-.nyc_output/
-.cache/
-
-# Docker
-*.tar
-.dockerignore
-
-# Git
-.git/
-.gitattributes
 
 # Development artifacts
 EVALUATION-*.md
@@ -80,31 +73,3 @@ FIXES.md
 WORKFLOW-*.md
 SYSTEM-*.md
 CLEANUP-*.md
-
-# macOS
-.AppleDouble
-.LSOverride
-Icon
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Linux
-*~
-.fuse_hidden*
-.nfs*
-
-
-# VM Images and disk files (NEVER commit these - too large)
-overlays/
-images/
-vms/
-*.qcow2
-*.vmdk
-*.vdi
-*.vhdx
-*.iso
-*.img
