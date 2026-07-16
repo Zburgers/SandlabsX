@@ -1,416 +1,175 @@
-# SandBoxLabs Backend API
+# SandLabX backend
 
-RESTful API server for managing QEMU VM nodes with overlay disks and Guacamole integration.
+The backend is an Express service that coordinates authentication, PostgreSQL-backed lab state, QEMU/KVM virtual machines, QCOW2 overlays, and Guacamole console registration. It also includes standalone developer tooling for managed disk images, declarative lab specifications, and versioned Lab Capsules.
 
-## 📚 Related Documentation
-
-- **[Main README](../README.md)** - Complete project documentation
-- **[Quick Start Guide](../QUICK-START.md)** - Get the entire system running
-- **[Frontend README](../frontend/README.md)** - Frontend UI documentation
-- **[Project Summary](../PROJECT-SUMMARY.md)** - Deliverables overview
-- **[Documentation Index](../docs/README.md)** - All documentation files
-
-## 🏗️ Architecture
-
-```
-backend/
-├── server.js              # Main Express server
-├── modules/
-│   ├── nodeManager.js     # Node state management
-│   ├── qemuManager.js     # QEMU VM lifecycle
-│   └── guacamoleClient.js # Guacamole DB integration
-├── package.json           # Dependencies
-├── .env                   # Configuration
-└── nodes-state.json       # Runtime state (auto-generated)
-```
-
-## 🚀 Quick Start
-
-### Installation
+## Local development
 
 ```bash
 cd backend
-npm install
-```
-
-### Configuration
-
-Edit `.env` file with your paths:
-
-```env
-PORT=3001
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=guacamole_db
-DB_USER=guacamole
-DB_PASSWORD=guacpass123
-GUAC_BASE_URL=http://localhost:8081/guacamole
-BASE_IMAGE_PATH=/path/to/images/base.qcow2
-OVERLAYS_PATH=/path/to/overlays
-VNC_START_PORT=5900
-```
-
-### Start Server
-
-```bash
-# Development mode (auto-restart)
+npm install --no-audit --no-fund
 npm run dev
-
-# Production mode
-npm start
 ```
 
-Server runs on `http://localhost:3001`
+The API listens on `http://localhost:3001` by default.
 
-## 📡 API Endpoints
-
-### Health Check
-```
-GET /api/health
-```
-Returns server status and connection info.
-
-### List Nodes
-```
-GET /api/nodes
-```
-Returns array of all nodes with current status.
-
-**Response:**
-```json
-{
-  "success": true,
-  "nodes": [
-    {
-      "id": "uuid",
-      "name": "node-1",
-      "status": "running",
-      "vncPort": 5900,
-      "guacUrl": "http://...",
-      "createdAt": "2025-10-14T..."
-    }
-  ],
-  "count": 1
-}
-```
-
-### Get Node Details
-```
-GET /api/nodes/:id
-```
-Returns detailed information about a specific node.
-
-### Create Node
-```
-POST /api/nodes
-Content-Type: application/json
-
-{
-  "name": "my-node",      // optional
-  "osType": "ubuntu"      // optional
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "id": "uuid",
-  "name": "my-node",
-  "status": "stopped",
-  "overlayPath": "/overlays/node_uuid.qcow2",
-  "createdAt": "..."
-}
-```
-
-### Start Node
-```
-POST /api/nodes/:id/run
-```
-
-Starts the QEMU VM and registers with Guacamole.
-
-**Response:**
-```json
-{
-  "success": true,
-  "id": "uuid",
-  "status": "running",
-  "vncPort": 5900,
-  "guacUrl": "http://localhost:8081/guacamole/#/client/...",
-  "guacConnectionId": 1,
-  "pid": 12345
-}
-```
-
-### Stop Node
-```
-POST /api/nodes/:id/stop
-```
-
-Gracefully stops the QEMU VM.
-
-**Response:**
-```json
-{
-  "success": true,
-  "id": "uuid",
-  "status": "stopped",
-  "vncPort": null,
-  "guacUrl": null
-}
-```
-
-### Wipe Node
-```
-POST /api/nodes/:id/wipe
-```
-
-Stops VM (if running), deletes overlay, and recreates from base image.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Node wiped successfully",
-  "id": "uuid",
-  "status": "stopped"
-}
-```
-
-### Delete Node
-```
-DELETE /api/nodes/:id
-```
-
-Completely removes node (stops VM, deletes overlay, removes from state).
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Node deleted successfully",
-  "id": "uuid"
-}
-```
-
-## 🔧 How It Works
-
-### 1. Node Creation
-- Generates unique UUID
-- Creates QCOW2 overlay: `qemu-img create -f qcow2 -b base.qcow2 -F qcow2 node_<id>.qcow2`
-- Stores node metadata in state file
-
-### 2. Node Start
-- Spawns QEMU process with overlay disk
-- Assigns VNC port (5900, 5901, 5902, ...)
-- Registers VNC connection in Guacamole PostgreSQL
-- Generates Guacamole URL
-
-### 3. Node Stop
-- Sends SIGTERM to QEMU process
-- Waits for graceful shutdown (5s timeout)
-- Forces SIGKILL if needed
-- Cleans up process references
-
-### 4. Node Wipe
-- Stops VM if running
-- Deletes overlay file
-- Recreates fresh overlay from base image
-- Preserves node metadata
-
-## 🗄️ State Management
-
-Node state is persisted in `nodes-state.json`:
-
-```json
-{
-  "version": "1.0.0",
-  "lastUpdated": "2025-10-14T...",
-  "nodes": [
-    {
-      "id": "uuid",
-      "name": "node-1",
-      "status": "running",
-      "overlayPath": "/overlays/node_uuid.qcow2",
-      "vncPort": 5900,
-      "guacConnectionId": 1,
-      "guacUrl": "http://...",
-      "pid": 12345,
-      "createdAt": "...",
-      "updatedAt": "...",
-      "resources": {
-        "ram": 2048,
-        "cpus": 2
-      }
-    }
-  ]
-}
-```
-
-## 🔌 Guacamole Integration
-
-The backend directly inserts VNC connections into Guacamole's PostgreSQL database:
-
-1. Creates `guacamole_connection` entry
-2. Sets VNC parameters (hostname, port)
-3. Grants permissions to guacadmin user
-4. Generates connection URL
-
-**Database Tables Used:**
-- `guacamole_connection` - Connection metadata
-- `guacamole_connection_parameter` - VNC configuration
-- `guacamole_connection_permission` - User access control
-
-## 🖥️ QEMU Integration
-
-### Overlay System
-- Base image: Read-only, shared by all nodes
-- Overlays: Copy-on-write, per-node changes only
-- Fast creation: No disk copying needed
-- Efficient storage: Only deltas stored
-
-### VM Configuration
-- **RAM:** 2048 MB (configurable via .env)
-- **CPUs:** 2 cores (configurable)
-- **VNC:** Enabled on dynamic ports (5900+)
-- **KVM:** Auto-enabled if `/dev/kvm` available
-
-### Process Management
-- Spawned as child processes
-- Detached from terminal
-- Graceful shutdown with SIGTERM
-- Automatic cleanup on exit
-
-## 🛠️ Prerequisites
-
-### System Requirements
-- Node.js 18+
-- QEMU/KVM installed
-- PostgreSQL (via Docker Compose)
-- Guacamole (via Docker Compose)
-
-### Install QEMU (if running on host)
-```bash
-# Ubuntu/Debian
-sudo apt-get install qemu-system-x86 qemu-utils
-
-# Verify installation
-qemu-system-x86_64 --version
-qemu-img --version
-```
-
-### Base Image
-You need a bootable base image at the configured path:
+Useful commands:
 
 ```bash
-# Option 1: Download Ubuntu cloud image
-wget https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
-mv focal-server-cloudimg-amd64.img images/base.qcow2
-
-# Option 2: Create and install manually
-qemu-img create -f qcow2 images/base.qcow2 10G
-# Then boot with ISO and install OS
+npm test                 # Node test runner suites
+npm run test:watch       # Re-run tests while editing
+npm run check            # Tests and JavaScript syntax checks
+npm run image:doctor     # Check local QEMU tools
+npm run image:list       # List managed custom images
+npm run sandlabx -- help # Developer CLI
 ```
 
-## 🧪 Testing
+The full stack is normally started from the repository root with `make up`.
 
-### Manual Testing
+## Module boundaries
+
+```text
+backend/
+├── cli/
+│   └── sandlabx.js              Developer CLI
+├── controllers/                 Authentication and user controllers
+├── middleware/                  JWT, RBAC, and rate limiting
+├── modules/
+│   ├── imagePipeline.js         Managed image lifecycle
+│   ├── labSpec.js               Declarative lab validation
+│   ├── capsuleSchema.js         Canonical Capsule normalization and legacy conversion
+│   ├── planCompiler.js           Deterministic network and QEMU plan compiler
+│   ├── capsuleRepository.js      Draft and immutable version persistence
+│   ├── capsuleRouter.js          Capsule/version/instance HTTP boundary
+│   ├── verificationRunner.js     Typed checks with bounded redacted evidence
+│   ├── checkpointService.js      Stopped-VM checkpoint copy and restore
+│   ├── nodeManagerPostgres.js   Node persistence
+│   ├── labManager.js            Lab persistence and access
+│   ├── qemuManager.js           VM process and overlay orchestration
+│   ├── guacamoleClient.js       Console registration
+│   └── auditLogger.js           Audit events
+├── schema/                      PostgreSQL schema additions
+├── test/                        Regression tests
+└── server.js                    Composition root and HTTP routes
+```
+
+`server.js` should remain a composition and transport layer. New infrastructure behavior belongs in a module with tests rather than directly inside a route.
+
+## API surface
+
+Public endpoints:
+
+- `POST /api/auth/login`
+- `POST /api/auth/register`
+- `GET /api/health`
+- `GET /api/docs`
+
+Authenticated endpoint groups:
+
+- `/api/nodes` — node creation and lifecycle
+- `/api/images` — image catalog, uploads, and validation
+- `/api/labs` — lab persistence and topology data
+- `/api/capsules`, `/api/capsule-versions` — canonical definitions, publication, export, and plans
+- `/api/instances`, `/api/operations` — immutable-version runtime records and durable action intents
+- `/api/users` — user administration
+
+The Swagger UI at `/api/docs` is the canonical endpoint reference.
+
+## Managed images
+
+The image pipeline is deliberately independent from Express so it can be reused by API jobs, CLI workflows, tests, and future workers.
 
 ```bash
-# 1. Create a node
-curl -X POST http://localhost:3001/api/nodes \
-  -H "Content-Type: application/json" \
-  -d '{"name": "test-node"}'
-
-# 2. Start the node
-curl -X POST http://localhost:3001/api/nodes/<id>/run
-
-# 3. Check status
-curl http://localhost:3001/api/nodes
-
-# 4. Stop the node
-curl -X POST http://localhost:3001/api/nodes/<id>/stop
-
-# 5. Wipe the node
-curl -X POST http://localhost:3001/api/nodes/<id>/wipe
+npm run sandlabx -- image inspect /path/to/disk.vmdk
+npm run sandlabx -- image import /path/to/disk.vmdk --name appliance
+npm run sandlabx -- image pull ubuntu-24.04
+npm run sandlabx -- image compact appliance
+npm run sandlabx -- image resize appliance 40G
 ```
 
-### Check Running VMs
+Important guarantees:
+
+- QEMU commands use argument arrays with `shell: false`.
+- Imports convert into unique staging files.
+- Per-image locks reject concurrent mutation.
+- Validation happens before publication.
+- Atomic renames prevent partially published images.
+- Managed images cannot depend on external backing files.
+- Manifests record checksums, source, size, tags, and timestamps.
+
+Browser uploads now delegate to `ImagePipeline.import`, publish only validated managed images, and return an operation record. The CLI and API share the same image transaction behavior.
+
+## Declarative labs
 
 ```bash
-# List QEMU processes
-ps aux | grep qemu-system-x86_64
-
-# Check VNC ports
-netstat -tlnp | grep 590
+npm run sandlabx -- lab validate ../examples/labs/basic-routing.json
+npm run sandlabx -- lab normalize ../examples/labs/basic-routing.json /tmp/lab.json
 ```
 
-## 🐛 Troubleshooting
+Validation covers node identifiers, image presence, CPU and memory bounds, link references, interface reuse, self-links, and total resource budgets.
 
-### "Base image not found"
-- Ensure `BASE_IMAGE_PATH` in `.env` points to valid QCOW2 image
-- Create or download a base image (see Prerequisites)
+## Lab Capsules
 
-### "QEMU tools not found"
-- Install QEMU: `sudo apt-get install qemu-system-x86 qemu-utils`
-- Ensure tools are in PATH
+```bash
+npm run sandlabx -- capsule validate ../examples/capsules/ospf-failure-recovery/capsule.json --published
+npm run sandlabx -- capsule normalize ../examples/capsules/ospf-failure-recovery/capsule.json /tmp/capsule.json
+```
 
-### "Failed to connect to Guacamole database"
-- Ensure Docker Compose services are running: `docker-compose up -d`
-- Check PostgreSQL is accessible: `docker-compose ps`
-- Verify credentials in `.env` match `docker-compose.yml`
+See [`docs/CAPSULES.md`](../docs/CAPSULES.md) for the API, operation lifecycle, plan compiler, verification checks, and checkpoint safety contract.
 
-### "Failed to start VM"
-- Check overlay file exists and is readable
-- Verify QEMU command in logs
-- Try running QEMU command manually to see detailed errors
+## ISO installation planning
 
-### Port conflicts
-- Ensure VNC ports (5900+) are not in use
-- Adjust `VNC_START_PORT` in `.env` if needed
-- Check: `netstat -tlnp | grep 590`
+An ISO is installation media, not a directly convertible system disk. Generate a reproducible installation plan:
 
-## 📝 Development Notes
+```bash
+npm run sandlabx -- image plan-install /path/to/os.iso \
+  --name installed-os \
+  --disk-size 32G \
+  --cpus 2 \
+  --memory 4096 \
+  --vnc 5990
+```
 
-### Adding Features
+The result contains a `qemu-img create` plan and a QEMU launch plan. A seed ISO can be attached for unattended installers.
 
-**New endpoint:**
-1. Add route in `server.js`
-2. Call appropriate manager method
-3. Handle errors and responses
+## Configuration
 
-**Modify VM config:**
-- Edit `qemuManager.js` `startVM()` method
-- Update QEMU args array
+The Compose stack supplies most values. Important variables include:
 
-**Change state persistence:**
-- Modify `nodeManager.js` `saveState()` method
-- Can switch to PostgreSQL instead of JSON file
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | HTTP port |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `ALLOWED_ORIGINS` | Comma-separated CORS allow-list |
+| `GUAC_BASE_URL` | Guacamole base URL |
+| `CUSTOM_IMAGES_PATH` | Managed image directory |
+| `IMAGE_CATALOG_PATH` | Curated image catalog |
+| `OVERLAYS_PATH` | Per-node QCOW2 overlays |
+| `VMS_PATH` | VM storage directory |
+| `QEMU_IFUP` / `QEMU_IFDOWN` | TAP network scripts |
 
-### Code Structure
+Never use the repository’s development defaults on an exposed deployment.
 
-- **server.js**: HTTP routing and middleware
-- **nodeManager.js**: Business logic and state
-- **qemuManager.js**: System commands and process management
-- **guacamoleClient.js**: Database operations
+## Testing
 
-## 🔒 Security Notes
+```bash
+npm test
+```
 
-⚠️ **Development Configuration - Requires Hardening for Production**
+The tooling tests use temporary directories and fake QEMU runners. They verify transaction cleanup and domain behavior without requiring KVM or real disk images.
 
-For production deployment, implement:
-- Authentication/authorization
-- Input validation and sanitization
-- Rate limiting
-- Process sandboxing
-- Resource quotas
-- Audit logging
+CI also performs backend syntax checks, frontend compilation, Compose validation, and container builds.
 
-## 📄 License
+## Architectural work still needed
 
-MIT License
+`qemuManager.js` remains too broad. It should be decomposed behind its current public interface into:
 
-## 👨‍💻 Project
+- VM process lifecycle
+- disk and snapshot lifecycle
+- TAP/bridge networking
+- serial console fan-out
+- VNC and port allocation
 
-SandBoxLabs - Network Lab Management System
+This should be done incrementally so existing node APIs remain stable.
+
+See [Architecture](../docs/ARCHITECTURE.md) and [Managed image pipeline](../docs/IMAGE-PIPELINE.md).

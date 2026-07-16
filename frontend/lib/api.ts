@@ -9,6 +9,11 @@ import type {
   ApiResponse,
   ImageCatalogueResponse,
   ImageInfo,
+  CapsuleDocument,
+  CapsuleRecord,
+  CapsuleVersion,
+  LabInstance,
+  LabOperation,
 } from './types';
 
 // Normalize base URL: strip trailing /api if present, then add /api
@@ -167,6 +172,26 @@ class ApiClient {
         error: error instanceof Error ? error.message : 'Network error',
       };
     }
+  }
+
+  async listCapsules(): Promise<ApiResponse<{ capsules: CapsuleRecord[] }>> {
+    return this.request<{ capsules: CapsuleRecord[] }>('/capsules');
+  }
+
+  async createCapsule(document: CapsuleDocument): Promise<ApiResponse<{ capsule: CapsuleRecord }>> {
+    return this.request<{ capsule: CapsuleRecord }>('/capsules', { method: 'POST', body: JSON.stringify(document) });
+  }
+
+  async publishCapsule(id: string): Promise<ApiResponse<{ version: CapsuleVersion }>> {
+    return this.request<{ version: CapsuleVersion }>(`/capsules/${id}/publish`, { method: 'POST' });
+  }
+
+  async createInstance(capsuleVersionId: string, name?: string): Promise<ApiResponse<{ instance: LabInstance }>> {
+    return this.request<{ instance: LabInstance }>('/instances', { method: 'POST', body: JSON.stringify({ capsuleVersionId, name }) });
+  }
+
+  async instanceAction(instanceId: string, action: 'start' | 'stop' | 'reset'): Promise<ApiResponse<{ operation: LabOperation }>> {
+    return this.request<{ operation: LabOperation }>(`/instances/${instanceId}/actions/${action}`, { method: 'POST', headers: { 'Idempotency-Key': `${instanceId}-${action}-${Date.now()}` } });
   }
 }
 
