@@ -104,16 +104,20 @@ const swaggerSpec = require('./swagger');
 
 // Health check endpoint (public)
 // Health check endpoint (public)
+// Health check endpoint (public)
 app.get('/api/health', async (req, res) => {
-  const dbHealth = await nodeManager.checkHealth();
-  const qemuHealth = await qemuManager.checkHealth();
+  const labMode = process.env.LAB_MODE === 'true';
 
-  // Check Guacamole (HTTP check)
+  const dbHealth = await nodeManager.checkHealth();
+
+  let qemuHealth = null;
+  if (labMode) {
+    qemuHealth = await qemuManager.checkHealth();
+  }
+
   let guacHealth = false;
   try {
-    // Use fetch or http.get
-    const guacUrl = process.env.GUAC_BASE_URL || 'http://localhost:8081/guacamole';
-    // Simple check: if we get a response (even 404/302), service is up
+    const guacUrl = process.env.GUAC_BASE_URL || 'http://guacamole:8080/guacamole';
     const response = await fetch(guacUrl);
     guacHealth = response.status < 500;
   } catch (e) {
@@ -123,13 +127,13 @@ app.get('/api/health', async (req, res) => {
   const services = {
     backend: 'running',
     database: dbHealth ? 'connected' : 'disconnected',
-    qemu: qemuHealth ? 'available' : 'unavailable',
+    qemu: labMode ? (qemuHealth ? 'available' : 'unavailable') : 'disabled',
     guacamole: guacHealth ? 'connected' : 'unreachable'
   };
 
-  // Determine overall status
   let status = 'healthy';
-  if (!dbHealth || !qemuHealth) {
+
+  if (!dbHealth || (labMode && !qemuHealth)) {
     status = 'unhealthy';
   } else if (!guacHealth) {
     status = 'degraded';
@@ -139,6 +143,7 @@ app.get('/api/health', async (req, res) => {
 
   res.status(statusCode).json({
     status,
+    mode: labMode ? 'lab' : 'api',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     services,

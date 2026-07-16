@@ -12,6 +12,13 @@ Use this index to find the current operational and development documentation. Fi
 | [Managed image pipeline](IMAGE-PIPELINE.md) | Import, validation, catalog, compaction, resizing, and ISO planning |
 | [Project structure](../STRUCTURE.md) | Repository layout and ownership |
 
+## Active product planning
+
+| Document | Purpose |
+| --- | --- |
+| [Product architecture ideation](SANDLABX_PRODUCT_ARCHITECTURE_IDEATION_2026-07-17.md) | Product rationale and market/architecture exploration |
+| [Lab Capsules and Scenario Engine plan](plans/2026-07-17-lab-capsules-scenario-engine.md) | Validated feature scope, implementation tasks, API/data model, and 1.2.0 release gates |
+
 ## Component guides
 
 | Document | Purpose |
@@ -23,7 +30,7 @@ Use this index to find the current operational and development documentation. Fi
 
 ## Product and historical material
 
-- [Product requirements](sandlab-prd-v1.1.md)
+- [Product requirements](sandlab-prd-v1.1.md) — historical context; verify status claims against source and the active plan
 - [Archived documents](archive/)
 
 Historical documents are useful for intent and previous decisions, but verify commands and architecture against the root README and current source before relying on them.
@@ -71,3 +78,6 @@ When behavior changes:
 3. Add operational detail to a focused guide under `docs/`.
 4. Move superseded design documents to `docs/archive/` rather than presenting them as current.
 5. Keep commands executable and avoid unverified claims about performance, security, or production readiness.
+6. Keep one feature or major architecture decision in one Markdown file under `docs/plans/`.
+
+The next product version is currently a target, not a release: the repository manifests are `1.0.0`, no release tag was found, and Draft PR #4 remains the latest available implementation foundation.
