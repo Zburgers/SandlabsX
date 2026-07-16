@@ -17,7 +17,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./initdb-schema.sql:/docker-entrypoint-initdb.d/10-guacamole.sql:ro
+      - ./docs/archive/initdb-schema.sql:/docker-entrypoint-initdb.d/10-guacamole.sql:ro
       - ./backend/schema/nodes-schema.sql:/docker-entrypoint-initdb.d/20-sandlabx.sql:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"

@@ -1,6 +1,6 @@
 # SandLabX backend
 
-The backend is an Express service that coordinates authentication, PostgreSQL-backed lab state, QEMU/KVM virtual machines, QCOW2 overlays, and Guacamole console registration. It also includes standalone developer tooling for managed disk images and declarative lab specifications.
+The backend is an Express service that coordinates authentication, PostgreSQL-backed lab state, QEMU/KVM virtual machines, QCOW2 overlays, and Guacamole console registration. It also includes standalone developer tooling for managed disk images, declarative lab specifications, and versioned Lab Capsules.
 
 ## Local development
 
@@ -36,6 +36,12 @@ backend/
 ├── modules/
 │   ├── imagePipeline.js         Managed image lifecycle
 │   ├── labSpec.js               Declarative lab validation
+│   ├── capsuleSchema.js         Canonical Capsule normalization and legacy conversion
+│   ├── planCompiler.js           Deterministic network and QEMU plan compiler
+│   ├── capsuleRepository.js      Draft and immutable version persistence
+│   ├── capsuleRouter.js          Capsule/version/instance HTTP boundary
+│   ├── verificationRunner.js     Typed checks with bounded redacted evidence
+│   ├── checkpointService.js      Stopped-VM checkpoint copy and restore
 │   ├── nodeManagerPostgres.js   Node persistence
 │   ├── labManager.js            Lab persistence and access
 │   ├── qemuManager.js           VM process and overlay orchestration
@@ -62,6 +68,8 @@ Authenticated endpoint groups:
 - `/api/nodes` — node creation and lifecycle
 - `/api/images` — image catalog, uploads, and validation
 - `/api/labs` — lab persistence and topology data
+- `/api/capsules`, `/api/capsule-versions` — canonical definitions, publication, export, and plans
+- `/api/instances`, `/api/operations` — immutable-version runtime records and durable action intents
 - `/api/users` — user administration
 
 The Swagger UI at `/api/docs` is the canonical endpoint reference.
@@ -88,7 +96,7 @@ Important guarantees:
 - Managed images cannot depend on external backing files.
 - Manifests record checksums, source, size, tags, and timestamps.
 
-The current browser upload route still uses legacy QEMU-manager conversion. Its next refactor should delegate to `ImagePipeline.import` and expose asynchronous progress.
+Browser uploads now delegate to `ImagePipeline.import`, publish only validated managed images, and return an operation record. The CLI and API share the same image transaction behavior.
 
 ## Declarative labs
 
@@ -98,6 +106,15 @@ npm run sandlabx -- lab normalize ../examples/labs/basic-routing.json /tmp/lab.j
 ```
 
 Validation covers node identifiers, image presence, CPU and memory bounds, link references, interface reuse, self-links, and total resource budgets.
+
+## Lab Capsules
+
+```bash
+npm run sandlabx -- capsule validate ../examples/capsules/ospf-failure-recovery/capsule.json --published
+npm run sandlabx -- capsule normalize ../examples/capsules/ospf-failure-recovery/capsule.json /tmp/capsule.json
+```
+
+See [`docs/CAPSULES.md`](../docs/CAPSULES.md) for the API, operation lifecycle, plan compiler, verification checks, and checkpoint safety contract.
 
 ## ISO installation planning
 

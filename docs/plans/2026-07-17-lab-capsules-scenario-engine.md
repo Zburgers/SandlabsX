@@ -16,6 +16,10 @@ Proceed with **Lab Capsules + Scenario Engine**, delivered as focused increments
 
 The source rationale is [SANDLABX_PRODUCT_ARCHITECTURE_IDEATION_2026-07-17.md](../SANDLABX_PRODUCT_ARCHITECTURE_IDEATION_2026-07-17.md). This document narrows it to repository-backed decisions, acceptance criteria, and implementation tasks.
 
+### Implementation status on `feat/lab-capsules-scenario-engine`
+
+The implementation includes the Phase 0–5 control-plane slices: canonical schema and legacy conversion, versioned PostgreSQL migrations and repository contracts, deterministic network/QEMU plan compilation, Capsule/version/instance/operation routes, ImagePipeline-backed uploads, typed verification, stopped-VM checkpoints, a reference OSPF Capsule, CLI validation, and a frontend Capsule surface. The host-runner seam is explicit and safe: lifecycle operations fail with a durable `RUNNER_UNAVAILABLE` result until a single-host runner is configured. Real QEMU/KVM provisioning, process adoption, and live network device integration remain release-gate work rather than being represented as complete by this branch.
+
 ### Version finding
 
 No release tag or GitHub release is currently published. The checked-out application manifests are `1.0.0`, while the historical PRD is labelled `v1.1` and still describes implemented features as planned. The latest available implementation is open Draft PR #4, `dev/image-pipeline-architecture`, at head `56d1255`; it adds the managed image pipeline, `labSpec.js`, CLI tooling, tests, CI, and documentation, but is not merged into `main`.
@@ -53,13 +57,13 @@ The findings below use the current checkout plus remote Draft PR #4. Prose is no
 |---|---|---|---|
 | Lab Capsule product abstraction | Current code has labs, nodes, topology JSON, image records, and consoles, but no Capsule entity. | Validated direction | Add definition/version/instance separation. |
 | Canonical declarative model | `backend/modules/labManager.js` accepts `nodes[]` and `edges[]`; Draft PR #4 adds `labSpec.js`, but it is not yet a runtime Capsule contract. | Required foundation | Add policy, images, drivers, interfaces, scenarios, and publication. |
-| Canvas as a projection | Canvas positions and edges are stored in browser `localStorage`; connections are explicitly local-only. | Not implemented | Store semantic links and interface IDs in the Capsule; keep positions as presentation metadata. |
-| Real topology compiler | `backend/modules/qemuManager.js` uses fixed router TAPs and infers PC TAPs from names such as `PC1` and `PC2`. | Release blocker | Compile links into persisted segments, MACs, TAPs, bridges, and QEMU arg arrays. |
-| Managed image pipeline | Draft PR #4 has `imagePipeline.js`, CLI commands, catalog, and tests; current upload code still calls `qemuManager.ensureQcow2Format()`. | Foundation available; API not converged | Route API uploads through the shared pipeline and make work observable. |
-| Durable operations | Lab start loops through nodes in the request-driven manager; there are no operation/step tables. | Not implemented | Add operation state, idempotency, cancellation, leases, and events. |
+| Canvas as a projection | The legacy canvas still stores local presentation state; the new Capsule model separates semantic links from positions. | Partially implemented | Migrate canvas save/export to the Capsule API. |
+| Real topology compiler | `planCompiler.js` compiles declared links into deterministic segments, MACs, TAPs, ports, disk actions, and QEMU arg arrays. | Control-plane implemented | Connect the plan to a verified host network/QEMU runner. |
+| Managed image pipeline | Browser uploads now call `ImagePipeline.import` and return an operation record. | API converged | Add a background worker for progress events during very large imports. |
+| Durable operations | Versioned tables, idempotency, events, cancellation state, and API action intents are present. | Control-plane implemented | Add row leasing and a production runner loop. |
 | Restart reconciliation | Startup cleanup kills every live PID found in a PID file; live process ownership is held in an in-memory `Map`. | Required before production claims | Verify identity, persist it, adopt valid resources, and mark drift. |
-| Checkpoints and reset | No checkpoint model or implementation exists. | Good P1 feature | Start with stopped-VM disk checkpoints and explicit restore manifests. |
-| Structured verification | Existing checks cover image integrity and topology shape, not instance-scoped lab outcomes. | Differentiating and feasible | Start with typed probes and trusted command presets. |
+| Checkpoints and reset | `CheckpointService` stages stopped-node disk copies and verifies SHA-256 on restore. | Control-plane implemented | Persist runner-side disk/runtime coordination. |
+| Structured verification | `VerificationRunner` supports topology plans, bounded serial output, and bounded artifact checks. | MVP implemented | Add persisted verification result writes and more trusted probes. |
 | Single-host runner | Docker Compose and local QEMU make a single-host runner the natural first deployment. | Validated constraint | Define the runner boundary now; defer remote scheduling. |
 | AI copilot | No implementation evidence; AI assistance is already appearing in competing products. | Defer | Consider only after schema validation, planning, and diffing are trustworthy. |
 
@@ -68,7 +72,7 @@ The findings below use the current checkout plus remote Draft PR #4. Prose is no
 - The ideation's managed-image and LabSpec claims describe Draft PR #4, not the old `main` checkout.
 - `docs/sandlab-prd-v1.1.md` is historical context, not current release evidence. Its readiness table and “five days to production grade” conclusion conflict with the runtime architecture.
 - Both application manifests remain `1.0.0`; no release tags or GitHub releases were found.
-- This branch documents and specifies the next feature line. It does not claim that Capsule runtime behavior already exists.
+- The implementation branch delivers the control-plane and safety contracts described here. It does not claim that real host provisioning, process adoption, or KVM integration have passed until those gates are run on the target Linux host.
 
 ## Product contract
 
@@ -305,4 +309,4 @@ Recommended implementation branches after the prerequisite foundation:
 4. `fix/unify-image-pipeline-api`
 5. `feat/scenario-verification-mvp`
 
-Keep the source ideation as rationale and this file as the active feature plan. Keep active plans in `docs/plans/`, and move superseded operational notes to `docs/archive/`. This documentation branch does not tag a release; it is a reviewable planning baseline.
+Keep the source ideation as rationale and this file as the active feature plan. Keep active plans in `docs/plans/`, and move superseded operational notes to `docs/archive/`. This feature branch does not tag a release; it is a reviewable implementation increment.

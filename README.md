@@ -13,6 +13,7 @@ This development branch adds a safer image lifecycle, a cloud-image catalog, ISO
 - Authentication, RBAC, rate limits, and audit logging
 - Custom image upload and conversion
 - Reusable lab definitions and managed image manifests
+- Versioned Lab Capsules with deterministic network plans and scenario checks
 
 ## New image pipeline
 
@@ -53,6 +54,17 @@ npm run sandlabx -- lab normalize ../examples/labs/basic-routing.json /tmp/basic
 ```
 
 Normalization sorts nodes, links, and tags so Git diffs remain deterministic.
+
+## Lab Capsules
+
+Capsules are the canonical versioned model for new labs. They pin image digests, declare interface-level links, compile into instance-owned TAP/MAC/segment/QEMU plans, and support durable operation events, typed verification, and stopped-VM checkpoints.
+
+```bash
+cd backend
+npm run sandlabx -- capsule validate ../examples/capsules/ospf-failure-recovery/capsule.json --published
+```
+
+See [Lab Capsules](docs/CAPSULES.md) for the API and safety boundaries. The browser authoring surface is available at `/capsules` after authentication.
 
 ## Architecture
 

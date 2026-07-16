@@ -73,7 +73,11 @@ function createCapsuleRouter(options) {
       const instance = await instances.get(req.params.id, userId); if (!instance) return res.status(404).json({ success: false, code: 'NOT_FOUND' });
       const operation = await operations.create({ ownerId: userId, type: action.toUpperCase(), resourceType: 'instance', resourceId: instance.id, idempotencyKey: req.headers['idempotency-key'] });
       await operations.appendEvent(operation.id, { type: 'QUEUED', action });
-      if (runner) setImmediate(() => runner.run(operation, { instance, action, userId }).catch(async error => { await operations.update(operation.id, { state: 'FAILED', error: { code: error.code || 'RUNNER_ERROR', message: error.message } }); }));
+      if (runner) setImmediate(() => runner.run(operation, { instance, action, userId }).catch(async error => { await operations.update(operation.id, { state: 'FAILED', error: { code: error.code || 'RUNNER_ERROR', message: error.message } }); await operations.appendEvent(operation.id, { type: 'FAILED', code: error.code || 'RUNNER_ERROR' }); }));
+      else {
+        await operations.update(operation.id, { state: 'FAILED', error: { code: 'RUNNER_UNAVAILABLE', message: 'No single-host runner is configured' } });
+        await operations.appendEvent(operation.id, { type: 'FAILED', code: 'RUNNER_UNAVAILABLE' });
+      }
       return res.status(202).json({ success: true, operation });
     } catch (error) { return sendError(res, error); }
   });

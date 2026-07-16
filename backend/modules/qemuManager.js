@@ -155,19 +155,34 @@ class QemuManager {
           // Check if process exists
           try {
             process.kill(pid, 0);
-            // Process exists, kill it
-            logger.warn(`Killing stale process ${pid} from ${file}`);
-            process.kill(pid, 'SIGKILL');
+            const id = file.slice(0, -4);
+            const owned = await this.isOwnedQemuProcess(id, pid);
+            if (owned) {
+              logger.warn(`Killing verified stale SandLabX process ${pid} from ${file}`);
+              process.kill(pid, 'SIGKILL');
+              await fs.unlink(pidPath);
+            } else {
+              logger.warn(`Leaving unverified live process ${pid} from ${file} untouched`);
+            }
           } catch (e) {
-            // Process doesn't exist, just delete file
+            // Process doesn't exist, remove only the stale metadata.
+            await fs.unlink(pidPath).catch(() => {});
           }
-          await fs.unlink(pidPath);
         } catch (err) {
           logger.error(`Error cleaning up PID file ${file}:`, { error: err.message });
         }
       }
     } catch (error) {
       logger.error('Error scanning PID directory:', { error: error.message });
+    }
+  }
+
+  async isOwnedQemuProcess(id, pid) {
+    try {
+      const commandLine = (await fs.readFile(`/proc/${pid}/cmdline`, 'utf8')).replace(/\0/g, ' ');
+      return commandLine.includes('qemu-system') && (commandLine.includes(`sandlabx-${id}`) || commandLine.includes(this.sanitizeId(id)));
+    } catch {
+      return false;
     }
   }
 
@@ -1048,4 +1063,3 @@ class QemuManager {
 }
 
 module.exports = { QemuManager };
-

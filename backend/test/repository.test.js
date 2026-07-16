@@ -52,3 +52,12 @@ test('operation idempotency returns the original operation for duplicate request
   await operations.appendEvent(first.id, { type: 'STEP_STARTED', stepKey: 'plan' });
   assert.equal((await operations.listEvents(first.id))[0].stepKey, 'plan');
 });
+
+test('operation leasing claims one queued operation for a worker', async () => {
+  const operations = new MemoryOperationRepository();
+  const queued = await operations.create({ ownerId: 'owner-a', type: 'PLAN', resourceId: 'version-a' });
+  const leased = await operations.leaseNext('runner-a');
+  assert.equal(leased.id, queued.id);
+  assert.equal(leased.state, 'EXECUTING');
+  assert.equal(await operations.leaseNext('runner-b'), null);
+});

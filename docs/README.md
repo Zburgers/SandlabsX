@@ -10,6 +10,7 @@ Use this index to find the current operational and development documentation. Fi
 | [Quick start](../QUICK-START.md) | Host preparation and first startup |
 | [Architecture](ARCHITECTURE.md) | Current service boundaries and extraction roadmap |
 | [Managed image pipeline](IMAGE-PIPELINE.md) | Import, validation, catalog, compaction, resizing, and ISO planning |
+| [Lab Capsules](CAPSULES.md) | Canonical versions, deterministic plans, operations, verification, and checkpoints |
 | [Project structure](../STRUCTURE.md) | Repository layout and ownership |
 
 ## Active product planning
@@ -80,4 +81,4 @@ When behavior changes:
 5. Keep commands executable and avoid unverified claims about performance, security, or production readiness.
 6. Keep one feature or major architecture decision in one Markdown file under `docs/plans/`.
 
-The next product version is currently a target, not a release: the repository manifests are `1.0.0`, no release tag was found, and Draft PR #4 remains the latest available implementation foundation.
+The Capsule feature is implemented on its feature branch and remains a target release until the CI, database, and real-host virtualization gates in the active plan pass. The repository manifests remain `1.0.0`; no release tag is created by this change.

@@ -267,12 +267,17 @@ Console access session tracking.
 
 ---
 
+## Capsule tables
+
+The Capsule control plane is applied by the backend migration runner from `backend/migrations/001_lab_capsules.sql`. It adds definitions, immutable versions, instances, operations, steps/events, verification runs, checkpoints, and artifacts. Publication, instance creation, and operation idempotency are transactional application operations. Filesystem checkpoint contents remain staged and digest-verified; PostgreSQL stores the durable owner and manifest record.
+
 ## Schema Files
 
 | File | Purpose |
 |------|---------|
-| [initdb-schema.sql](../initdb-schema.sql) | Guacamole schema + SandlabX tables (users, labs, images, audit_log) |
+| [Historical initdb schema](archive/initdb-schema.sql) | Historical Guacamole schema + SandlabX tables (users, labs, images, audit_log) |
 | [backend/schema/nodes-schema.sql](../backend/schema/nodes-schema.sql) | Nodes table + connections + console_sessions |
+| [backend/migrations/001_lab_capsules.sql](../backend/migrations/001_lab_capsules.sql) | Capsule definitions, versions, instances, operations, events, verifications, checkpoints |
 
 ---
 
@@ -305,5 +310,5 @@ LIMIT 50;
 
 ---
 
-**Last Updated:** December 2025  
-**Schema Version:** 1.0
+**Last Updated:** July 2026  
+**Schema Version:** 1.1 (Capsule migration)

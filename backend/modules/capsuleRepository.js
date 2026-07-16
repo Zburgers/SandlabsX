@@ -30,17 +30,25 @@ class CapsuleRepository {
 
   async updateDraft(id, ownerId, expectedRevision, patch) {
     if (!this.pool) throw new Error('PostgreSQL pool is required');
-    const current = await this.pool.query('SELECT * FROM sandlabx_capsules WHERE id = $1 AND owner_user_id = $2 FOR UPDATE', [id, ownerId]);
-    if (!current.rows.length) throw Object.assign(new Error('Capsule not found'), { code: 'NOT_FOUND' });
-    if (current.rows[0].revision !== expectedRevision) throw Object.assign(new Error('Capsule revision conflict'), { code: 'REVISION_CONFLICT' });
-    const document = normalizeCapsule(deepMerge(current.rows[0].draft_document, patch));
-    const result = await this.pool.query(`
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await client.query('SELECT * FROM sandlabx_capsules WHERE id = $1 AND owner_user_id = $2 FOR UPDATE', [id, ownerId]);
+      if (!current.rows.length) throw Object.assign(new Error('Capsule not found'), { code: 'NOT_FOUND' });
+      if (current.rows[0].revision !== expectedRevision) throw Object.assign(new Error('Capsule revision conflict'), { code: 'REVISION_CONFLICT' });
+      const document = normalizeCapsule(deepMerge(current.rows[0].draft_document, patch));
+      const result = await client.query(`
       UPDATE sandlabx_capsules SET name = $3, display_name = $4, draft_document = $5, revision = revision + 1,
         status = CASE WHEN status = 'PUBLISHED' THEN 'DRAFT' ELSE status END, updated_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND owner_user_id = $2 AND revision = $6 RETURNING *
     `, [id, ownerId, document.metadata.name, document.metadata.displayName, document, expectedRevision]);
-    if (!result.rows.length) throw Object.assign(new Error('Capsule revision conflict'), { code: 'REVISION_CONFLICT' });
-    return rowToCapsule(result.rows[0]);
+      if (!result.rows.length) throw Object.assign(new Error('Capsule revision conflict'), { code: 'REVISION_CONFLICT' });
+      await client.query('COMMIT');
+      return rowToCapsule(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally { client.release(); }
   }
 
   async get(id, ownerId) {

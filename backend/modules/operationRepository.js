@@ -49,6 +49,15 @@ class OperationRepository {
     const result = await this.pool.query(`UPDATE sandlabx_operations SET state = CASE WHEN state IN ('QUEUED', 'PLANNING', 'RESERVED', 'EXECUTING') THEN 'CANCELLING' ELSE state END, cancel_requested_at = CURRENT_TIMESTAMP WHERE id = $1 AND owner_user_id = $2 RETURNING *`, [id, ownerId]);
     return result.rows.length ? rowToOperation(result.rows[0]) : null;
   }
+
+  async leaseNext(workerId, leaseMs = 30000) {
+    const result = await this.pool.query(`
+      UPDATE sandlabx_operations SET state = 'EXECUTING', lease_owner = $1, lease_until = CURRENT_TIMESTAMP + ($2 * INTERVAL '1 millisecond'), updated_at = CURRENT_TIMESTAMP
+      WHERE id = (SELECT id FROM sandlabx_operations WHERE state IN ('QUEUED', 'PLANNING', 'RESERVED') AND (lease_until IS NULL OR lease_until < CURRENT_TIMESTAMP) ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1)
+      RETURNING *
+    `, [workerId, leaseMs]);
+    return result.rows.length ? rowToOperation(result.rows[0]) : null;
+  }
 }
 
 class MemoryOperationRepository {
@@ -86,6 +95,13 @@ class MemoryOperationRepository {
   }
 
   async listEvents(id) { return structuredClone(this.events.get(id) || []); }
+
+  async leaseNext(workerId, leaseMs = 30000) {
+    const operation = [...this.operations.values()].find(item => ['QUEUED', 'PLANNING', 'RESERVED'].includes(item.state) && (!item.leaseUntil || item.leaseUntil < Date.now()));
+    if (!operation) return null;
+    operation.state = 'EXECUTING'; operation.leaseOwner = workerId; operation.leaseUntil = Date.now() + leaseMs;
+    return structuredClone(operation);
+  }
 }
 
 function rowToOperation(row) {

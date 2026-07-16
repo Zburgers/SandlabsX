@@ -26,6 +26,11 @@ Express handles authentication, RBAC, rate limiting, request validation, and res
 - `QemuManager`: existing VM process orchestration
 - `ImagePipeline`: image inspection, conversion, validation, catalog download, manifests, compaction, and resizing
 - `LabSpec`: offline topology validation, normalization, and ISO installer planning
+- `CapsuleSchema`: canonical versioned desired-state validation, normalization, hashing, and legacy conversion
+- `CapsuleRepository`: immutable publication and owner-scoped definition/version persistence
+- `PlanCompiler`: deterministic instance-scoped network, disk, console, and QEMU argument plans
+- `VerificationRunner`: typed, bounded, redacted scenario evidence
+- `CheckpointService`: staged stopped-VM disk checkpoints with digest-verified restore
 - `GuacamoleClient`: graphical console registration
 
 ### Virtualization
@@ -81,3 +86,17 @@ ImagePipeline        managed base-image lifecycle
 ```
 
 The next refactor should preserve existing public methods while delegating to these services incrementally.
+
+## Capsule control plane
+
+```text
+Capsule JSON -> schema/normalizer -> immutable version -> plan compiler
+                                      |                    |
+                                      v                    v
+                                PostgreSQL           single-host runner boundary
+                                      |                    |
+                                      v                    v
+                           instance/operation/events   QEMU/disk/network/console
+```
+
+The Express Capsule router performs ownership and request mapping only. It does not allocate host devices or build shell commands. Lifecycle actions are durable operation intents; a missing runner is reported as `RUNNER_UNAVAILABLE` rather than treated as a successful launch.
