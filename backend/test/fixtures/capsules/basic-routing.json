@@ -1,0 +1,62 @@
+{
+  "apiVersion": "sandlabx.io/v1alpha1",
+  "kind": "LabCapsule",
+  "metadata": {
+    "name": "basic-routing",
+    "displayName": "Basic routing",
+    "description": "Three nodes connected by two declared links.",
+    "tags": ["routing", "starter", "routing"]
+  },
+  "runtime": {
+    "architecture": "x86_64",
+    "acceleration": "preferred",
+    "isolation": "private"
+  },
+  "policy": {
+    "resources": { "maxVcpus": 6, "maxMemoryMiB": 6144, "maxDiskGiB": 40 },
+    "network": { "internetEgress": false, "externalConnectors": [] },
+    "execution": { "allowAuthorScripts": false }
+  },
+  "images": {
+    "router": { "source": "managed", "name": "router", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+    "ubuntu": { "source": "managed", "name": "ubuntu-24.04", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
+  },
+  "nodes": {
+    "r2": {
+      "displayName": "Core B",
+      "driver": "qemu-serial-router",
+      "image": "router",
+      "role": "router",
+      "resources": { "vcpus": 1, "memoryMiB": 2048 },
+      "interfaces": [{ "id": "ge0" }, { "id": "ge1" }],
+      "console": { "type": "serial" },
+      "position": { "x": 480, "y": 100 }
+    },
+    "r1": {
+      "displayName": "Core A",
+      "driver": "qemu-serial-router",
+      "image": "router",
+      "role": "router",
+      "resources": { "vcpus": 1, "memoryMiB": 2048 },
+      "interfaces": [{ "id": "ge0" }, { "id": "ge1" }],
+      "console": { "type": "serial" },
+      "position": { "x": 100, "y": 100 }
+    },
+    "client": {
+      "displayName": "Client",
+      "driver": "qemu-linux-cloud",
+      "image": "ubuntu",
+      "role": "host",
+      "resources": { "vcpus": 1, "memoryMiB": 2048 },
+      "interfaces": [{ "id": "eth0" }],
+      "console": { "type": "vnc" },
+      "position": { "x": 290, "y": 350 }
+    }
+  },
+  "links": [
+    { "id": "transit", "type": "pointToPoint", "endpoints": ["r1:ge0", "r2:ge0"] },
+    { "id": "client-lan", "type": "segment", "endpoints": ["r1:ge1", "client:eth0"] }
+  ],
+  "scenarios": []
+}
+
