@@ -50,6 +50,12 @@ class CapsuleRepository {
     return rowToCapsule(result.rows[0]);
   }
 
+  async list(ownerId) {
+    if (!this.pool) throw new Error('PostgreSQL pool is required');
+    const result = await this.pool.query('SELECT * FROM sandlabx_capsules WHERE owner_user_id = $1 ORDER BY updated_at DESC', [ownerId]);
+    return result.rows.map(rowToCapsule);
+  }
+
   async publish(id, ownerId, publishedBy = ownerId) {
     if (!this.pool) throw new Error('PostgreSQL pool is required');
     const client = await this.pool.connect();
@@ -81,6 +87,12 @@ class CapsuleRepository {
     `, [id, ownerId]);
     return result.rows.length ? rowToVersion(result.rows[0]) : null;
   }
+
+  async listVersions(capsuleId, ownerId) {
+    if (!this.pool) throw new Error('PostgreSQL pool is required');
+    const result = await this.pool.query(`SELECT version.* FROM sandlabx_capsule_versions version JOIN sandlabx_capsules capsule ON capsule.id = version.capsule_id WHERE version.capsule_id = $1 AND capsule.owner_user_id = $2 ORDER BY version.version_number DESC`, [capsuleId, ownerId]);
+    return result.rows.map(rowToVersion);
+  }
 }
 
 class MemoryCapsuleRepository {
@@ -108,6 +120,10 @@ class MemoryCapsuleRepository {
     return item && item.ownerId === ownerId ? clone({ id, ownerId, revision: item.revision, status: item.status, document: item.document }) : null;
   }
 
+  async list(ownerId) {
+    return [...this.capsules.values()].filter(item => item.ownerId === ownerId).map(item => clone({ id: item.id, ownerId, revision: item.revision, status: item.status, document: item.document }));
+  }
+
   async publish(id, ownerId) {
     const item = this.capsules.get(id);
     if (!item || item.ownerId !== ownerId) throw Object.assign(new Error('Capsule not found'), { code: 'NOT_FOUND' });
@@ -122,6 +138,10 @@ class MemoryCapsuleRepository {
     const version = this.versions.get(id);
     const capsule = version && this.capsules.get(version.capsuleId);
     return capsule && capsule.ownerId === ownerId ? clone(version) : null;
+  }
+
+  async listVersions(capsuleId, ownerId) {
+    return [...this.versions.values()].filter(version => version.capsuleId === capsuleId).map(version => clone(version)).filter(version => this.capsules.get(capsuleId)?.ownerId === ownerId);
   }
 }
 

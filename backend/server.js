@@ -1,4 +1,5 @@
 const express = require('express');
+const { Pool } = require('pg');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
@@ -28,6 +29,12 @@ const { GuacamoleClient } = require('./modules/guacamoleClient');
 const { QemuManager } = require('./modules/qemuManager');
 const { LabManager } = require('./modules/labManager');
 const { auditLogger } = require('./modules/auditLogger');
+const { CapsuleRepository } = require('./modules/capsuleRepository');
+const { InstanceRepository } = require('./modules/instanceRepository');
+const { OperationRepository } = require('./modules/operationRepository');
+const { createCapsuleRouter } = require('./modules/capsuleRouter');
+const { runMigrations } = require('./modules/migrationRunner');
+const { ImagePipeline } = require('./modules/imagePipeline');
 
 // Initialize Express app
 const app = express();
@@ -52,6 +59,24 @@ const nodeManager = new NodeManager();
 const guacamoleClient = new GuacamoleClient();
 const qemuManager = new QemuManager();
 const labManager = new LabManager();
+const capsulePool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  host: process.env.DB_HOST || 'postgres',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME || 'guacamole_db',
+  user: process.env.DB_USER || 'guacamole_user',
+  password: process.env.DB_PASSWORD || 'guacamole_pass',
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
+});
+const capsuleRepository = new CapsuleRepository({ pool: capsulePool });
+const instanceRepository = new InstanceRepository({ pool: capsulePool });
+const operationRepository = new OperationRepository({ pool: capsulePool });
+const imagePipeline = new ImagePipeline({
+  root: process.env.CUSTOM_IMAGES_PATH,
+  catalog: process.env.IMAGE_CATALOG_PATH
+});
 
 // Added upload middleware for custom disk images
 const upload = multer({
@@ -159,6 +184,17 @@ app.use('/api', authMiddleware);
 
 // Enrich user with role from database after JWT auth
 app.use('/api', enrichUserRole);
+
+// Versioned Capsule API. Legacy /api/labs routes remain available below.
+app.use('/api', createCapsuleRouter({
+  capsules: capsuleRepository,
+  instances: instanceRepository,
+  operations: operationRepository,
+  compilerOptions: {
+    overlaysRoot: process.env.OVERLAYS_PATH || path.join(process.cwd(), 'overlays'),
+    hostCapabilities: { architecture: process.arch === 'x64' ? 'x86_64' : process.arch, acceleration: process.env.SANDLABX_ACCELERATION || 'tcg', maxVcpus: Number(process.env.SANDLABX_MAX_VCPUS || 512), maxMemoryMiB: Number(process.env.SANDLABX_MAX_MEMORY_MIB || 1048576) }
+  }
+}));
 
 // Auth Routes (Protected)
 app.post('/api/auth/change-password', authController.changePassword);
@@ -573,37 +609,32 @@ app.get('/api/images', async (req, res) => {
 
 // Added upload endpoint for custom QCOW2 images
 app.post('/api/images/custom', uploadImageLimiter, upload.single('image'), async (req, res) => {
+  const userId = req.auth?.sub;
+  let operation;
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Image file is required' });
     }
 
-    const uploadedPath = req.file.path;
-    let finalImagePath = uploadedPath;
-
-    // Convert to QCOW2 if not already in that format
-    const convertedPath = await qemuManager.ensureQcow2Format(uploadedPath);
-    if (convertedPath !== uploadedPath) {
-      finalImagePath = convertedPath;
-      // Clean up original file if conversion created a new one
-      try {
-        await fs.unlink(uploadedPath);
-      } catch (err) {
-        console.warn('Could not delete original file:', err.message);
-      }
-    }
-
-    const image = await qemuManager.resolveImage({
-      imageType: 'custom',
-      customImageName: path.basename(finalImagePath)
+    operation = await operationRepository.create({ ownerId: userId, type: 'IMAGE_IMPORT', resourceType: 'image', idempotencyKey: req.headers['idempotency-key'] });
+    await operationRepository.appendEvent(operation.id, { type: 'IMPORT_STARTED' });
+    const manifest = await imagePipeline.import(req.file.path, {
+      name: req.body.name || path.basename(req.file.originalname),
+      displayName: req.body.displayName,
+      description: req.body.description,
+      tags: req.body.tags ? String(req.body.tags).split(',').filter(Boolean) : [],
+      sha256: req.body.sha256,
+      overwrite: req.body.overwrite === 'true'
     });
-
-    res.status(201).json({
-      success: true,
-      image
-    });
+    await operationRepository.update(operation.id, { state: 'SUCCEEDED', progress: 100, result: manifest });
+    await operationRepository.appendEvent(operation.id, { type: 'IMPORT_SUCCEEDED', progress: 100 });
+    res.status(202).json({ success: true, operation: await operationRepository.get(operation.id, userId), image: { ...manifest, type: 'custom', available: true } });
   } catch (error) {
     logger.error({ err: error, action: 'uploadImage' }, 'Error uploading image');
+    if (operation) {
+      await operationRepository.update(operation.id, { state: 'FAILED', error: { code: error.code || 'IMAGE_IMPORT_FAILED', message: error.message } }).catch(() => {});
+      await operationRepository.appendEvent(operation.id, { type: 'IMPORT_FAILED', code: error.code || 'IMAGE_IMPORT_FAILED' }).catch(() => {});
+    }
     // Clean up on error
     if (req.file && req.file.path) {
       try {
@@ -612,7 +643,7 @@ app.post('/api/images/custom', uploadImageLimiter, upload.single('image'), async
         console.warn('Could not delete uploaded file:', err.message);
       }
     }
-    res.status(500).json({ success: false, error: error.message || 'Failed to upload image' });
+    res.status(error.code === 'EXISTS' ? 409 : 500).json({ success: false, error: error.message || 'Failed to upload image', code: error.code || 'IMAGE_IMPORT_FAILED' });
   }
 });
 
@@ -1158,6 +1189,7 @@ app.use((err, req, res, next) => {
 
 async function initializeServer() {
   try {
+    await runMigrations(capsulePool);
     // Initialize managers
     await nodeManager.initialize();
     await guacamoleClient.initialize();
@@ -1247,6 +1279,7 @@ async function initializeServer() {
 process.on('SIGTERM', async () => {
   logger.warn('SIGTERM received, shutting down gracefully...');
   await qemuManager.cleanup();
+  await capsulePool.end();
   if (wsServer) {
     wsServer.clients.forEach(client => client.close(1001, 'Server shutting down'));
     wsServer.close();
@@ -1261,6 +1294,7 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
   logger.warn('SIGINT received, shutting down gracefully...');
   await qemuManager.cleanup();
+  await capsulePool.end();
   if (wsServer) {
     wsServer.clients.forEach(client => client.close(1001, 'Server shutting down'));
     wsServer.close();

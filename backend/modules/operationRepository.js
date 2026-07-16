@@ -1,5 +1,56 @@
 const crypto = require('node:crypto');
 
+class OperationRepository {
+  constructor({ pool }) { this.pool = pool; }
+
+  async create(input) {
+    const id = crypto.randomUUID();
+    try {
+      const result = await this.pool.query(`INSERT INTO sandlabx_operations (id, owner_user_id, type, resource_type, resource_id, idempotency_key) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [id, input.ownerId, input.type, input.resourceType || 'instance', input.resourceId || null, input.idempotencyKey || null]);
+      return rowToOperation(result.rows[0]);
+    } catch (error) {
+      if (error.code !== '23505' || !input.idempotencyKey) throw error;
+      const existing = await this.pool.query('SELECT * FROM sandlabx_operations WHERE owner_user_id = $1 AND idempotency_key = $2', [input.ownerId, input.idempotencyKey]);
+      return rowToOperation(existing.rows[0]);
+    }
+  }
+
+  async get(id, ownerId) {
+    const result = await this.pool.query('SELECT * FROM sandlabx_operations WHERE id = $1 AND owner_user_id = $2', [id, ownerId]);
+    return result.rows.length ? rowToOperation(result.rows[0]) : null;
+  }
+
+  async update(id, patch) {
+    const columns = { state: 'state', progress: 'progress', result: 'result', error: 'error', cancelRequestedAt: 'cancel_requested_at' };
+    const entries = Object.entries(patch).filter(([key]) => columns[key]);
+    if (!entries.length) return this.getById(id);
+    const values = entries.map(([, value]) => value);
+    const setters = entries.map(([key], index) => `${columns[key]} = $${index + 2}`);
+    const result = await this.pool.query(`UPDATE sandlabx_operations SET ${setters.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`, [id, ...values]);
+    return rowToOperation(result.rows[0]);
+  }
+
+  async getById(id) {
+    const result = await this.pool.query('SELECT * FROM sandlabx_operations WHERE id = $1', [id]);
+    return result.rows.length ? rowToOperation(result.rows[0]) : null;
+  }
+
+  async appendEvent(operationId, event) {
+    const result = await this.pool.query(`INSERT INTO sandlabx_instance_events (operation_id, sequence, event_type, payload) VALUES ($1, (SELECT COALESCE(MAX(sequence), 0) + 1 FROM sandlabx_instance_events WHERE operation_id = $1), $2, $3) RETURNING *`, [operationId, event.type, event]);
+    return { id: result.rows[0].id, operationId, sequence: result.rows[0].sequence, type: result.rows[0].event_type, ...result.rows[0].payload, occurredAt: result.rows[0].occurred_at };
+  }
+
+  async listEvents(operationId) {
+    const result = await this.pool.query('SELECT * FROM sandlabx_instance_events WHERE operation_id = $1 ORDER BY sequence', [operationId]);
+    return result.rows.map(row => ({ id: row.id, operationId, sequence: row.sequence, type: row.event_type, ...row.payload, occurredAt: row.occurred_at }));
+  }
+
+  async requestCancel(id, ownerId) {
+    const result = await this.pool.query(`UPDATE sandlabx_operations SET state = CASE WHEN state IN ('QUEUED', 'PLANNING', 'RESERVED', 'EXECUTING') THEN 'CANCELLING' ELSE state END, cancel_requested_at = CURRENT_TIMESTAMP WHERE id = $1 AND owner_user_id = $2 RETURNING *`, [id, ownerId]);
+    return result.rows.length ? rowToOperation(result.rows[0]) : null;
+  }
+}
+
 class MemoryOperationRepository {
   constructor() { this.operations = new Map(); this.events = new Map(); }
 
@@ -37,4 +88,8 @@ class MemoryOperationRepository {
   async listEvents(id) { return structuredClone(this.events.get(id) || []); }
 }
 
-module.exports = { MemoryOperationRepository };
+function rowToOperation(row) {
+  return { id: row.id, ownerId: row.owner_user_id, type: row.type, resourceType: row.resource_type, resourceId: row.resource_id, idempotencyKey: row.idempotency_key, state: row.state, progress: row.progress, result: row.result, error: row.error, createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+module.exports = { MemoryOperationRepository, OperationRepository, rowToOperation };
