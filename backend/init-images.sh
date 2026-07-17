@@ -62,8 +62,10 @@ for image in "${!IMAGES[@]}"; do
       continue
     fi
 
-    echo "Invalid or corrupted image found: ${image}"
-    rm -f "${filepath}"
+    quarantine_path="${filepath}.invalid.$(date -u +%Y%m%dT%H%M%SZ)"
+    echo "Invalid or unreadable image found: ${image}" >&2
+    echo "Quarantining it at: ${quarantine_path}" >&2
+    mv "${filepath}" "${quarantine_path}"
   fi
 
   echo "Missing image: ${image}"
