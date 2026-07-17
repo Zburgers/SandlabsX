@@ -66,7 +66,6 @@ for service in postgres guacd guacamole backend frontend; do
   service_running "$service"
 done
 
-job_completed sandlabx-guacamole-schema "Guacamole schema source"
 job_completed sandlabx-guacamole-db-init "Guacamole database initializer"
 job_completed sandlabx-migrate "SandLabX migrator"
 
