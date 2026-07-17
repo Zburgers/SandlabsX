@@ -103,7 +103,7 @@ else
 fi
 
 http_check "Backend health" "http://${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-3001}/api/health"
-http_check "Frontend" "http://${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-3000}/"
+http_check "Frontend" "http://${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-2000}/"
 http_check "Guacamole" "http://${BIND_ADDRESS:-127.0.0.1}:${GUACAMOLE_PORT:-8081}/guacamole/"
 
 if "${COMPOSE[@]}" exec -T backend test -r /dev/kvm -a -w /dev/kvm; then
