@@ -21,6 +21,21 @@ service_running() {
   fi
 }
 
+job_completed() {
+  local container="$1" label="$2" state
+  if ! docker inspect "$container" >/dev/null 2>&1; then
+    fail "$label container does not exist"
+    return
+  fi
+
+  state="$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$container")"
+  if [[ "$state" == "exited:0" ]]; then
+    pass "$label completed successfully"
+  else
+    fail "$label state is $state"
+  fi
+}
+
 http_check() {
   local label="$1" url="$2"
   if curl -fsS --max-time 5 "$url" >/dev/null; then
@@ -51,6 +66,10 @@ for service in postgres guacd guacamole backend frontend; do
   service_running "$service"
 done
 
+job_completed sandlabx-guacamole-schema "Guacamole schema source"
+job_completed sandlabx-guacamole-db-init "Guacamole database initializer"
+job_completed sandlabx-migrate "SandLabX migrator"
+
 if "${COMPOSE[@]}" exec -T postgres pg_isready \
     -U "${POSTGRES_USER:-guacamole_user}" \
     -d "${POSTGRES_DB:-guacamole_db}" >/dev/null 2>&1; then
@@ -59,16 +78,30 @@ else
   fail "PostgreSQL readiness check failed"
 fi
 
-for table in sandlabx_nodes guacamole_connection; do
-  if "${COMPOSE[@]}" exec -T postgres psql -Atqc \
-      "SELECT to_regclass('public.${table}') IS NOT NULL" \
-      -U "${POSTGRES_USER:-guacamole_user}" \
-      -d "${POSTGRES_DB:-guacamole_db}" 2>/dev/null | grep -Fxq t; then
-    pass "database table $table exists"
-  else
-    fail "database table $table is missing"
-  fi
-done
+if "${COMPOSE[@]}" exec -T backend npm run db:check >/dev/null 2>&1; then
+  pass "SandLabX migration ledger and required tables are valid"
+else
+  fail "SandLabX schema verification failed"
+  "${COMPOSE[@]}" exec -T backend npm run db:check || true
+fi
+
+if "${COMPOSE[@]}" exec -T postgres psql -Atqc \
+    "SELECT to_regclass('public.guacamole_connection') IS NOT NULL" \
+    -U "${POSTGRES_USER:-guacamole_user}" \
+    -d "${POSTGRES_DB:-guacamole_db}" 2>/dev/null | grep -Fxq t; then
+  pass "Guacamole vendor schema exists"
+else
+  fail "Guacamole vendor schema is missing"
+fi
+
+if "${COMPOSE[@]}" exec -T postgres psql -Atqc \
+    "SELECT to_regclass('public.sandlabx_schema_migrations') IS NULL" \
+    -U "${POSTGRES_USER:-guacamole_user}" \
+    -d "${POSTGRES_DB:-guacamole_db}" 2>/dev/null | grep -Fxq t; then
+  pass "retired custom migration ledger is absent"
+else
+  fail "retired sandlabx_schema_migrations ledger still exists"
+fi
 
 http_check "Backend health" "http://${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-3001}/api/health"
 http_check "Frontend" "http://${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-3000}/"
@@ -120,7 +153,7 @@ else
 fi
 
 printf '\nCompose state:\n'
-"${COMPOSE[@]}" ps
+"${COMPOSE[@]}" ps --all
 
 printf '\nSummary: %d failure(s), %d warning(s)\n' "$FAIL" "$WARN"
 [[ "$FAIL" -eq 0 ]]
