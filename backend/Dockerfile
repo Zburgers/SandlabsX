@@ -1,7 +1,13 @@
+# syntax=docker/dockerfile:1.7
 FROM node:20-bookworm-slim
 
 WORKDIR /app
 
+# LEGACY PACKAGING BOUNDARY
+# QEMU and iproute2 still live in the API image because the pre-Capsule runtime
+# launches VMs in this container. Move them into the dedicated runner image when
+# LocalRunner execution is implemented; the API image should then become a much
+# smaller unprivileged Node.js image.
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     bash \
@@ -14,7 +20,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund \
+RUN --mount=type=cache,target=/root/.npm \
+  npm install --omit=dev --no-audit --no-fund \
   && npm cache clean --force
 
 COPY . .
