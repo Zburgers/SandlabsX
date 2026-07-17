@@ -5,8 +5,11 @@ FROM guacamole/guacamole:${GUACAMOLE_VERSION} AS guacamole
 
 FROM postgres:16
 
+# Guacamole 1.5.x's initdb.sh reads PostgreSQL schema files from this path.
+# Keep this version-specific source coupled to GUACAMOLE_VERSION and revalidate
+# it before upgrading to a release with a different image layout.
 COPY --from=guacamole \
-  /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema \
+  /opt/guacamole/postgresql/schema \
   /guacamole-schema
 COPY guacamole-db-init.sh /usr/local/bin/guacamole-db-init.sh
 
