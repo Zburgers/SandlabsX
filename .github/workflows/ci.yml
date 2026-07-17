@@ -142,7 +142,6 @@ jobs:
             setup-all.sh \
             scripts/stack.sh \
             scripts/dev-doctor.sh \
-            scripts/guacamole-schema-export.sh \
             scripts/guacamole-db-init.sh \
             scripts/init-postgres.sh \
             scripts/network-audit.sh \
