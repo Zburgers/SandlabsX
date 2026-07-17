@@ -21,8 +21,7 @@ RUN apt-get update \
 
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-  npm install --omit=dev --no-audit --no-fund \
-  && npm cache clean --force
+  npm install --omit=dev --no-audit --no-fund
 
 COPY . .
 
