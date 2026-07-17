@@ -2,25 +2,28 @@ SHELL := /usr/bin/env bash
 COMPOSE ?= docker compose
 STACK := bash ./scripts/stack.sh
 
-.PHONY: help prepare doctor network-audit verify install test build up rebuild down restart logs ps clean image-init image-list image-doctor
+.PHONY: help prepare doctor network-audit verify install test build up rebuild down restart logs ps clean db-migrate db-check db-create-migration image-init image-list image-doctor
 
 help:
 	@printf '%s\n' \
 	  'SandLabX development commands' \
 	  '' \
-	  '  make prepare       Create runtime directories' \
-	  '  make doctor        Check host virtualization prerequisites' \
-	  '  make network-audit Read-only host network safety report' \
-	  '  make verify        Verify the running stack and network invariants' \
-	  '  make install       Install backend and frontend dependencies' \
-	  '  make test          Run backend tests' \
-	  '  make build         Build application containers only' \
-	  '  make up            Start existing images without rebuilding' \
-	  '  make rebuild       Rebuild application images and start' \
-	  '  make down          Stop the stack' \
-	  '  make logs          Follow stack logs' \
-	  '  make image-init    Explicitly validate/download legacy base images' \
-	  '  make image-list    List managed custom images'
+	  '  make prepare             Create runtime directories' \
+	  '  make doctor              Check host virtualization prerequisites' \
+	  '  make network-audit       Read-only host network safety report' \
+	  '  make verify              Verify runtime, migrations, and network invariants' \
+	  '  make install             Install backend and frontend dependencies' \
+	  '  make test                Run backend tests' \
+	  '  make build               Build application containers only' \
+	  '  make up                  Start existing images without rebuilding' \
+	  '  make rebuild             Rebuild, migrate, and start the stack' \
+	  '  make down                Stop the stack' \
+	  '  make logs                Follow stack logs' \
+	  '  make db-migrate          Apply pending SandLabX migrations' \
+	  '  make db-check            Verify migration ledger and required tables' \
+	  '  make db-create-migration NAME=description' \
+	  '  make image-init          Explicitly validate/download legacy base images' \
+	  '  make image-list          List managed custom images'
 
 prepare:
 	@mkdir -p images/custom overlays vms pids checkpoints
@@ -67,6 +70,16 @@ clean:
 	$(COMPOSE) down --remove-orphans
 	@find overlays -maxdepth 1 -type f -name '*.qcow2' -print
 	@printf 'Overlay files were not deleted automatically. Remove them explicitly after review.\n'
+
+db-migrate:
+	$(COMPOSE) run --rm --no-deps --build migrate
+
+db-check:
+	$(COMPOSE) run --rm --no-deps --entrypoint node migrate scripts/check-schema.js
+
+db-create-migration:
+	@test -n "$(NAME)" || (printf 'Usage: make db-create-migration NAME=description\n' >&2; exit 64)
+	cd backend && npm run db:migrate:create -- "$(NAME)"
 
 # LEGACY compatibility command. Eager image scanning was removed from backend
 # startup. Prefer ImagePipeline catalog/import commands for all new workflows.
