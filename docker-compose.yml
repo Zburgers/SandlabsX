@@ -92,10 +92,10 @@ services:
     restart: unless-stopped
     environment:
       GUACD_HOSTNAME: guacd
-      POSTGRES_HOSTNAME: postgres
-      POSTGRES_DATABASE: ${POSTGRES_DB:-guacamole_db}
-      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-guacamole_db}
+      POSTGRESQL_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${GUACAMOLE_PORT:-8081}:8080"
     depends_on:
