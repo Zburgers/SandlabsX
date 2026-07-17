@@ -2,7 +2,8 @@
 
 ## 1. Prepare the host
 
-SandLabX requires a Linux host with Docker Compose, KVM support, and TUN/TAP networking for virtual-machine execution.
+SandLabX requires Linux, Docker Compose, KVM, and TUN/TAP networking for full
+virtual-machine execution.
 
 ```bash
 git clone https://github.com/Zburgers/SandlabsX.git
@@ -13,39 +14,46 @@ make network-audit
 make doctor
 ```
 
-`make network-audit` is read-only. It reports whether old SandLabX bridge names or routes exist in the host namespace and never changes them.
-
-A KVM or TUN warning means the web/API stack may still be inspectable, but VM execution will be unavailable or will fall back to slow TCG where supported.
+`make network-audit` is read-only. A KVM or TUN warning means the web/API stack
+may still start, but VM execution will be unavailable or slower.
 
 ## 2. Start SandLabX
 
-After pulling code or changing Dockerfiles, rebuild once:
+After pulling code, changing dependencies, or adding migrations:
 
 ```bash
 make rebuild
 ```
 
-For subsequent starts that can reuse the existing images:
+For later starts that can reuse existing images:
 
 ```bash
 make up
 ```
 
-Direct Compose equivalents:
+Startup follows this dependency graph:
 
-```bash
-docker compose up --build
-docker compose up -d --build --remove-orphans
+```text
+PostgreSQL
+├── Guacamole vendor schema initializer -> Guacamole
+└── node-pg-migrate -> backend -> frontend
 ```
 
-Check readiness:
+The backend starts only after all pending SandLabX migrations apply and schema
+verification succeeds. Existing PostgreSQL volumes are upgraded in place.
 
 ```bash
-docker compose ps
-curl -fsS http://127.0.0.1:3001/api/health
+make verify
+docker compose ps --all
 ```
 
-Open the web interface at `http://127.0.0.1:3000`.
+The one-shot schema containers should finish successfully:
+
+- `sandlabx-guacamole-schema`
+- `sandlabx-guacamole-db-init`
+- `sandlabx-migrate`
+
+Open the UI at `http://127.0.0.1:3000`.
 
 Other local endpoints:
 
@@ -53,32 +61,39 @@ Other local endpoints:
 - Guacamole: `http://127.0.0.1:8081/guacamole`
 - PostgreSQL: `127.0.0.1:5432`
 
-Published ports bind to loopback by default. Do not change `BIND_ADDRESS` to `0.0.0.0` until credentials, CORS, firewalling, and exposure requirements have been reviewed.
+Published ports bind to loopback by default. Review credentials, CORS, and
+firewalling before exposing the stack to a network.
 
-The project currently includes development administrator credentials:
+## 3. Database migrations
 
-- Email: `admin@sandlabx.com`
-- Password: `admin123`
+SandLabX uses `node-pg-migrate`. Application tables are not created through
+PostgreSQL first-boot scripts and are not mutated by the API process.
 
-Replace all development credentials and secrets before exposing the stack outside a trusted machine.
+```bash
+make db-migrate
+make db-check
+make db-create-migration NAME=add_example_column
+```
 
-## 3. Understand the temporary legacy runtime
+Do not remove the PostgreSQL named volume as a troubleshooting step. Migration
+failures should be investigated through the one-shot migrator logs.
 
-Normal startup currently creates two **unnumbered Layer-2 bridges inside the backend container only** to support the old fixed `tap0..tap3` QEMU path.
+```bash
+docker compose logs --tail=200 migrate guacamole-db-init postgres backend
+```
 
-It does not:
+## 4. Temporary legacy VM runtime
 
-- enable IPv4 forwarding;
-- assign `192.168.1.1` or `192.168.2.1` to infrastructure bridges;
-- add host routes, NAT, or iptables rules;
-- write host `/etc/qemu-ifup` files;
-- download or validate every image before the API starts.
+Normal startup creates two unnumbered Layer-2 bridges inside the backend
+container for the fixed `tap0..tap3` QEMU path.
 
-This compatibility path is marked `LEGACY` in the executable files and must be removed after the Capsule `LocalRunner` executes compiled per-instance networks.
+It does not enable forwarding, assign router IP addresses to infrastructure
+bridges, add host routes/NAT rules, or write host QEMU helper files.
 
-## 4. Install a cloud image
+This path is marked `LEGACY` and must be removed after the Capsule `LocalRunner`
+executes compiled per-instance networks.
 
-The curated image catalog can download and convert supported cloud images into managed standalone QCOW2 files.
+## 5. Install a cloud image
 
 ```bash
 cd backend
@@ -96,24 +111,20 @@ npm run sandlabx -- image import /path/to/appliance.vmdk \
   --display-name "Lab appliance"
 ```
 
-Inspect or validate an image without importing it:
+Inspect or validate an image:
 
 ```bash
 npm run sandlabx -- image inspect /path/to/appliance.vmdk
 npm run sandlabx -- image validate /path/to/base.qcow2
 ```
 
-The old fixed-image bootstrap is explicit only:
+The old fixed-image bootstrap remains explicit only:
 
 ```bash
 AUTO_DOWNLOAD_IMAGES=false make image-init
 ```
 
-Do not use that compatibility command for new image workflows.
-
-## 5. Prepare an ISO installation
-
-ISO files need an installation VM rather than direct disk conversion. Generate a deterministic installation plan:
+## 6. Prepare an ISO installation
 
 ```bash
 npm run sandlabx -- image plan-install /path/to/debian.iso \
@@ -124,60 +135,37 @@ npm run sandlabx -- image plan-install /path/to/debian.iso \
   --vnc 5990
 ```
 
-The command prints the disk-creation and QEMU launch arguments. An optional `--seed /path/to/seed.iso` can attach unattended-installation metadata.
+Plan generation works. Durable automatic installer execution is still pending
+integration with the Capsule runner.
 
-Automatic installer execution is not yet connected to the Capsule runner. Plan generation works; durable background installation, progress, cancellation, and publication remain follow-up work.
-
-## 6. Validate a lab definition
+## 7. Validate a lab definition
 
 ```bash
 npm run sandlabx -- lab validate ../examples/labs/basic-routing.json
 ```
 
-Create a deterministic normalized copy for version control:
+## 8. Operate the stack
 
 ```bash
-npm run sandlabx -- lab normalize \
-  ../examples/labs/basic-routing.json \
-  /tmp/basic-routing.normalized.json
+make logs
+make ps
+make restart
+make down
 ```
 
-## 7. Operate the stack
-
-```bash
-make logs       # Follow service logs
-make ps         # Inspect service state
-make restart    # Restart services
-make down       # Stop services
-```
-
-Stopping the stack retains PostgreSQL data, managed images, checkpoints, and VM overlays. Review disk files explicitly before deleting persistent data.
-
-Historical `run-all.sh`, `setup-all.sh`, `scripts/stop-all.sh`, and `scripts/status.sh` filenames remain as marked legacy aliases. They no longer launch or kill separate host Node/Next processes.
+Stopping the stack retains PostgreSQL data, managed images, checkpoints, and VM
+overlays.
 
 ## Troubleshooting
-
-Run the safety/preflight checks again:
 
 ```bash
 make network-audit
 make doctor
+make verify
+docker compose ps --all
+docker compose logs --tail=200 migrate backend postgres guacamole-db-init guacamole
 ```
 
-Inspect health and recent logs:
-
-```bash
-docker compose ps
-docker compose logs --tail=200 backend postgres guacamole
-curl -v http://127.0.0.1:3001/api/health
-```
-
-For image-specific failures:
-
-```bash
-cd backend
-npm run image:doctor
-npm run sandlabx -- image inspect /path/to/image
-```
-
-See [Startup and runtime model](docs/STARTUP-RUNTIME.md), [Managed image pipeline](docs/IMAGE-PIPELINE.md), and [Architecture](docs/ARCHITECTURE.md) for deeper operational details.
+See [Startup and runtime model](docs/STARTUP-RUNTIME.md),
+[Database schema](docs/DATABASE-SCHEMA.md), and
+[Architecture](docs/ARCHITECTURE.md).
