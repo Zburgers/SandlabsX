@@ -4,7 +4,7 @@ set -Eeuo pipefail
 # PostgreSQL maintenance helper.
 #
 # SandLabX schema changes are owned exclusively by node-pg-migrate. This script
-# starts PostgreSQL, initializes the version-matched Guacamole vendor schema,
+# starts PostgreSQL, runs the version-matched Guacamole initializer image,
 # applies pending SandLabX migrations, and optionally imports legacy JSON nodes.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -88,11 +88,8 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 
-printf 'Preparing Guacamole vendor schema files...\n'
-"${COMPOSE[@]}" run --rm --no-deps guacamole-schema
-
-printf 'Ensuring Guacamole vendor schema...\n'
-"${COMPOSE[@]}" run --rm --no-deps guacamole-db-init
+printf 'Ensuring version-matched Guacamole vendor schema...\n'
+"${COMPOSE[@]}" run --rm --no-deps --build guacamole-db-init
 
 printf 'Applying versioned SandLabX migrations...\n'
 "${COMPOSE[@]}" run --rm --no-deps --build migrate
