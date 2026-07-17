@@ -6,25 +6,15 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
-x-database-environment: &database-environment
-  POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
-  POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
-
 services:
-  # Vendor-only schema source. Docker populates the named volume from the
-  # version-matched Guacamole image; no SandLabX tables live here.
   guacamole-schema:
     image: guacamole/guacamole:1.5.4
     container_name: sandlabx-guacamole-schema
     restart: "no"
-    entrypoint: ["/bin/sh", "-ec"]
-    command: >-
-      test -d /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema &&
-      test -n "$$(find /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema -maxdepth 1 -name '*.sql' -print -quit)" &&
-      echo '[guacamole-schema] vendor PostgreSQL schema is available'
+    entrypoint: ["/bin/sh", "/usr/local/bin/guacamole-schema-export.sh"]
     volumes:
-      - guacamole-init:/opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema
+      - ./scripts/guacamole-schema-export.sh:/usr/local/bin/guacamole-schema-export.sh:ro
+      - guacamole-init:/schema-output
     networks: [sandlabx-network]
     logging: *default-logging
 
@@ -32,7 +22,10 @@ services:
     image: postgres:16
     container_name: sandlabx-postgres
     restart: unless-stopped
-    environment: *database-environment
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -48,36 +41,19 @@ services:
     networks: [sandlabx-network]
     logging: *default-logging
 
-  # Guacamole owns its vendor schema. This one-shot service initializes a fresh
-  # database, no-ops on a complete existing schema, and refuses partial schemas.
   guacamole-db-init:
     image: postgres:16
     container_name: sandlabx-guacamole-db-init
     restart: "no"
+    entrypoint: ["/bin/sh", "/usr/local/bin/guacamole-db-init.sh"]
     environment:
-      <<: *database-environment
+      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
       PGPASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
-    entrypoint: ["/bin/sh", "-ec"]
-    command: |
-      entity="$$(psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -Atqc "SELECT to_regclass('public.guacamole_entity') IS NOT NULL")"
-      connection="$$(psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -Atqc "SELECT to_regclass('public.guacamole_connection') IS NOT NULL")"
-
-      if [ "$${entity}" = "t" ] && [ "$${connection}" = "t" ]; then
-        echo '[guacamole-db-init] existing Guacamole schema is complete'
-        exit 0
-      fi
-
-      if [ "$${entity}" != "f" ] || [ "$${connection}" != "f" ]; then
-        echo '[guacamole-db-init] partial Guacamole schema detected; refusing automatic repair' >&2
-        exit 1
-      fi
-
-      echo '[guacamole-db-init] applying vendor schema'
-      for file in /guacamole-schema/*.sql; do
-        echo "[guacamole-db-init] applying $${file}"
-        psql -v ON_ERROR_STOP=1 -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -f "$${file}"
-      done
+      DB_HOST: postgres
+      GUACAMOLE_SCHEMA_DIR: /guacamole-schema
     volumes:
+      - ./scripts/guacamole-db-init.sh:/usr/local/bin/guacamole-db-init.sh:ro
       - guacamole-init:/guacamole-schema:ro
     depends_on:
       guacamole-schema:
@@ -87,8 +63,6 @@ services:
     networks: [sandlabx-network]
     logging: *default-logging
 
-  # Authoritative SandLabX schema owner. node-pg-migrate applies all pending
-  # versions transactionally under an advisory lock, then verifies the result.
   migrate:
     build:
       context: ./backend
@@ -138,13 +112,6 @@ services:
     container_name: sandlabx-backend
     restart: unless-stopped
     init: true
-
-    # LEGACY RUNTIME BOUNDARY
-    # NET_ADMIN plus KVM/TUN are needed only by the pre-Capsule QemuManager that
-    # runs QEMU in the API container. Do not add SYS_ADMIN, privileged mode,
-    # host networking, host PID namespace access, or Docker socket mounts here.
-    # Remove these grants when QEMU/network execution moves to the dedicated
-    # Capsule LocalRunner/QemuNetworkService process.
     cap_add:
       - NET_ADMIN
     security_opt:
@@ -152,7 +119,6 @@ services:
     devices:
       - /dev/kvm:/dev/kvm
       - /dev/net/tun:/dev/net/tun
-
     environment:
       PORT: 3001
       NODE_ENV: ${NODE_ENV:-production}
@@ -172,13 +138,7 @@ services:
       OVERLAYS_PATH: /overlays
       VMS_PATH: /vms
       CHECKPOINTS_PATH: /checkpoints
-
-      # LEGACY fixed tap0..tap3 compatibility. The target runner consumes the
-      # deterministic PlanCompiler allocations and needs no startup bridge script.
       SANDLABX_NETWORK_MODE: ${SANDLABX_NETWORK_MODE:-legacy-l2}
-
-      # LEGACY image bootstrap is opt-in. Normal startup must not inspect or
-      # download every possible image before the API becomes ready.
       SANDLABX_VALIDATE_IMAGES_ON_STARTUP: ${SANDLABX_VALIDATE_IMAGES_ON_STARTUP:-false}
       QEMU_IFUP: /usr/local/libexec/sandlabx/qemu-ifup
       QEMU_IFDOWN: /usr/local/libexec/sandlabx/qemu-ifdown
