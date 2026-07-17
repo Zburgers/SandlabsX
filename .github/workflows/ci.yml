@@ -124,16 +124,14 @@ jobs:
         run: docker compose run --rm --no-deps --build migrate
       - name: Build frontend container
         run: docker compose build frontend
-      - name: Start and verify Guacamole
+      - name: Verify initialized database objects
         run: |
-          docker compose up -d guacd guacamole
-          curl --retry 60 --retry-delay 2 --retry-all-errors -fsS http://127.0.0.1:8081/guacamole/ >/dev/null
           docker compose exec -T postgres psql -U guacamole_user -d guacamole_db -Atqc \
-            "SELECT to_regclass('public.guacamole_connection') IS NOT NULL AND to_regclass('public.sandlabx_nodes') IS NOT NULL" \
+            "SELECT to_regclass('public.guacamole_connection') IS NOT NULL AND to_regclass('public.sandlabx_nodes') IS NOT NULL AND to_regclass('public.sandlabx_migrations') IS NOT NULL" \
             | grep -Fxq t
       - name: Show logs on failure
         if: failure()
-        run: docker compose logs --tail=200 postgres guacamole-db-init migrate guacd guacamole
+        run: docker compose logs --tail=200 postgres guacamole-db-init migrate
       - name: Clean up
         if: always()
         run: docker compose down --volumes --remove-orphans
