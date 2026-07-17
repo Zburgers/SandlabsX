@@ -46,6 +46,8 @@ npm install --no-audit --no-fund
 sudo --preserve-env=SANDLABX_ALLOW_HOST_NETWORK_SETUP \
   env SANDLABX_ALLOW_HOST_NETWORK_SETUP=true ./setup-network.sh
 
+chmod 0755 "$ROOT_DIR/backend/qemu-ifup" "$ROOT_DIR/backend/qemu-ifdown"
+
 export DATABASE_URL="postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@localhost:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-guacamole_db}"
 export GUAC_BASE_URL="http://localhost:${GUACAMOLE_PORT:-8081}/guacamole"
 export DB_HOST="localhost"
@@ -59,7 +61,7 @@ export IMAGE_CATALOG_PATH="../images/catalog.json"
 export OVERLAYS_PATH="../overlays"
 export VMS_PATH="../vms"
 export CHECKPOINTS_PATH="../checkpoints"
-export QEMU_IFUP="/etc/qemu-ifup"
-export QEMU_IFDOWN="/etc/qemu-ifdown"
+export QEMU_IFUP="$ROOT_DIR/backend/qemu-ifup"
+export QEMU_IFDOWN="$ROOT_DIR/backend/qemu-ifdown"
 
 exec npm start
