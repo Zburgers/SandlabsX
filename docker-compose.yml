@@ -59,7 +59,8 @@ services:
     container_name: sandlabx-migrate
     restart: "no"
     entrypoint: ["/bin/sh", "-ec"]
-    command: "npm run db:migrate && npm run db:check"
+    command:
+      - "npm run db:migrate && npm run db:check"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
       SANDLABX_MIGRATION_VERBOSE: ${SANDLABX_MIGRATION_VERBOSE:-false}
