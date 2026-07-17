@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# LEGACY FIXED-TOPOLOGY NETWORK BOOTSTRAP
+#
+# Purpose today:
+# - Keep the pre-Capsule QemuManager functional during the runner transition.
+# - Create two unnumbered Layer-2 bridges inside the backend container only.
+#
+# This is NOT the target networking architecture. The target is the compiled
+# Capsule network plan executed by an instance-aware QemuNetworkService. That
+# service must create deterministic per-instance bridges/TAPs, persist ownership,
+# and execute cleanup/compensation from the compiled plan.
+#
+# Removal condition:
+# - Legacy /api/nodes and /api/labs start paths no longer use fixed tap0..tap3.
+# - LocalRunner can execute PlanCompiler network allocations end to end.
+#
+# Do not add NAT, routes, IP addresses, forwarding, firewall rules, or new lab
+# layouts here. Those belong in explicit runner operations with ownership data.
+
 log() {
   printf '[sandlabx-network] %s\n' "$*"
 }
@@ -32,9 +50,9 @@ ensure_bridge() {
     if ! ip -d link show "$bridge" | grep -q 'bridge'; then
       fail "interface $bridge already exists but is not a Linux bridge"
     fi
-    log "Reusing existing bridge $bridge"
+    log "Reusing existing LEGACY bridge $bridge"
   else
-    log "Creating bridge $bridge"
+    log "Creating LEGACY bridge $bridge"
     ip link add name "$bridge" type bridge
   fi
 
@@ -52,12 +70,12 @@ ensure_bridge() {
   ip link set "$bridge" up
 }
 
-log "Preparing isolated legacy Layer-2 network inside the backend container"
+log "Preparing isolated LEGACY Layer-2 network inside the backend container"
 for bridge in "${bridges[@]}"; do
   ensure_bridge "$bridge"
 done
 
-log "Legacy bridges are ready"
+log "LEGACY bridges are ready"
 log "  sandlabx-br0: router G0/0 and PC1 segment"
 log "  sandlabx-br1: router G0/1 and PC2 segment"
 log "No IP addresses, routes, NAT rules, or forwarding settings were changed"
