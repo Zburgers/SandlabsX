@@ -57,10 +57,12 @@ jobs:
             setup-all.sh \
             scripts/stack.sh \
             scripts/dev-doctor.sh \
+            scripts/init-postgres.sh \
             scripts/network-audit.sh \
             scripts/run-local-backend.sh \
             scripts/stop-all.sh \
             scripts/status.sh \
+            scripts/verify-setup.sh \
             scripts/fix-kvm-and-rebuild.sh
       - name: Validate Compose configuration
         run: docker compose config --quiet
