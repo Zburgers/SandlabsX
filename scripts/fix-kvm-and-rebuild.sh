@@ -1,22 +1,24 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "🛑 Stopping all containers..."
-docker compose down
+# LEGACY COMMAND ALIAS
+#
+# The former helper always tore down the complete stack before rebuilding one
+# service. That added avoidable downtime and did not actually repair host KVM
+# permissions. Rebuild in place and report access instead.
+#
+# Canonical command: make rebuild
+# Remove this wrapper after old troubleshooting documentation is retired.
 
-echo "🔨 Rebuilding backend container..."
-echo "   (This ensures the latest code and configurations are included)"
-docker compose build backend
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
-echo "🚀 Starting containers..."
-docker compose up -d
+printf 'NOTICE: fix-kvm-and-rebuild.sh is a LEGACY alias; rebuilding without destructive teardown.\n'
+bash ./scripts/stack.sh rebuild
 
-echo "🔍 Verifying KVM access inside container..."
-if docker exec sandlabx-backend ls -la /dev/kvm > /dev/null 2>&1; then
-    echo "✅ KVM is accessible inside the container!"
-    docker exec sandlabx-backend ls -la /dev/kvm
+if docker compose exec -T backend test -r /dev/kvm -a -w /dev/kvm; then
+  printf 'KVM is readable and writable inside the backend container.\n'
 else
-    echo "❌ KVM is STILL NOT accessible inside the container."
-    echo "   This usually means Docker Desktop is not configured correctly"
-    echo "   or the host /dev/kvm permissions are restricted."
+  printf 'WARNING: /dev/kvm is not usable inside the backend container; VMs may fall back to TCG or reject KVM-only images.\n' >&2
+  exit 1
 fi
