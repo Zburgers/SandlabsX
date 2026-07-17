@@ -3,27 +3,29 @@ set -Eeuo pipefail
 
 # Canonical SandLabX stack controller.
 #
-# All normal local startup/shutdown commands should delegate here. This avoids
-# the old split-brain runtime where Compose started containers and shell scripts
-# launched additional host Node/Next processes with broad pkill cleanup.
+# Normal startup targets the frontend and lets Compose traverse the dependency
+# graph: PostgreSQL -> vendor schema -> application migrations -> API -> UI.
+# One-shot schema/migration services are expected to exit successfully and are
+# never restarted as long-running daemons.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 COMPOSE=(docker compose)
 WAIT_TIMEOUT="${SANDLABX_STARTUP_TIMEOUT:-180}"
+LONG_RUNNING_SERVICES=(postgres guacd guacamole backend frontend)
 
 usage() {
   cat <<'EOF'
 Usage: ./scripts/stack.sh <command>
 
 Commands:
-  up         Start existing images and wait for healthy dependencies
-  rebuild    Rebuild application images, start, and wait for health
+  up         Start existing images and wait for the application stack
+  rebuild    Rebuild application images, migrate, and start
   down       Stop the stack without deleting persistent data
-  restart    Restart running services
+  restart    Restart only long-running services
   logs       Follow bounded service logs
-  status     Show service state
+  status     Show running and completed one-shot services
   config     Validate and print the resolved Compose configuration
 EOF
 }
@@ -53,17 +55,17 @@ compose_up() {
     args+=(--build)
   fi
 
-  # Modern Compose waits on declared health checks and exits non-zero when a
-  # dependency cannot become ready. Fall back to detached startup only for an
-  # older v2 plugin that does not expose --wait.
   if "${COMPOSE[@]}" up --help 2>/dev/null | grep -q -- '--wait'; then
     args+=(--wait --wait-timeout "$WAIT_TIMEOUT")
   else
-    printf 'WARNING: this Compose version lacks --wait; startup health is not synchronously verified.\n' >&2
+    printf 'WARNING: this Compose version lacks --wait; run make verify after startup.\n' >&2
   fi
 
+  # Targeting frontend starts the full dependency graph while allowing the
+  # schema and migration jobs to complete before backend/frontend readiness.
+  args+=(frontend)
   "${COMPOSE[@]}" "${args[@]}"
-  "${COMPOSE[@]}" ps
+  "${COMPOSE[@]}" ps --all
 }
 
 require_compose
@@ -79,14 +81,14 @@ case "${1:-}" in
     "${COMPOSE[@]}" down --remove-orphans
     ;;
   restart)
-    "${COMPOSE[@]}" restart
-    "${COMPOSE[@]}" ps
+    "${COMPOSE[@]}" restart "${LONG_RUNNING_SERVICES[@]}"
+    "${COMPOSE[@]}" ps --all
     ;;
   logs)
     "${COMPOSE[@]}" logs -f --tail="${SANDLABX_LOG_TAIL:-200}"
     ;;
   status)
-    "${COMPOSE[@]}" ps
+    "${COMPOSE[@]}" ps --all
     ;;
   config)
     "${COMPOSE[@]}" config
