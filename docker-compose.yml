@@ -82,9 +82,10 @@ services:
 
     environment:
       PORT: 3001
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
       GUAC_BASE_URL: http://guacamole:8080/guacamole
+      VNC_HOST: backend
       STATE_FILE: /app/data/nodes-state.json
       DB_HOST: postgres
       DB_PORT: 5432
@@ -127,6 +128,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      guacamole:
+        condition: service_started
     networks: [sandlabx-network]
     logging: *default-logging
 
