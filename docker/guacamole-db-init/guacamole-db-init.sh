@@ -7,10 +7,22 @@ set -eu
 
 DB_HOST="${DB_HOST:-postgres}"
 SCHEMA_DIR="${GUACAMOLE_SCHEMA_DIR:-/guacamole-schema}"
+DB_WAIT_ATTEMPTS="${DB_WAIT_ATTEMPTS:-30}"
 
 psql_query() {
   psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "$1"
 }
+
+attempt=1
+while ! psql_query 'SELECT 1' >/dev/null 2>&1; do
+  if [ "$attempt" -ge "$DB_WAIT_ATTEMPTS" ]; then
+    echo "[guacamole-db-init] PostgreSQL did not become ready after $DB_WAIT_ATTEMPTS attempts" >&2
+    exit 1
+  fi
+  echo "[guacamole-db-init] waiting for PostgreSQL ($attempt/$DB_WAIT_ATTEMPTS)"
+  attempt=$((attempt + 1))
+  sleep 2
+done
 
 entity_exists="$(psql_query "SELECT to_regclass('public.guacamole_entity') IS NOT NULL")"
 connection_exists="$(psql_query "SELECT to_regclass('public.guacamole_connection') IS NOT NULL")"
