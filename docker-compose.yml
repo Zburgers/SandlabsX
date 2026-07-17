@@ -128,7 +128,7 @@ services:
       DB_USER: ${POSTGRES_USER:-guacamole_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-secret}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:2000}
       CUSTOM_IMAGES_PATH: /images/custom
       IMAGE_CATALOG_PATH: /images/catalog.json
       OVERLAYS_PATH: /overlays
@@ -175,7 +175,7 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
       NEXT_PUBLIC_GUAC_URL: ${NEXT_PUBLIC_GUAC_URL:-http://localhost:8081/guacamole}
     ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-3000}:3000"
+      - "${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-2000}:3000"
     depends_on:
       backend:
         condition: service_healthy
