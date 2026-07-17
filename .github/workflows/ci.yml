@@ -25,6 +25,56 @@ jobs:
           node-version: 20
       - run: npm install --no-audit --no-fund
       - run: npm run check
+      - name: Initialize rate limiters without validation errors
+        run: node -e "require('./middleware/rateLimit')"
+
+  database-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sandlabx
+          POSTGRES_PASSWORD: sandlabx_test
+          POSTGRES_DB: sandlabx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sandlabx -d sandlabx_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://sandlabx:sandlabx_test@127.0.0.1:5432/sandlabx_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - name: Apply all migrations
+        run: npm run db:migrate
+      - name: Verify complete schema
+        run: npm run db:check
+      - name: Prove migration reruns are idempotent
+        run: npm run db:migrate
+      - name: Verify authoritative ledger
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            const applied = await client.query('SELECT name FROM sandlabx_migrations ORDER BY id');
+            const legacy = await client.query("SELECT to_regclass('public.sandlabx_schema_migrations') AS name");
+            await client.end();
+            if (applied.rowCount !== 3) throw new Error(`Expected 3 migrations, found ${applied.rowCount}`);
+            if (legacy.rows[0].name) throw new Error('Legacy migration ledger still exists');
+          })().catch((error) => { console.error(error); process.exit(1); });
+          NODE
 
   frontend:
     runs-on: ubuntu-latest
@@ -70,6 +120,15 @@ jobs:
         run: |
           ! grep -Eq 'sysctl|ip_forward|iptables|192\.168\.[12]\.1/' backend/setup-network.sh
           grep -q 'SANDLABX_ALLOW_HOST_NETWORK_SETUP' backend/setup-network.sh
+      - name: Assert migration ownership boundaries
+        run: |
+          test ! -e backend/schema/nodes-schema.sql
+          test ! -e backend/migrations/001_lab_capsules.sql
+          test ! -e docs/archive/initdb-schema.sql
+          ! grep -q '/docker-entrypoint-initdb.d' docker-compose.yml
+          grep -q 'service_completed_successfully' docker-compose.yml
+          grep -q 'node-pg-migrate' backend/package.json
+          ! grep -q 'CREATE TABLE IF NOT EXISTS sandlabx_schema_migrations' backend/modules/migrationRunner.js
 
   docker-build:
     runs-on: ubuntu-latest
