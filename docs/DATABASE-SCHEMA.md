@@ -1,314 +1,180 @@
-# 🗄️ SandlabX Database Schema
+# SandLabX database schema
 
-Complete reference for the PostgreSQL database schema used by SandlabX.
+SandLabX uses PostgreSQL 16 for both application state and Apache Guacamole.
+The two domains share a database instance but have separate ownership rules.
 
-## Overview
+## Ownership boundaries
 
-SandlabX uses PostgreSQL 16 with two schemas:
-1. **Guacamole Schema** - Apache Guacamole authentication and connection management
-2. **SandlabX Schema** - Application-specific tables with `sandlabx_` prefix
+### Guacamole objects
 
+Objects prefixed with `guacamole_`, along with Guacamole enum types, are owned by
+Apache Guacamole. The Compose `guacamole-schema` service sources the SQL bundled
+with the pinned Guacamole image. The one-shot `guacamole-db-init` service:
+
+- initializes a database where Guacamole objects are entirely absent;
+- no-ops when the expected vendor schema already exists;
+- fails when it detects a partial vendor schema;
+- never creates or alters SandLabX application tables.
+
+### SandLabX objects
+
+Objects prefixed with `sandlabx_` are owned exclusively by versioned migrations
+under `backend/migrations/` and tracked in `public.sandlabx_migrations`.
+
+The backend API does not create or alter schema during startup. Compose runs the
+one-shot `migrate` service first and starts the API only after migration and
+schema verification succeed.
+
+## Migration framework
+
+SandLabX uses `node-pg-migrate` with:
+
+- ordered index-based migration names;
+- PostgreSQL advisory locking;
+- migration-order validation;
+- one transaction for all pending migrations;
+- an authoritative `sandlabx_migrations` ledger;
+- guarded rollback commands.
+
+```bash
+make db-migrate
+make db-check
+make db-create-migration NAME=add_example_column
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PostgreSQL Database                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Guacamole Schema (managed by Apache Guacamole)                 │
-│  ├── guacamole_connection, guacamole_user, etc.                 │
-│                                                                  │
-│  SandlabX Schema (application tables)                           │
-│  ├── sandlabx_users          ─┬─→ sandlabx_labs                 │
-│  │                            ├─→ sandlabx_nodes                │
-│  │                            ├─→ sandlabx_images               │
-│  │                            └─→ sandlabx_audit_log            │
-│  ├── sandlabx_labs           ──→ sandlabx_connections           │
-│  ├── sandlabx_nodes          ──→ sandlabx_console_sessions      │
-│  └── sandlabx_connections                                       │
-└─────────────────────────────────────────────────────────────────┘
-```
 
----
+The initial baseline migrations are intentionally irreversible because dropping
+them would destroy existing users, labs, images, VM metadata, and Capsule state.
+New incremental migrations should define a safe rollback whenever possible.
 
-## SandlabX Tables
+## Core application tables
 
 ### `sandlabx_users`
 
-User accounts with role-based access control.
+Application accounts and roles.
 
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | UUID | NOT NULL | `gen_random_uuid()` | Primary key |
-| `email` | VARCHAR(255) | NOT NULL | - | Unique user email |
-| `password_hash` | VARCHAR(255) | NOT NULL | - | bcrypt salted hash |
-| `role` | VARCHAR(50) | NOT NULL | `'student'` | `admin`, `instructor`, or `student` |
-| `created_at` | TIMESTAMPTZ | - | `CURRENT_TIMESTAMP` | Account creation time |
-
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `UNIQUE (email)`
-- `CHECK (role IN ('admin', 'instructor', 'student'))`
-
-**Indexes:**
-- `idx_sandlabx_users_email` ON `(email)`
-- `idx_sandlabx_users_role` ON `(role)`
-
-**Example:**
-```sql
-INSERT INTO sandlabx_users (email, password_hash, role)
-VALUES ('admin@sandlabx.io', '$2b$12$...', 'admin');
-```
-
----
+| Column | Purpose |
+|---|---|
+| `id` | UUID primary key |
+| `email` | Unique login identifier |
+| `password_hash` | Password hash |
+| `role` | `admin`, `instructor`, or `student` |
+| `created_at` | Creation timestamp |
 
 ### `sandlabx_labs`
 
-Lab templates and topology snapshots.
+Legacy lab/topology documents owned by users.
 
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | UUID | NOT NULL | `gen_random_uuid()` | Primary key |
-| `name` | VARCHAR(255) | NOT NULL | - | Lab display name |
-| `user_id` | UUID | NOT NULL | - | FK → `sandlabx_users.id` |
-| `topology_json` | JSONB | NOT NULL | `'{}'` | Canvas state + nodes + edges |
-| `template_name` | VARCHAR(255) | NULL | - | e.g., `'BGP_SETUP'`, `'OSPF_LAB'` |
-| `is_public` | BOOLEAN | - | `FALSE` | Whether lab is publicly viewable |
-| `created_at` | TIMESTAMPTZ | - | `CURRENT_TIMESTAMP` | Lab creation time |
-| `updated_at` | TIMESTAMPTZ | - | `CURRENT_TIMESTAMP` | Last modification (auto-updated) |
-
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE CASCADE`
-
-**Indexes:**
-- `idx_sandlabx_labs_user_id` ON `(user_id)`
-- `idx_sandlabx_labs_is_public` ON `(is_public)`
-
-**Example:**
-```sql
-INSERT INTO sandlabx_labs (name, user_id, topology_json, template_name)
-VALUES (
-  'BGP Lab - Spring 2025',
-  '550e8400-e29b-41d4-a716-446655440000',
-  '{"nodes": [{"id": "r1", "position": {"x": 100, "y": 100}}], "edges": []}',
-  'BGP_SETUP'
-);
-```
-
----
+| Column | Purpose |
+|---|---|
+| `id` | UUID primary key |
+| `name` | Lab display name |
+| `user_id` | Owner FK |
+| `topology_json` | Persisted legacy topology document |
+| `template_name` | Optional template identifier |
+| `is_public` | Sharing flag |
+| `created_at`, `updated_at` | Lifecycle timestamps |
 
 ### `sandlabx_nodes`
 
-VM instance metadata and lifecycle tracking.
+Legacy VM instance metadata.
 
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | UUID | NOT NULL | - | Primary key |
-| `name` | VARCHAR(255) | NOT NULL | - | Node display name |
-| `os_type` | VARCHAR(50) | NOT NULL | - | `ubuntu`, `debian`, `cisco-ios`, `custom` |
-| `status` | VARCHAR(20) | NOT NULL | `'stopped'` | `stopped`, `starting`, `running`, `stopping`, `error` |
-| `overlay_path` | TEXT | NOT NULL | - | Path to QCOW2 overlay |
-| `vnc_port` | INTEGER | NULL | - | VNC port when running |
-| `guac_connection_id` | INTEGER | NULL | - | Guacamole connection ID |
-| `guac_url` | TEXT | NULL | - | Full Guacamole console URL |
-| `pid` | INTEGER | NULL | - | QEMU process ID |
-| `ram_mb` | INTEGER | NOT NULL | `2048` | Memory in MB |
-| `cpu_cores` | INTEGER | NOT NULL | `2` | vCPU count |
-| `image_metadata` | JSONB | NULL | - | Additional image info |
-| `user_id` | UUID | NULL | - | FK → `sandlabx_users.id` |
-| `lab_id` | UUID | NULL | - | FK → `sandlabx_labs.id` |
-| `created_at` | TIMESTAMPTZ | NOT NULL | `CURRENT_TIMESTAMP` | Node creation time |
-| `updated_at` | TIMESTAMPTZ | NOT NULL | `CURRENT_TIMESTAMP` | Last update (auto-trigger) |
-| `started_at` | TIMESTAMPTZ | NULL | - | Last boot time |
-| `stopped_at` | TIMESTAMPTZ | NULL | - | Last shutdown time |
-| `wiped_at` | TIMESTAMPTZ | NULL | - | Last wipe time |
-
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `CHECK (status IN ('stopped', 'starting', 'running', 'stopping', 'error'))`
-- `FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE SET NULL`
-- `FOREIGN KEY (lab_id) REFERENCES sandlabx_labs(id) ON DELETE CASCADE`
-
-**Indexes:**
-- `idx_sandlabx_nodes_status` ON `(status)`
-- `idx_sandlabx_nodes_user_id` ON `(user_id)`
-- `idx_sandlabx_nodes_lab_id` ON `(lab_id)`
-- `idx_sandlabx_nodes_created_at` ON `(created_at DESC)`
-- `idx_sandlabx_nodes_user_lab_status` ON `(user_id, lab_id, status)` (composite)
-
----
+| Column | Purpose |
+|---|---|
+| `id` | UUID primary key |
+| `name`, `os_type` | Identity and image/runtime type |
+| `status` | VM lifecycle state |
+| `overlay_path` | Writable QCOW2 overlay |
+| `vnc_port`, `guac_connection_id`, `guac_url` | Console integration |
+| `pid` | Legacy QEMU process ID |
+| `ram_mb`, `cpu_cores` | Allocated resources |
+| `image_metadata` | Image selection metadata |
+| `user_id`, `lab_id` | Ownership and lab association |
+| lifecycle timestamps | Creation, update, start, stop, wipe |
 
 ### `sandlabx_connections`
 
-Network connections (TAP/VLAN/bridge) between nodes.
-
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | UUID | NOT NULL | `gen_random_uuid()` | Primary key |
-| `lab_id` | UUID | NOT NULL | - | FK → `sandlabx_labs.id` |
-| `source_node_id` | UUID | NOT NULL | - | FK → `sandlabx_nodes.id` |
-| `target_node_id` | UUID | NOT NULL | - | FK → `sandlabx_nodes.id` |
-| `type` | VARCHAR(50) | - | `'tap'` | `tap`, `vlan`, or `bridge` |
-| `source_interface` | VARCHAR(50) | NULL | - | e.g., `'eth0'`, `'Gi0/0'` |
-| `target_interface` | VARCHAR(50) | NULL | - | e.g., `'eth1'`, `'ens3'` |
-| `created_at` | TIMESTAMPTZ | - | `CURRENT_TIMESTAMP` | Connection creation time |
-
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `FOREIGN KEY (lab_id) REFERENCES sandlabx_labs(id) ON DELETE CASCADE`
-- `FOREIGN KEY (source_node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE`
-- `FOREIGN KEY (target_node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE`
-- `CHECK (type IN ('tap', 'vlan', 'bridge'))`
-
-**Indexes:**
-- `idx_sandlabx_connections_lab_id` ON `(lab_id)`
-- `idx_sandlabx_connections_source_node_id` ON `(source_node_id)`
-- `idx_sandlabx_connections_target_node_id` ON `(target_node_id)`
-
-**Example:**
-```sql
-INSERT INTO sandlabx_connections (lab_id, source_node_id, target_node_id, type, source_interface, target_interface)
-VALUES (
-  '550e8400-e29b-41d4-a716-446655440001',
-  '550e8400-e29b-41d4-a716-446655440002',
-  '550e8400-e29b-41d4-a716-446655440003',
-  'tap',
-  'eth0',
-  'eth0'
-);
-```
-
----
-
-### `sandlabx_images`
-
-Custom VM image registry.
-
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | UUID | NOT NULL | `gen_random_uuid()` | Primary key |
-| `name` | VARCHAR(255) | NOT NULL | - | Unique image name |
-| `path` | VARCHAR(512) | NOT NULL | - | Filesystem path to QCOW2 |
-| `format` | VARCHAR(20) | - | `'qcow2'` | `qcow2`, `raw`, or `vmdk` |
-| `size_gb` | DECIMAL(10,2) | NULL | - | Image size in GB |
-| `os_type` | VARCHAR(50) | NULL | - | `ubuntu`, `debian`, `cisco`, `custom` |
-| `is_valid` | BOOLEAN | - | `TRUE` | Validation status |
-| `user_id` | UUID | NULL | - | FK → `sandlabx_users.id` (NULL = system) |
-| `created_at` | TIMESTAMPTZ | - | `CURRENT_TIMESTAMP` | Upload time |
-
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `UNIQUE (name)`
-- `FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE SET NULL`
-- `CHECK (format IN ('qcow2', 'raw', 'vmdk'))`
-
-**Indexes:**
-- `idx_sandlabx_images_os_type` ON `(os_type)`
-- `idx_sandlabx_images_user_id` ON `(user_id)`
-
-**Example:**
-```sql
-INSERT INTO sandlabx_images (name, path, format, size_gb, os_type)
-VALUES ('ubuntu-24-lts', '/images/ubuntu-24-lts.qcow2', 'qcow2', 3.2, 'ubuntu');
-```
-
----
-
-### `sandlabx_audit_log`
-
-Security and compliance logging.
-
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | SERIAL | NOT NULL | auto | Primary key |
-| `user_id` | UUID | NULL | - | FK → `sandlabx_users.id` |
-| `action` | VARCHAR(100) | NOT NULL | - | e.g., `CREATE_NODE`, `START_VM` |
-| `resource_type` | VARCHAR(50) | NULL | - | `node`, `lab`, `image` |
-| `resource_id` | UUID | NULL | - | UUID of affected resource |
-| `details` | JSONB | NULL | - | Full action context |
-| `success` | BOOLEAN | - | `TRUE` | Operation outcome |
-| `created_at` | TIMESTAMPTZ | - | `CURRENT_TIMESTAMP` | Log timestamp |
-
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `FOREIGN KEY (user_id) REFERENCES sandlabx_users(id) ON DELETE SET NULL`
-
-**Indexes:**
-- `idx_sandlabx_audit_log_user_id` ON `(user_id)`
-- `idx_sandlabx_audit_log_action` ON `(action)`
-- `idx_sandlabx_audit_log_created_at` ON `(created_at)`
-
-**Logged Actions:**
-```
-CREATE_NODE, START_VM, STOP_VM, WIPE_VM, DELETE_NODE,
-CREATE_LAB, DELETE_LAB, EXPORT_LAB, IMPORT_LAB,
-UPLOAD_IMAGE, DELETE_IMAGE, UPDATE_USER, LOGIN, LOGOUT
-```
-
----
+Legacy topology links between nodes. This remains a compatibility table until
+compiled Capsule network plans become the runtime authority.
 
 ### `sandlabx_console_sessions`
 
-Console access session tracking.
+Audit records for console access to legacy nodes.
 
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| `id` | SERIAL | NOT NULL | auto | Primary key |
-| `node_id` | UUID | NOT NULL | - | FK → `sandlabx_nodes.id` |
-| `client_ip` | VARCHAR(45) | NULL | - | Client IP address |
-| `started_at` | TIMESTAMPTZ | NOT NULL | `CURRENT_TIMESTAMP` | Session start |
-| `ended_at` | TIMESTAMPTZ | NULL | - | Session end |
+### `sandlabx_images`
 
-**Constraints:**
-- `PRIMARY KEY (id)`
-- `FOREIGN KEY (node_id) REFERENCES sandlabx_nodes(id) ON DELETE CASCADE`
+Application-level image registry metadata. Managed image manifests and files
+remain on disk under the image pipeline's storage roots.
 
-**Indexes:**
-- `idx_sandlabx_console_sessions_node_id` ON `(node_id)`
-- `idx_sandlabx_console_sessions_started_at` ON `(started_at DESC)`
+### `sandlabx_audit_log`
 
----
+Security and operational audit events for state-changing actions.
 
-## Capsule tables
+## Capsule control-plane tables
 
-The Capsule control plane is applied by the backend migration runner from `backend/migrations/001_lab_capsules.sql`. It adds definitions, immutable versions, instances, operations, steps/events, verification runs, checkpoints, and artifacts. Publication, instance creation, and operation idempotency are transactional application operations. Filesystem checkpoint contents remain staged and digest-verified; PostgreSQL stores the durable owner and manifest record.
+### Definition and versioning
 
-## Schema Files
+- `sandlabx_capsules`
+- `sandlabx_capsule_versions`
 
-| File | Purpose |
-|------|---------|
-| [Historical initdb schema](archive/initdb-schema.sql) | Historical Guacamole schema + SandlabX tables (users, labs, images, audit_log) |
-| [backend/schema/nodes-schema.sql](../backend/schema/nodes-schema.sql) | Nodes table + connections + console_sessions |
-| [backend/migrations/001_lab_capsules.sql](../backend/migrations/001_lab_capsules.sql) | Capsule definitions, versions, instances, operations, events, verifications, checkpoints |
+Capsules hold mutable drafts; published versions are immutable normalized
+artifacts identified by version number and content digest.
 
----
+### Runtime state
 
-## Common Queries
+- `sandlabx_lab_instances`
+- `sandlabx_operations`
+- `sandlabx_operation_steps`
+- `sandlabx_instance_events`
 
-### Active nodes per user
-```sql
-SELECT u.email, COUNT(n.id) as active_nodes
-FROM sandlabx_users u
-LEFT JOIN sandlabx_nodes n ON n.user_id = u.id AND n.status = 'running'
-GROUP BY u.id;
+These tables model desired state, operation idempotency, progress, leases,
+step-level results, and append-style instance events.
+
+### Verification and artifacts
+
+- `sandlabx_verification_runs`
+- `sandlabx_checkpoints`
+- `sandlabx_artifacts`
+
+PostgreSQL stores durable ownership, status, manifests, and digests. Large image,
+overlay, checkpoint, and artifact contents remain in filesystem-backed storage.
+
+## Current migration files
+
+| Migration | Purpose |
+|---|---|
+| `0001_core_schema.cjs` | Adopts or creates all core SandLabX tables safely |
+| `0002_capsule_control_plane.cjs` | Adopts or creates Capsule control-plane tables |
+| `0003_retire_legacy_migration_ledger.cjs` | Removes the obsolete custom migration ledger |
+
+## Retired schema sources
+
+These paths no longer exist and must not be restored:
+
+- `backend/schema/nodes-schema.sql`
+- `backend/migrations/001_lab_capsules.sql`
+- `docs/archive/initdb-schema.sql`
+- SandLabX mounts under `/docker-entrypoint-initdb.d`
+- the custom `sandlabx_schema_migrations` ledger
+
+PostgreSQL init scripts only execute against a new empty data directory. They are
+therefore unsuitable for application upgrades and were the reason existing
+volumes could start without `sandlabx_nodes`.
+
+## Operational checks
+
+```bash
+# Apply pending migrations in a one-shot container.
+make db-migrate
+
+# Verify the migration ledger and all required tables.
+make db-check
+
+# Verify the full running stack, including one-shot job exit codes.
+make verify
 ```
 
-### Labs with node count
-```sql
-SELECT l.name, l.template_name, COUNT(n.id) as nodes
-FROM sandlabx_labs l
-LEFT JOIN sandlabx_nodes n ON n.lab_id = l.id
-GROUP BY l.id;
-```
+The migration service is safe to rerun. With no pending migrations it acquires
+the lock, confirms the ledger, and exits without changing application data.
 
-### Audit trail for a user
-```sql
-SELECT action, resource_type, resource_id, success, created_at
-FROM sandlabx_audit_log
-WHERE user_id = '550e8400-...'
-ORDER BY created_at DESC
-LIMIT 50;
-```
-
----
-
-**Last Updated:** July 2026  
-**Schema Version:** 1.1 (Capsule migration)
+**Last updated:** July 2026  
+**Migration framework:** node-pg-migrate 8.0.4
