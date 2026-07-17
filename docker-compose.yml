@@ -7,17 +7,6 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  guacamole-schema:
-    image: guacamole/guacamole:1.5.4
-    container_name: sandlabx-guacamole-schema
-    restart: "no"
-    entrypoint: ["/bin/sh", "-ec"]
-    command: "test -s /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema/001-create-schema.sql"
-    volumes:
-      - guacamole-init:/opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema:ro
-    networks: [sandlabx-network]
-    logging: *default-logging
-
   postgres:
     image: postgres:16
     container_name: sandlabx-postgres
@@ -41,28 +30,29 @@ services:
     networks: [sandlabx-network]
     logging: *default-logging
 
+  # Version-matched vendor schema owner. The image copies PostgreSQL schema
+  # files from the pinned Guacamole image at build time into a PostgreSQL client
+  # image, removing runtime volume population and entrypoint assumptions.
   guacamole-db-init:
-    image: postgres:16
+    build:
+      context: ./docker/guacamole-db-init
+      args:
+        GUACAMOLE_VERSION: ${GUACAMOLE_VERSION:-1.5.4}
     container_name: sandlabx-guacamole-db-init
     restart: "no"
-    entrypoint: ["/bin/sh", "/usr/local/bin/guacamole-db-init.sh"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
       POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
       PGPASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
       DB_HOST: postgres
-      GUACAMOLE_SCHEMA_DIR: /guacamole-schema
-    volumes:
-      - ./scripts/guacamole-db-init.sh:/usr/local/bin/guacamole-db-init.sh:ro
-      - guacamole-init:/guacamole-schema:ro
     depends_on:
-      guacamole-schema:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     networks: [sandlabx-network]
     logging: *default-logging
 
+  # Authoritative SandLabX schema owner. node-pg-migrate applies all pending
+  # versions transactionally under an advisory lock, then verifies the result.
   migrate:
     build:
       context: ./backend
@@ -80,14 +70,14 @@ services:
     logging: *default-logging
 
   guacd:
-    image: guacamole/guacd:1.5.4
+    image: guacamole/guacd:${GUACAMOLE_VERSION:-1.5.4}
     container_name: sandlabx-guacd
     restart: unless-stopped
     networks: [sandlabx-network]
     logging: *default-logging
 
   guacamole:
-    image: guacamole/guacamole:1.5.4
+    image: guacamole/guacamole:${GUACAMOLE_VERSION:-1.5.4}
     container_name: sandlabx-guacamole
     restart: unless-stopped
     environment:
@@ -112,6 +102,11 @@ services:
     container_name: sandlabx-backend
     restart: unless-stopped
     init: true
+
+    # LEGACY RUNTIME BOUNDARY
+    # NET_ADMIN plus KVM/TUN are needed only by the pre-Capsule QemuManager that
+    # runs QEMU in the API container. Remove these grants when execution moves
+    # to the dedicated Capsule runner.
     cap_add:
       - NET_ADMIN
     security_opt:
@@ -189,7 +184,6 @@ services:
 volumes:
   pgdata:
   backend-data:
-  guacamole-init:
 
 networks:
   sandlabx-network:
