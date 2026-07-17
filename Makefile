@@ -2,7 +2,7 @@ SHELL := /usr/bin/env bash
 COMPOSE ?= docker compose
 STACK := bash ./scripts/stack.sh
 
-.PHONY: help prepare doctor install test build up rebuild down restart logs ps clean image-init image-list image-doctor
+.PHONY: help prepare doctor network-audit install test build up rebuild down restart logs ps clean image-init image-list image-doctor
 
 help:
 	@printf '%s\n' \
@@ -10,6 +10,7 @@ help:
 	  '' \
 	  '  make prepare       Create runtime directories' \
 	  '  make doctor        Check host virtualization prerequisites' \
+	  '  make network-audit Read-only host network safety report' \
 	  '  make install       Install backend and frontend dependencies' \
 	  '  make test          Run backend tests' \
 	  '  make build         Build application containers only' \
@@ -26,6 +27,9 @@ prepare:
 
 doctor:
 	@bash ./scripts/dev-doctor.sh
+
+network-audit:
+	@bash ./scripts/network-audit.sh
 
 install:
 	cd backend && npm install --no-audit --no-fund
