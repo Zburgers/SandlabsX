@@ -88,8 +88,25 @@ jobs:
         run: docker compose up -d postgres
       - name: Initialize version-matched Guacamole schema
         run: docker compose run --rm --no-deps --build guacamole-db-init
+      - name: Build SandLabX migrator image
+        run: docker compose build migrate
       - name: Apply SandLabX migrations through Compose
-        run: docker compose run --rm --no-deps --build migrate
+        id: compose_migrate
+        shell: bash
+        run: |
+          set +e
+          docker compose run --name sandlabx-migrate-debug --no-deps migrate > compose-migrate.log 2>&1
+          status=$?
+          cat compose-migrate.log
+          exit "$status"
+      - name: Upload Compose migration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-migrate-log
+          path: compose-migrate.log
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Prove Compose bootstrap is idempotent
         run: |
           docker compose run --rm --no-deps guacamole-db-init
@@ -107,7 +124,9 @@ jobs:
         run: docker compose logs --tail=300 postgres guacamole-db-init migrate guacd guacamole
       - name: Clean up Compose bootstrap
         if: always()
-        run: docker compose down --volumes --remove-orphans
+        run: |
+          docker rm -f sandlabx-migrate-debug 2>/dev/null || true
+          docker compose down --volumes --remove-orphans
 
   frontend:
     runs-on: ubuntu-latest
