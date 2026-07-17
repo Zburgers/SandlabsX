@@ -39,8 +39,12 @@ PostgreSQL
 └── node-pg-migrate -> backend -> frontend
 ```
 
-The backend starts only after all pending SandLabX migrations apply and schema
-verification succeeds. Existing PostgreSQL volumes are upgraded in place.
+The migrator is invoked before the backend starts. `node-pg-migrate` reads the
+`sandlabx_migrations` ledger and applies only migration files that have not
+already been recorded. Previously applied migrations are not rerun; the schema
+check still runs so startup fails clearly if the database is incomplete.
+
+Existing PostgreSQL volumes are upgraded in place.
 
 ```bash
 make verify
@@ -52,7 +56,7 @@ The two one-shot database containers should finish successfully:
 - `sandlabx-guacamole-db-init`
 - `sandlabx-migrate`
 
-Open the UI at `http://127.0.0.1:3000`.
+Open the UI at `http://127.0.0.1:2000`.
 
 Other local endpoints:
 
