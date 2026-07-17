@@ -136,6 +136,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_GUAC_URL: ${NEXT_PUBLIC_GUAC_URL:-http://localhost:8081/guacamole}
     container_name: sandlabx-frontend
     restart: unless-stopped
     init: true
