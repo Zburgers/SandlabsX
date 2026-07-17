@@ -1,39 +1,65 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "🔄 Switching to Host-Based QEMU Mode..."
+# LEGACY HOST RUNTIME — NOT THE TARGET ARCHITECTURE
+#
+# This mode stops the Compose backend and runs QEMU plus the API directly in the
+# host network namespace. It is retained only for diagnosing environments where
+# nested/containerized KVM is unavailable. It is intentionally disabled by
+# default because host bridge/TAP changes have a larger blast radius.
+#
+# Target replacement:
+#   dedicated single-host runner executing compiled Capsule plans with durable
+#   ownership and reconciliation.
+#
+# Remove this script once the LocalRunner supports real QEMU/network execution.
 
-# 1. Stop the Dockerized backend (but keep DB and Guacamole running)
-echo "🐳 Stopping Docker backend..."
+if [[ "${SANDLABX_ENABLE_LEGACY_HOST_RUNTIME:-false}" != "true" ]]; then
+  cat >&2 <<'EOF'
+Refusing to start the LEGACY host runtime.
+
+Use the normal container runtime:
+  make rebuild
+
+For an intentional diagnostic run, review this script and set both:
+  SANDLABX_ENABLE_LEGACY_HOST_RUNTIME=true
+  SANDLABX_ALLOW_HOST_NETWORK_SETUP=true
+EOF
+  exit 64
+fi
+
+if [[ "${SANDLABX_ALLOW_HOST_NETWORK_SETUP:-false}" != "true" ]]; then
+  printf 'SANDLABX_ALLOW_HOST_NETWORK_SETUP=true is also required.\n' >&2
+  exit 64
+fi
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+printf 'WARNING: starting LEGACY host runtime; host network changes are explicitly enabled.\n'
+
 docker compose stop backend
 
-# 2. Ensure dependencies are installed
-echo "📦 Installing Node.js dependencies..."
 cd backend
-npm install
+npm install --no-audit --no-fund
 
-# 3. Setup Local Network Bridges (Requires sudo)
-echo "🌉 Setting up local network bridges (sudo required)..."
-sudo ./setup-network.sh
+sudo --preserve-env=SANDLABX_ALLOW_HOST_NETWORK_SETUP \
+  env SANDLABX_ALLOW_HOST_NETWORK_SETUP=true ./setup-network.sh
 
-# 4. Start Backend Locally
-echo "🚀 Starting Backend on Host..."
-echo "   (Connecting to Dockerized Postgres & Guacamole)"
-
-# Environment variables to connect to Docker services from Host
-export DATABASE_URL="postgresql://guacamole_user:guacamole_pass@localhost:5432/guacamole_db"
-export GUAC_BASE_URL="http://localhost:8081/guacamole"
+export DATABASE_URL="postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@localhost:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-guacamole_db}"
+export GUAC_BASE_URL="http://localhost:${GUACAMOLE_PORT:-8081}/guacamole"
 export DB_HOST="localhost"
-export DB_PORT="5432"
-export DB_NAME="guacamole_db"
-export DB_USER="guacamole_user"
-export DB_PASSWORD="guacamole_pass"
-
-# Paths (Relative to backend/ directory)
+export DB_PORT="${POSTGRES_PORT:-5432}"
+export DB_NAME="${POSTGRES_DB:-guacamole_db}"
+export DB_USER="${POSTGRES_USER:-guacamole_user}"
+export DB_PASSWORD="${POSTGRES_PASSWORD:-guacamole_pass}"
 export BASE_IMAGE_PATH="../images/ubuntu-24-lts.qcow2"
 export CUSTOM_IMAGES_PATH="../images/custom"
+export IMAGE_CATALOG_PATH="../images/catalog.json"
 export OVERLAYS_PATH="../overlays"
 export VMS_PATH="../vms"
+export CHECKPOINTS_PATH="../checkpoints"
+export QEMU_IFUP="/etc/qemu-ifup"
+export QEMU_IFDOWN="/etc/qemu-ifdown"
 
-# Run!
-npm start
+exec npm start
