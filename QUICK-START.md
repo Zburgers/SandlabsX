@@ -35,7 +35,7 @@ Startup follows this dependency graph:
 
 ```text
 PostgreSQL
-├── Guacamole vendor schema initializer -> Guacamole
+├── version-matched Guacamole initializer -> Guacamole
 └── node-pg-migrate -> backend -> frontend
 ```
 
@@ -47,9 +47,8 @@ make verify
 docker compose ps --all
 ```
 
-The one-shot schema containers should finish successfully:
+The two one-shot database containers should finish successfully:
 
-- `sandlabx-guacamole-schema`
 - `sandlabx-guacamole-db-init`
 - `sandlabx-migrate`
 
