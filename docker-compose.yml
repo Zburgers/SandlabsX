@@ -11,10 +11,10 @@ services:
     image: guacamole/guacamole:1.5.4
     container_name: sandlabx-guacamole-schema
     restart: "no"
-    entrypoint: ["/bin/sh", "/usr/local/bin/guacamole-schema-export.sh"]
+    entrypoint: ["/bin/sh", "-ec"]
+    command: "test -s /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema/001-create-schema.sql"
     volumes:
-      - ./scripts/guacamole-schema-export.sh:/usr/local/bin/guacamole-schema-export.sh:ro
-      - guacamole-init:/schema-output
+      - guacamole-init:/opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema:ro
     networks: [sandlabx-network]
     logging: *default-logging
 
