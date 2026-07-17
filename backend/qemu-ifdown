@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+tap_name="${1:?QEMU did not provide a TAP interface name}"
+
+if ! ip link show "$tap_name" >/dev/null 2>&1; then
+  exit 0
+fi
+
+ip link set "$tap_name" nomaster 2>/dev/null || true
+ip link set "$tap_name" down 2>/dev/null || true
