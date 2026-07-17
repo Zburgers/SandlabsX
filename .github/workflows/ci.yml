@@ -75,6 +75,8 @@ jobs:
             if (legacy.rows[0].name) throw new Error('Legacy migration ledger still exists');
           })().catch((error) => { console.error(error); process.exit(1); });
           NODE
+      - name: Upgrade incomplete legacy database without data loss
+        run: npm run db:test-legacy-upgrade
 
   frontend:
     runs-on: ubuntu-latest
@@ -107,6 +109,8 @@ jobs:
             setup-all.sh \
             scripts/stack.sh \
             scripts/dev-doctor.sh \
+            scripts/guacamole-schema-export.sh \
+            scripts/guacamole-db-init.sh \
             scripts/init-postgres.sh \
             scripts/network-audit.sh \
             scripts/run-local-backend.sh \
