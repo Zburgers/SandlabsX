@@ -120,7 +120,7 @@ if command -v ip >/dev/null 2>&1; then
   done
 fi
 
-port_check "${FRONTEND_PORT:-3000}" Frontend
+port_check "${FRONTEND_PORT:-2000}" Frontend
 port_check "${BACKEND_PORT:-3001}" Backend
 port_check "${GUACAMOLE_PORT:-8081}" Guacamole
 port_check "${POSTGRES_PORT:-5432}" PostgreSQL
