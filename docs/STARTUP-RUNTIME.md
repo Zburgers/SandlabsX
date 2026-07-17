@@ -26,14 +26,15 @@ Compose-only stack controller.
 
 ```text
 PostgreSQL healthy
-├── Guacamole schema source -> Guacamole DB initializer -> Guacamole
+├── version-matched Guacamole DB initializer -> Guacamole
 └── SandLabX migrator -> backend health -> frontend
 ```
 
 Normal startup performs these steps:
 
 1. Starts PostgreSQL and waits for `pg_isready`.
-2. Extracts the PostgreSQL schema bundled with the pinned Guacamole image.
+2. Builds a small PostgreSQL initializer image that copies vendor schema files
+   from the same pinned Guacamole image used at runtime.
 3. Applies that vendor schema only when Guacamole tables are entirely absent.
    A partial Guacamole schema is treated as an error and is never auto-repaired.
 4. Runs all pending SandLabX migrations through `node-pg-migrate` under a
@@ -50,9 +51,14 @@ Published development ports bind to `127.0.0.1` by default.
 
 ### Guacamole vendor schema
 
-Guacamole owns its own tables and types. The schema is sourced from the exact
-Guacamole container version through the `guacamole-schema` service and applied
-by the one-shot `guacamole-db-init` service.
+Guacamole owns its own tables and types. `docker/guacamole-db-init/Dockerfile`
+uses a multi-stage build to copy the PostgreSQL schema from the pinned
+`guacamole/guacamole` image into a PostgreSQL 16 client image. The one-shot
+`guacamole-db-init` service applies it idempotently.
+
+`GUACAMOLE_VERSION` controls the Guacamole web image, guacd image, and schema
+initializer source together. A version upgrade must review Guacamole's database
+upgrade requirements before changing this value.
 
 SandLabX migrations must never create, alter, or drop `guacamole_*` objects.
 
@@ -93,6 +99,8 @@ The following paths are removed and must not be restored:
 - `backend/schema/nodes-schema.sql`.
 - `backend/migrations/001_lab_capsules.sql`.
 - The combined `docs/archive/initdb-schema.sql` file.
+- Runtime-mounted Guacamole schema exporter scripts and timing-sensitive shared
+  initialization volumes.
 - The custom SQL-directory scanner and `sandlabx_schema_migrations` ledger.
 - API startup creating or altering database tables.
 
@@ -104,6 +112,7 @@ the migration service, including upgrades of existing volumes.
 
 - It does not mutate application schema from the API process.
 - It does not rely on first-boot PostgreSQL init scripts for SandLabX tables.
+- It does not copy vendor schema files through runtime-mounted shell scripts.
 - It does not set host or container `net.ipv4.ip_forward`.
 - It does not add IP addresses to lab bridges.
 - It does not add routes, NAT, or iptables rules.
