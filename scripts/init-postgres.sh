@@ -2,24 +2,26 @@
 set -Eeuo pipefail
 
 # PostgreSQL maintenance helper.
-# This is not part of normal startup: the backend migration runner handles
-# versioned application migrations. Use this script only for explicit database
-# initialization, reset, or legacy JSON-node migration work.
+#
+# SandLabX schema changes are owned exclusively by node-pg-migrate. This script
+# starts PostgreSQL, initializes the version-matched Guacamole vendor schema,
+# applies pending SandLabX migrations, and optionally imports legacy JSON nodes.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 COMPOSE=(docker compose)
 RESET_VOLUME=false
-RUN_MIGRATION=false
+RUN_NODE_IMPORT=false
 
 usage() {
   cat <<'EOF'
 Usage: ./scripts/init-postgres.sh [--reset-volume] [--migrate-nodes]
 
-  --reset-volume   Stop the stack and remove the named PostgreSQL volume.
+  --reset-volume   Stop the stack and remove all named project volumes.
                    This permanently deletes local database data.
-  --migrate-nodes  Run the legacy backend/migrate-nodes.js import after schema.
+  --migrate-nodes  Run the LEGACY backend/migrate-nodes.js JSON import after
+                   the versioned schema migrations complete.
 EOF
 }
 
@@ -29,7 +31,7 @@ while [[ $# -gt 0 ]]; do
       RESET_VOLUME=true
       ;;
     --migrate-nodes)
-      RUN_MIGRATION=true
+      RUN_NODE_IMPORT=true
       ;;
     -h|--help)
       usage
@@ -56,7 +58,7 @@ command -v docker >/dev/null 2>&1 || {
 
 if [[ "$RESET_VOLUME" == true ]]; then
   cat >&2 <<'EOF'
-WARNING: --reset-volume permanently deletes the SandLabX PostgreSQL volume.
+WARNING: --reset-volume permanently deletes SandLabX project volumes.
 Set SANDLABX_CONFIRM_DATABASE_RESET=YES to confirm this destructive operation.
 EOF
   if [[ "${SANDLABX_CONFIRM_DATABASE_RESET:-}" != "YES" ]]; then
@@ -66,11 +68,7 @@ EOF
 fi
 
 printf 'Starting PostgreSQL...\n'
-if "${COMPOSE[@]}" up --help 2>/dev/null | grep -q -- '--wait'; then
-  "${COMPOSE[@]}" up -d --wait --wait-timeout "${SANDLABX_STARTUP_TIMEOUT:-180}" postgres
-else
-  "${COMPOSE[@]}" up -d postgres
-fi
+"${COMPOSE[@]}" up -d postgres
 
 printf 'Waiting for PostgreSQL readiness...\n'
 ready=false
@@ -90,16 +88,18 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 
-printf 'Applying the current SandLabX base schema idempotently...\n'
-"${COMPOSE[@]}" exec -T postgres \
-  psql -v ON_ERROR_STOP=1 \
-    -U "${POSTGRES_USER:-guacamole_user}" \
-    -d "${POSTGRES_DB:-guacamole_db}" \
-    -f /docker-entrypoint-initdb.d/20-sandlabx.sql
+printf 'Preparing Guacamole vendor schema files...\n'
+"${COMPOSE[@]}" run --rm --no-deps guacamole-schema
 
-if [[ "$RUN_MIGRATION" == true ]]; then
-  printf 'Running LEGACY JSON node migration...\n'
+printf 'Ensuring Guacamole vendor schema...\n'
+"${COMPOSE[@]}" run --rm --no-deps guacamole-db-init
+
+printf 'Applying versioned SandLabX migrations...\n'
+"${COMPOSE[@]}" run --rm --no-deps --build migrate
+
+if [[ "$RUN_NODE_IMPORT" == true ]]; then
+  printf 'Running LEGACY JSON node import...\n'
   "${COMPOSE[@]}" run --rm --no-deps --entrypoint node backend migrate-nodes.js
 fi
 
-printf 'PostgreSQL maintenance completed.\n'
+printf 'PostgreSQL maintenance completed successfully.\n'
