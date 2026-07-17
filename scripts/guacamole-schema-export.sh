@@ -1,23 +1,26 @@
 #!/bin/sh
 set -eu
 
-SOURCE_DIR="/opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema"
+INITDB_SCRIPT="/opt/guacamole/bin/initdb.sh"
 TARGET_DIR="/schema-output"
+TARGET_FILE="$TARGET_DIR/001-guacamole-postgresql.sql"
+TEMP_FILE="$TARGET_FILE.tmp"
 
-if [ ! -d "$SOURCE_DIR" ]; then
-  echo "[guacamole-schema] schema directory not found: $SOURCE_DIR" >&2
-  exit 1
-fi
-
-first_sql="$(find "$SOURCE_DIR" -maxdepth 1 -type f -name '*.sql' -print -quit)"
-if [ -z "$first_sql" ]; then
-  echo "[guacamole-schema] no PostgreSQL schema files found in $SOURCE_DIR" >&2
+if [ ! -x "$INITDB_SCRIPT" ]; then
+  echo "[guacamole-schema] initdb utility is unavailable: $INITDB_SCRIPT" >&2
   exit 1
 fi
 
 mkdir -p "$TARGET_DIR"
-rm -f "$TARGET_DIR"/*.sql
-cp "$SOURCE_DIR"/*.sql "$TARGET_DIR"/
+rm -f "$TARGET_DIR"/*.sql "$TEMP_FILE"
 
-count="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*.sql' | wc -l | tr -d ' ')"
-echo "[guacamole-schema] exported $count vendor schema file(s)"
+"$INITDB_SCRIPT" --postgresql > "$TEMP_FILE"
+
+if [ ! -s "$TEMP_FILE" ]; then
+  echo '[guacamole-schema] generated PostgreSQL schema is empty' >&2
+  rm -f "$TEMP_FILE"
+  exit 1
+fi
+
+mv "$TEMP_FILE" "$TARGET_FILE"
+echo "[guacamole-schema] generated vendor schema: $TARGET_FILE"
