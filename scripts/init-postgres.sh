@@ -1,24 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# Reinitialize the SandlabX PostgreSQL database and ensure the sandlabx_nodes
-# schema exists. Optionally reset the volume and migrate JSON state into
-# Postgres.
+# PostgreSQL maintenance helper.
+# This is not part of normal startup: the backend migration runner handles
+# versioned application migrations. Use this script only for explicit database
+# initialization, reset, or legacy JSON-node migration work.
 
-set -euo pipefail
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
+COMPOSE=(docker compose)
 RESET_VOLUME=false
 RUN_MIGRATION=false
 
 usage() {
   cat <<'EOF'
-Usage: ./init-postgres.sh [--reset-volume] [--migrate-nodes]
+Usage: ./scripts/init-postgres.sh [--reset-volume] [--migrate-nodes]
 
-  --reset-volume   Stop containers, remove the pgdata volume, and start fresh.
-  --migrate-nodes  Run backend/migrate-nodes.js inside the backend container
-                   after the schema has been applied.
+  --reset-volume   Stop the stack and remove the named PostgreSQL volume.
+                   This permanently deletes local database data.
+  --migrate-nodes  Run the legacy backend/migrate-nodes.js import after schema.
 EOF
 }
 
@@ -26,59 +27,79 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --reset-volume)
       RESET_VOLUME=true
-      shift
       ;;
     --migrate-nodes)
       RUN_MIGRATION=true
-      shift
       ;;
     -h|--help)
       usage
       exit 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
-      usage
-      exit 1
+      printf 'Unknown option: %s\n' "$1" >&2
+      usage >&2
+      exit 64
       ;;
   esac
-
+  shift
 done
 
-if command -v docker-compose >/dev/null 2>&1; then
-  DOCKER_COMPOSE="docker-compose"
-elif command -v docker >/dev/null 2>&1; then
-  DOCKER_COMPOSE="docker compose"
+command -v docker >/dev/null 2>&1 || {
+  printf 'Docker is not installed or not in PATH.\n' >&2
+  exit 127
+}
+"${COMPOSE[@]}" version >/dev/null 2>&1 || {
+  printf 'Docker Compose v2 is required.\n' >&2
+  exit 127
+}
+"${COMPOSE[@]}" config --quiet
+
+if [[ "$RESET_VOLUME" == true ]]; then
+  cat >&2 <<'EOF'
+WARNING: --reset-volume permanently deletes the SandLabX PostgreSQL volume.
+Set SANDLABX_CONFIRM_DATABASE_RESET=YES to confirm this destructive operation.
+EOF
+  if [[ "${SANDLABX_CONFIRM_DATABASE_RESET:-}" != "YES" ]]; then
+    exit 64
+  fi
+  "${COMPOSE[@]}" down --volumes --remove-orphans
+fi
+
+printf 'Starting PostgreSQL...\n'
+if "${COMPOSE[@]}" up --help 2>/dev/null | grep -q -- '--wait'; then
+  "${COMPOSE[@]}" up -d --wait --wait-timeout "${SANDLABX_STARTUP_TIMEOUT:-180}" postgres
 else
-  echo "❌ Docker is not installed or not in PATH" >&2
-  exit 1
+  "${COMPOSE[@]}" up -d postgres
 fi
 
-if [[ "$RESET_VOLUME" == "true" ]]; then
-  echo "🧹 Resetting PostgreSQL volume..."
-  $DOCKER_COMPOSE down --volumes --remove-orphans
-  rm -rf pgdata
-fi
-
-echo "🐘 Starting PostgreSQL container..."
-$DOCKER_COMPOSE up -d postgres
-
-echo "⏳ Waiting for PostgreSQL to become ready..."
-until $DOCKER_COMPOSE exec -T postgres pg_isready -U guacamole_user -d guacamole_db >/dev/null 2>&1; do
+printf 'Waiting for PostgreSQL readiness...\n'
+ready=false
+for _ in $(seq 1 60); do
+  if "${COMPOSE[@]}" exec -T postgres pg_isready \
+      -U "${POSTGRES_USER:-guacamole_user}" \
+      -d "${POSTGRES_DB:-guacamole_db}" >/dev/null 2>&1; then
+    ready=true
+    break
+  fi
   sleep 2
 done
 
-echo "🗂️  Applying sandlabx_nodes schema..."
-$DOCKER_COMPOSE exec -T postgres \
-  psql -U guacamole_user -d guacamole_db \
-  -f /docker-entrypoint-initdb.d/nodes-schema.sql
-
-echo "✅ sandlabx_nodes schema ensured"
-
-if [[ "$RUN_MIGRATION" == "true" ]]; then
-  echo "📦 Migrating nodes from JSON state file..."
-  $DOCKER_COMPOSE run --rm backend node migrate-nodes.js
-  echo "✅ Migration complete"
+if [[ "$ready" != true ]]; then
+  printf 'PostgreSQL did not become ready within 120 seconds.\n' >&2
+  "${COMPOSE[@]}" logs --tail=100 postgres >&2
+  exit 1
 fi
 
-echo "🎉 PostgreSQL init finished"
+printf 'Applying the current SandLabX base schema idempotently...\n'
+"${COMPOSE[@]}" exec -T postgres \
+  psql -v ON_ERROR_STOP=1 \
+    -U "${POSTGRES_USER:-guacamole_user}" \
+    -d "${POSTGRES_DB:-guacamole_db}" \
+    -f /docker-entrypoint-initdb.d/20-sandlabx.sql
+
+if [[ "$RUN_MIGRATION" == true ]]; then
+  printf 'Running LEGACY JSON node migration...\n'
+  "${COMPOSE[@]}" run --rm --no-deps --entrypoint node backend migrate-nodes.js
+fi
+
+printf 'PostgreSQL maintenance completed.\n'
