@@ -1,104 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# SandBoxLabs - Complete System Startup
-# This script starts all services: Docker Compose + Backend API + Frontend
+# LEGACY COMMAND ALIAS
+#
+# The former script mixed dependency installation, Compose startup, and source
+# file mutation (it rewrote postcss.config.js at runtime). Setup must not modify
+# tracked application code. Keep this filename only for compatibility.
+#
+# Canonical flow:
+#   make prepare
+#   make doctor
+#   make rebuild
+#
+# Remove this wrapper after old documentation and automation are migrated.
 
-set -e
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-echo "========================================="
-echo " 🚀 SandBoxLabs - Complete Startup"
-echo "========================================="
-echo ""
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" &> /dev/null
-}
-
-# Check Docker
-if ! command_exists docker; then
-    echo "❌ Error: Docker is not installed"
-    exit 1
-fi
-
-if ! command_exists docker-compose; then
-    echo "❌ Error: Docker Compose is not installed"
-    exit 1
-fi
-
-# Check Node.js
-if ! command_exists node; then
-    echo "❌ Error: Node.js is not installed"
-    exit 1
-fi
-
-echo "✅ Prerequisites check passed"
-echo ""
-
-# 1. Start Docker services
-echo "1️⃣  Starting Docker services (Guacamole, PostgreSQL, Guacd)..."
-docker-compose up -d
-
-echo "   Waiting for services to be healthy..."
-sleep 5
-
-# 2. Setup backend
-echo ""
-echo "2️⃣  Setting up backend..."
-cd backend
-if [ ! -d "node_modules" ]; then
-    echo "   Installing backend dependencies..."
-    npm install
-fi
-
-# 3. Setup frontend
-echo ""
-echo "3️⃣  Setting up frontend..."
-cd ../frontend
-
-if [ ! -d "node_modules" ]; then
-    echo "   Installing frontend dependencies..."
-    npm install
-fi
-
-# Ensure PostCSS configuration is correct for Tailwind v3
-echo "   Verifying PostCSS configuration..."
-if ! grep -q "tailwindcss:" postcss.config.js; then
-    echo "   Updating postcss.config.js for Tailwind CSS v3..."
-    cat > postcss.config.js << 'EOF'
-module.exports = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}
-EOF
-fi
-
-cd ..
-
-echo ""
-echo "========================================="
-echo " ✅ Setup Complete!"
-echo "========================================="
-echo ""
-echo "📋 Next Steps:"
-echo ""
-echo "1. Start Backend API (Terminal 1):"
-echo "   cd backend && npm start"
-echo ""
-echo "2. Start Frontend (Terminal 2):"
-echo "   cd frontend && npm run dev"
-echo ""
-echo "3. Access the application:"
-echo "   Frontend:  http://localhost:3000"
-echo "   Backend:   http://localhost:3001/api"
-echo "   Guacamole: http://localhost:8081/guacamole"
-echo ""
-echo "========================================="
-echo ""
-echo "💡 Tip: Use 'docker-compose logs -f' to view Docker logs"
-echo ""
+printf 'NOTICE: setup-all.sh is a LEGACY alias; running safe preparation and diagnostics only.\n'
+make prepare
+make doctor
+printf '\nPreparation complete. Start with: make rebuild\n'
