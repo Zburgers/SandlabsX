@@ -6,19 +6,35 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
+x-database-environment: &database-environment
+  POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+  POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
+
 services:
+  # Vendor-only schema source. Docker populates the named volume from the
+  # version-matched Guacamole image; no SandLabX tables live here.
+  guacamole-schema:
+    image: guacamole/guacamole:1.5.4
+    container_name: sandlabx-guacamole-schema
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    command: >-
+      test -d /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema &&
+      test -n "$$(find /opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema -maxdepth 1 -name '*.sql' -print -quit)" &&
+      echo '[guacamole-schema] vendor PostgreSQL schema is available'
+    volumes:
+      - guacamole-init:/opt/guacamole/extensions/guacamole-auth-jdbc/postgresql/schema
+    networks: [sandlabx-network]
+    logging: *default-logging
+
   postgres:
     image: postgres:16
     container_name: sandlabx-postgres
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
+    environment: *database-environment
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docs/archive/initdb-schema.sql:/docker-entrypoint-initdb.d/10-guacamole.sql:ro
-      - ./backend/schema/nodes-schema.sql:/docker-entrypoint-initdb.d/20-sandlabx.sql:ro
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -29,6 +45,63 @@ services:
       start_period: 5s
     stop_grace_period: 30s
     shm_size: 256mb
+    networks: [sandlabx-network]
+    logging: *default-logging
+
+  # Guacamole owns its vendor schema. This one-shot service initializes a fresh
+  # database, no-ops on a complete existing schema, and refuses partial schemas.
+  guacamole-db-init:
+    image: postgres:16
+    container_name: sandlabx-guacamole-db-init
+    restart: "no"
+    environment:
+      <<: *database-environment
+      PGPASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+    entrypoint: ["/bin/sh", "-ec"]
+    command: |
+      entity="$$(psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -Atqc "SELECT to_regclass('public.guacamole_entity') IS NOT NULL")"
+      connection="$$(psql -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -Atqc "SELECT to_regclass('public.guacamole_connection') IS NOT NULL")"
+
+      if [ "$${entity}" = "t" ] && [ "$${connection}" = "t" ]; then
+        echo '[guacamole-db-init] existing Guacamole schema is complete'
+        exit 0
+      fi
+
+      if [ "$${entity}" != "f" ] || [ "$${connection}" != "f" ]; then
+        echo '[guacamole-db-init] partial Guacamole schema detected; refusing automatic repair' >&2
+        exit 1
+      fi
+
+      echo '[guacamole-db-init] applying vendor schema'
+      for file in /guacamole-schema/*.sql; do
+        echo "[guacamole-db-init] applying $${file}"
+        psql -v ON_ERROR_STOP=1 -h postgres -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" -f "$${file}"
+      done
+    volumes:
+      - guacamole-init:/guacamole-schema:ro
+    depends_on:
+      guacamole-schema:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks: [sandlabx-network]
+    logging: *default-logging
+
+  # Authoritative SandLabX schema owner. node-pg-migrate applies all pending
+  # versions transactionally under an advisory lock, then verifies the result.
+  migrate:
+    build:
+      context: ./backend
+    container_name: sandlabx-migrate
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    command: "npm run db:migrate && npm run db:check"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
+      SANDLABX_MIGRATION_VERBOSE: ${SANDLABX_MIGRATION_VERBOSE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks: [sandlabx-network]
     logging: *default-logging
 
@@ -52,8 +125,8 @@ services:
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${GUACAMOLE_PORT:-8081}:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      guacamole-db-init:
+        condition: service_completed_successfully
       guacd:
         condition: service_started
     networks: [sandlabx-network]
@@ -126,8 +199,8 @@ services:
       - ./pids:/pids
       - ./checkpoints:/checkpoints
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       guacamole:
         condition: service_started
     networks: [sandlabx-network]
@@ -156,6 +229,7 @@ services:
 volumes:
   pgdata:
   backend-data:
+  guacamole-init:
 
 networks:
   sandlabx-network:
