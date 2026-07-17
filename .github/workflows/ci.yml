@@ -78,6 +78,39 @@ jobs:
       - name: Upgrade incomplete legacy database without data loss
         run: npm run db:test-legacy-upgrade
 
+  compose-database-bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate resolved Compose configuration
+        run: docker compose config --quiet
+      - name: Start PostgreSQL
+        run: docker compose up -d postgres
+      - name: Export pinned Guacamole schema
+        run: docker compose run --rm --no-deps guacamole-schema
+      - name: Initialize Guacamole schema
+        run: docker compose run --rm --no-deps guacamole-db-init
+      - name: Apply SandLabX migrations through Compose
+        run: docker compose run --rm --no-deps --build migrate
+      - name: Prove Compose bootstrap is idempotent
+        run: |
+          docker compose run --rm --no-deps guacamole-db-init
+          docker compose run --rm --no-deps migrate
+      - name: Start Guacamole with PostgreSQL authentication
+        run: docker compose up -d guacd guacamole
+      - name: Verify Guacamole endpoint and database tables
+        run: |
+          curl --retry 60 --retry-delay 2 --retry-all-errors -fsS http://127.0.0.1:8081/guacamole/ >/dev/null
+          docker compose exec -T postgres psql -U guacamole_user -d guacamole_db -Atqc \
+            "SELECT to_regclass('public.guacamole_connection') IS NOT NULL AND to_regclass('public.sandlabx_nodes') IS NOT NULL" \
+            | grep -Fxq t
+      - name: Show bootstrap logs on failure
+        if: failure()
+        run: docker compose logs --tail=300 postgres guacamole-schema guacamole-db-init migrate guacd guacamole
+      - name: Clean up Compose bootstrap
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
