@@ -8,13 +8,18 @@ The two domains share a database instance but have separate ownership rules.
 ### Guacamole objects
 
 Objects prefixed with `guacamole_`, along with Guacamole enum types, are owned by
-Apache Guacamole. The Compose `guacamole-schema` service sources the SQL bundled
-with the pinned Guacamole image. The one-shot `guacamole-db-init` service:
+Apache Guacamole. `docker/guacamole-db-init/Dockerfile` uses a multi-stage build
+to copy the PostgreSQL schema from the pinned Guacamole image into a PostgreSQL
+16 client image. The one-shot `guacamole-db-init` service:
 
 - initializes a database where Guacamole objects are entirely absent;
 - no-ops when the expected vendor schema already exists;
 - fails when it detects a partial vendor schema;
 - never creates or alters SandLabX application tables.
+
+The runtime Guacamole image, guacd image, and schema source share the same
+`GUACAMOLE_VERSION` value. Version changes require an explicit review of the
+vendor database upgrade path.
 
 ### SandLabX objects
 
@@ -154,6 +159,7 @@ These paths no longer exist and must not be restored:
 - `backend/migrations/001_lab_capsules.sql`
 - `docs/archive/initdb-schema.sql`
 - SandLabX mounts under `/docker-entrypoint-initdb.d`
+- runtime-mounted Guacamole schema exporters and shared init volumes
 - the custom `sandlabx_schema_migrations` ledger
 
 PostgreSQL init scripts only execute against a new empty data directory. They are
