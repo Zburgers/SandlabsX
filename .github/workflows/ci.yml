@@ -86,10 +86,8 @@ jobs:
         run: docker compose config --quiet
       - name: Start PostgreSQL
         run: docker compose up -d postgres
-      - name: Export pinned Guacamole schema
-        run: docker compose run --rm --no-deps guacamole-schema
-      - name: Initialize Guacamole schema
-        run: docker compose run --rm --no-deps guacamole-db-init
+      - name: Initialize version-matched Guacamole schema
+        run: docker compose run --rm --no-deps --build guacamole-db-init
       - name: Apply SandLabX migrations through Compose
         run: docker compose run --rm --no-deps --build migrate
       - name: Prove Compose bootstrap is idempotent
@@ -106,7 +104,7 @@ jobs:
             | grep -Fxq t
       - name: Show bootstrap logs on failure
         if: failure()
-        run: docker compose logs --tail=300 postgres guacamole-schema guacamole-db-init migrate guacd guacamole
+        run: docker compose logs --tail=300 postgres guacamole-db-init migrate guacd guacamole
       - name: Clean up Compose bootstrap
         if: always()
         run: docker compose down --volumes --remove-orphans
@@ -138,11 +136,11 @@ jobs:
             backend/setup-network.sh \
             backend/qemu-ifup \
             backend/qemu-ifdown \
+            docker/guacamole-db-init/guacamole-db-init.sh \
             run-all.sh \
             setup-all.sh \
             scripts/stack.sh \
             scripts/dev-doctor.sh \
-            scripts/guacamole-db-init.sh \
             scripts/init-postgres.sh \
             scripts/network-audit.sh \
             scripts/run-local-backend.sh \
@@ -161,9 +159,12 @@ jobs:
           test ! -e backend/schema/nodes-schema.sql
           test ! -e backend/migrations/001_lab_capsules.sql
           test ! -e docs/archive/initdb-schema.sql
+          test ! -e scripts/guacamole-schema-export.sh
+          test ! -e scripts/guacamole-db-init.sh
           ! grep -q '/docker-entrypoint-initdb.d' docker-compose.yml
           grep -q 'service_completed_successfully' docker-compose.yml
           grep -q 'node-pg-migrate' backend/package.json
+          grep -q 'COPY --from=guacamole' docker/guacamole-db-init/Dockerfile
           ! grep -q 'CREATE TABLE IF NOT EXISTS sandlabx_schema_migrations' backend/modules/migrationRunner.js
 
   docker-build:
@@ -185,3 +186,8 @@ jobs:
           tags: sandlabx/frontend:ci
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+      - uses: docker/build-push-action@v6
+        with:
+          context: docker/guacamole-db-init
+          push: false
+          tags: sandlabx/guacamole-db-init:ci
