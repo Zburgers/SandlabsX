@@ -65,12 +65,21 @@ services:
     container_name: sandlabx-backend
     restart: unless-stopped
     init: true
+
+    # LEGACY RUNTIME BOUNDARY
+    # NET_ADMIN plus KVM/TUN are needed only by the pre-Capsule QemuManager that
+    # runs QEMU in the API container. Do not add SYS_ADMIN, privileged mode,
+    # host networking, host PID namespace access, or Docker socket mounts here.
+    # Remove these grants when QEMU/network execution moves to the dedicated
+    # Capsule LocalRunner/QemuNetworkService process.
     cap_add:
       - NET_ADMIN
-      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
     devices:
       - /dev/kvm:/dev/kvm
       - /dev/net/tun:/dev/net/tun
+
     environment:
       PORT: 3001
       NODE_ENV: ${NODE_ENV:-development}
@@ -89,7 +98,13 @@ services:
       OVERLAYS_PATH: /overlays
       VMS_PATH: /vms
       CHECKPOINTS_PATH: /checkpoints
+
+      # LEGACY fixed tap0..tap3 compatibility. The target runner consumes the
+      # deterministic PlanCompiler allocations and needs no startup bridge script.
       SANDLABX_NETWORK_MODE: ${SANDLABX_NETWORK_MODE:-legacy-l2}
+
+      # LEGACY image bootstrap is opt-in. Normal startup must not inspect or
+      # download every possible image before the API becomes ready.
       SANDLABX_VALIDATE_IMAGES_ON_STARTUP: ${SANDLABX_VALIDATE_IMAGES_ON_STARTUP:-false}
       QEMU_IFUP: /usr/local/libexec/sandlabx/qemu-ifup
       QEMU_IFDOWN: /usr/local/libexec/sandlabx/qemu-ifdown
