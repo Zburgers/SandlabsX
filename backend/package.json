@@ -16,7 +16,8 @@
     "db:migrate:down": "node scripts/migrate.js down",
     "db:migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-filename-format index --migration-file-language cjs",
     "db:check": "node scripts/check-schema.js",
-    "check": "npm test && node -c server.js && node -c middleware/rateLimit.js && node -c modules/migrationRunner.js && node -c modules/imagePipeline.js && node -c modules/labSpec.js && node -c cli/sandlabx.js && node -c scripts/migrate.js && node -c scripts/check-schema.js && node -c migrations/0001_core_schema.cjs && node -c migrations/0002_capsule_control_plane.cjs && node -c migrations/0003_retire_legacy_migration_ledger.cjs"
+    "db:test-legacy-upgrade": "node scripts/test-legacy-upgrade.js",
+    "check": "npm test && node -c server.js && node -c middleware/rateLimit.js && node -c modules/migrationRunner.js && node -c modules/imagePipeline.js && node -c modules/labSpec.js && node -c cli/sandlabx.js && node -c scripts/migrate.js && node -c scripts/check-schema.js && node -c scripts/test-legacy-upgrade.js && node -c migrations/0001_core_schema.cjs && node -c migrations/0002_capsule_control_plane.cjs && node -c migrations/0003_retire_legacy_migration_ledger.cjs"
   },
   "keywords": [
     "qemu",
