@@ -1,0 +1,15 @@
+'use strict';
+exports.up = (pgm) => pgm.sql(`
+CREATE TABLE IF NOT EXISTS sandlabx_capsule_drafts (id UUID PRIMARY KEY, capsule_id UUID NOT NULL, owner_user_id UUID NOT NULL, document JSONB NOT NULL, revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0), created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS sandlabx_scenarios (id UUID PRIMARY KEY, owner_user_id UUID NOT NULL, name VARCHAR(64) NOT NULL, revision INTEGER NOT NULL DEFAULT 1, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(owner_user_id, name));
+CREATE TABLE IF NOT EXISTS sandlabx_scenario_versions (id UUID PRIMARY KEY, scenario_id UUID NOT NULL REFERENCES sandlabx_scenarios(id) ON DELETE CASCADE, version_number INTEGER NOT NULL, capsule_version_id UUID NOT NULL REFERENCES sandlabx_capsule_versions(id) ON DELETE RESTRICT, document JSONB NOT NULL, content_sha256 VARCHAR(71) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(scenario_id, version_number), UNIQUE(scenario_id, content_sha256));
+CREATE TABLE IF NOT EXISTS sandlabx_instance_nodes (id UUID PRIMARY KEY, instance_id UUID NOT NULL REFERENCES sandlabx_lab_instances(id) ON DELETE CASCADE, logical_id VARCHAR(64) NOT NULL, driver VARCHAR(128) NOT NULL, state VARCHAR(24) NOT NULL DEFAULT 'STOPPED', process_identity JSONB, overlay_path TEXT, UNIQUE(instance_id, logical_id));
+CREATE TABLE IF NOT EXISTS sandlabx_instance_interfaces (id UUID PRIMARY KEY, node_id UUID NOT NULL REFERENCES sandlabx_instance_nodes(id) ON DELETE CASCADE, logical_id VARCHAR(64) NOT NULL, mac_address MACADDR, tap_name VARCHAR(64), segment_id UUID, UNIQUE(node_id, logical_id), UNIQUE(mac_address), UNIQUE(tap_name));
+CREATE TABLE IF NOT EXISTS sandlabx_network_segments (id UUID PRIMARY KEY, instance_id UUID NOT NULL REFERENCES sandlabx_lab_instances(id) ON DELETE CASCADE, segment_key VARCHAR(128) NOT NULL, bridge_name VARCHAR(64), state VARCHAR(24) NOT NULL DEFAULT 'ALLOCATED', UNIQUE(instance_id, segment_key), UNIQUE(bridge_name));
+CREATE TABLE IF NOT EXISTS sandlabx_resource_reservations (id UUID PRIMARY KEY, instance_id UUID NOT NULL REFERENCES sandlabx_lab_instances(id) ON DELETE CASCADE, resource_type VARCHAR(32) NOT NULL, resource_key VARCHAR(128) NOT NULL, quantity INTEGER NOT NULL CHECK(quantity > 0), state VARCHAR(16) NOT NULL DEFAULT 'ACTIVE', UNIQUE(resource_type, resource_key));
+CREATE TABLE IF NOT EXISTS sandlabx_audit_events (id BIGSERIAL PRIMARY KEY, actor_user_id UUID, action VARCHAR(128) NOT NULL, resource_type VARCHAR(64) NOT NULL, resource_id UUID, request_id VARCHAR(128), metadata JSONB NOT NULL DEFAULT '{}'::jsonb, occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_capsule_drafts_owner ON sandlabx_capsule_drafts(owner_user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scenario_versions_capsule ON sandlabx_scenario_versions(capsule_version_id);
+CREATE INDEX IF NOT EXISTS idx_audit_events_resource ON sandlabx_audit_events(resource_type, resource_id, occurred_at DESC);
+`);
+exports.down = false;
