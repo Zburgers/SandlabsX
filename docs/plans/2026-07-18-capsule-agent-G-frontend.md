@@ -25,7 +25,9 @@ Sources are read-only.
 - Use contract fixtures/mocks while Agent B APIs, Agent E runtime events, and Agent F checks are in flight.
 - Final integration blocked by: Agents B, E, and F.
 - Blocks: Agent H cutover and end-to-end qualification.
-- Branch/worktree: `feat/capsule-G-frontend`.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[G]` on every commit subject.
+- Optional worktree: `feat/capsule-G-frontend`.
 
 ## Exclusive file ownership
 
@@ -74,4 +76,3 @@ Commit: `fix(frontend): integrate capsule service contracts`
 ## Handoff requirements
 
 Provide Agent H final SHA, test/build output, route requirements, event assumptions, deleted/replaced legacy components, accessibility gaps, and screenshots or manual verification notes. Append completion evidence here only.
-

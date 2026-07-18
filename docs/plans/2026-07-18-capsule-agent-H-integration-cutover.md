@@ -26,7 +26,9 @@ Source-of-truth documents remain authoritative. If evidence requires a correctio
 
 - Blocked by final handoffs from Agents A-G.
 - May begin early with composition scaffolding after Agent A, but cannot cut over until all streams pass.
-- Branch/worktree: `feat/capsule-H-integration-cutover` based on the integration branch.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[H]` on every commit subject.
+- Optional worktree: `feat/capsule-H-integration-cutover` based on the integration branch.
 - Merge/cherry-pick order: A, B, C, D, E, F, G, then H integration commits. Resolve module defects in owner branches where practical.
 
 ## Exclusive file ownership
@@ -111,4 +113,3 @@ Commit: `docs: qualify capsule platform replacement`
 - Every legacy ledger row is `deleted` or an explicitly approved retained platform primitive.
 - No temporary adapter, route, table, UI, topology shape, hard-coded network rule, or direct host mutation survives.
 - The final PR includes exact CI and KVM evidence and is not merged or released on unsupported claims.
-

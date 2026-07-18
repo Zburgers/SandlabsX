@@ -30,8 +30,9 @@ The architecture design and master plan are authoritative and read-only. If impl
 
 - Blocked by: none.
 - Blocks: Agents B, C, D, E, F, and G.
-- Work in a dedicated branch/worktree: `feat/capsule-A-foundation`.
-- Base the branch on commit `f903fb1` or the integration branch commit containing both source-of-truth documents.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[A]` on every commit subject.
+- If using a dedicated worktree, use `feat/capsule-A-foundation` based on the integration branch.
 
 ## Exclusive file ownership
 
@@ -126,3 +127,29 @@ Send all downstream agents:
 
 Update this packet with a final `## Completion evidence` section, but do not edit the source-of-truth documents.
 
+## Coordinator review status - remediation required
+
+Agent A is not complete as of commit `9176d21`.
+
+Independent evidence:
+
+- `npm test` and `npm run check` pass 28 tests.
+- A healthy PostgreSQL 16 Compose service was available.
+- Migrations `0001` through `0005` execute successfully on a disposable database.
+- The disposable database was removed after verification.
+
+Blocking omissions:
+
+1. Required files are missing:
+   - `backend/test/observability.test.js`
+   - `backend/test/database.test.js`
+   - `backend/test/migrations-capsule-platform.test.js`
+2. `0004`/`0005` do not implement the final approved schema. At minimum they omit Capsule-version artifacts, Scenario drafts/compatibility, bundles, instance disks, network allocations, console endpoints, runtime observations, operation attempts, verification results, checkpoint node disks, configuration artifacts, image capture operations, assignments/members, Scenario attempts/stage/check results, and scores.
+3. Migration tests do not prove fresh install, adoption, constraints, indexes, foreign keys, transactional rollback, or safe rerun behavior.
+4. The architecture checker inventories only a subset of required debt. It must cover legacy route registration, topology keys, fixed TAP/MAC/node-name behavior, shell-string execution, backup files, direct host mutation, and temporary adapters.
+5. The replacement ledger is only a summary. Task A1 requires exact routes, modules, tables, frontend paths, topology fields, scripts, tests, documentation references, target owner, milestone, and deletion evidence.
+6. Domain tests are too shallow to establish the approved contracts. Add coverage for identifier collisions, duplicate interfaces, interface reuse, point-to-point/shared segment cardinality, exact image/profile versions, resource bounds, semantic-vs-presentation hashing, Scenario node/interface/checkpoint/artifact references, workload capability combinations, and every allowed/forbidden state transition.
+7. Observability/database behavior has no dedicated tests. Prove recursive redaction, safe error mapping without internal-message leakage, correlation propagation, bounded fields, audit inserts, transaction commit/rollback/release, healthcheck, and close behavior.
+8. No committed `## Completion evidence` handoff exists.
+
+Remediation must use `[A]` commit prefixes, run the disposable PostgreSQL gate, append completion evidence, and leave the status as `REMEDIATION REQUIRED` until all items pass.

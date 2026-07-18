@@ -23,7 +23,9 @@ Sources of truth are read-only. Send changes to Agent H.
 
 - Blocked by: Agent A canonical domain/schema commit.
 - Blocks: Agent D's final profile-resolution integration and Agent H's image/API composition.
-- Branch/worktree: `feat/capsule-C-images-profiles`.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[C]` on every commit subject.
+- Optional worktree: `feat/capsule-C-images-profiles`.
 
 ## Exclusive file ownership
 
@@ -82,4 +84,3 @@ Commit: `feat: expose image profile workflows`
 ## Handoff requirements
 
 Provide Agent D and H the final SHA, profile/image interfaces, example immutable records, API router factory, CLI changes, migration assumptions, tests, and requested documentation edits. Append completion evidence only to this packet.
-

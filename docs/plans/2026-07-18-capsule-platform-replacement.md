@@ -1034,3 +1034,18 @@ The following are architecture extension points, not part of this implementation
 - automatic support claims for unqualified VM images.
 
 Each deferred feature requires its own design review, threat model update, capability contract, migration plan, tests, and operational qualification.
+
+## Parallel execution status
+
+This is the coordinator-owned status ledger. Agent packets contain detailed evidence.
+
+| Agent | Scope | Status | Evidence / blocker |
+|---|---|---|---|
+| A | Foundation, contracts, additive schema | REMEDIATION REQUIRED | Commits `80bb316`, `0faff2c`, `285d4f0`, `9176d21`; existing tests pass and migrations execute, but required tests, final schema tables, complete architecture inventory, and committed completion evidence are missing. |
+| B | Control plane and API | BLOCKED | Wait for Agent A remediation. |
+| C | Images and workload profiles | BLOCKED | Wait for Agent A remediation. |
+| D | Planning and admission | BLOCKED | Wait for Agent A and Agent C contract checkpoint. |
+| E | Runtime and runner | BLOCKED | Wait for Agent A and Agent D plan contract. |
+| F | Scenarios and verification | BLOCKED | Wait for Agent A and Agent B service contracts. |
+| G | Frontend | BLOCKED | Wait for Agent A canonical contracts; mock work may start only after that gate. |
+| H | Integration and cutover | BLOCKED | Wait for completed A-G handoffs. |

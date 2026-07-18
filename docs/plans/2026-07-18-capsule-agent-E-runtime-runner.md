@@ -25,7 +25,9 @@ Sources are read-only.
 - Blocked by: Agent A foundation and Agent D execution-plan fixture/contract.
 - Uses Agent C image capture contract; mock it until Agent C lands.
 - Blocks: Agent H runtime composition and qualification.
-- Branch/worktree: `feat/capsule-E-runtime-runner`.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[E]` on every commit subject.
+- Optional worktree: `feat/capsule-E-runtime-runner`.
 
 ## Exclusive file ownership
 
@@ -91,4 +93,3 @@ Expected: no unsafe or hard-coded matches.
 ## Handoff requirements
 
 Provide Agent H the final SHA, runner command, required host capabilities/devices, operation handlers, plan assumptions, reconciliation matrix, facade deletions, Compose requests, and focused output. Append completion evidence here only.
-

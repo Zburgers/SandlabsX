@@ -23,7 +23,9 @@ Sources are read-only.
 - Blocked by: Agent A domain contract and Agent B Scenario/assignment service interfaces.
 - May mock runtime transports until Agent E publishes them.
 - Blocks: Agent G final Scenario UX integration and Agent H qualification.
-- Branch/worktree: `feat/capsule-F-scenarios-verification`.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[F]` on every commit subject.
+- Optional worktree: `feat/capsule-F-scenarios-verification`.
 
 ## Exclusive file ownership
 
@@ -69,4 +71,3 @@ Commit: `feat: run versioned learning scenarios`
 ## Handoff requirements
 
 Provide Agents G and H final SHA, check schemas, event/evidence shapes, transport interface, security limits, example Scenario, and test output. Append completion evidence here only.
-

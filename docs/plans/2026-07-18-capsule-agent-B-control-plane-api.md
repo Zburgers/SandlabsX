@@ -26,7 +26,9 @@ Both documents are read-only. Report proposed changes to Agent H.
 
 - Blocked by: Agent A final foundation commit.
 - Blocks: Agent F Scenario integration, Agent G live API integration, Agent H composition/cutover.
-- Branch/worktree: `feat/capsule-B-control-plane-api`.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[B]` on every commit subject.
+- Optional worktree: `feat/capsule-B-control-plane-api`.
 
 ## Exclusive file ownership
 
@@ -92,4 +94,3 @@ Provide Agent H and Agent G:
 - final commit SHA and tests.
 
 Append `## Completion evidence` here only.
-

@@ -22,7 +22,9 @@ Read-only sources; propose changes to Agent H.
 
 - Blocked by: Agent A domain/schema commit and Agent C's first profile-contract commit.
 - Blocks: Agent E operation handlers and Agent H integration.
-- Branch/worktree: `feat/capsule-D-planning-admission`.
+- Follow `docs/plans/capsule-agent-execution-protocol.md`.
+- Shared-branch execution is allowed; use `[D]` on every commit subject.
+- Optional worktree: `feat/capsule-D-planning-admission`.
 
 ## Exclusive file ownership
 
@@ -72,4 +74,3 @@ Commit: `refactor: route planning through capsule compiler`
 ## Handoff requirements
 
 Provide Agent E and H final SHA, plan schema/fixture, error codes, reservation lifecycle, transaction requirements, and focused output. Append completion evidence here only.
-
