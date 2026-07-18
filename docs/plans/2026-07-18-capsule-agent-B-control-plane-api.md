@@ -118,3 +118,16 @@ Append `## Completion evidence` here only.
 - Add disposable-PostgreSQL integration tests for draft optimistic concurrency, immutable private/published versions, operation idempotency, event ordering/resume, rollback, and owner-scoped event access. Memory repositories alone are not acceptance evidence.
 - Re-run the focused API/service tests, full `npm run check`, and legacy-upgrade gate. Append the remediation commit SHAs and exact results here; do not mark this packet complete until coordinator review accepts those gates.
 - Dependency effect: Agent F remains blocked. Agent G may use the published route shapes as provisional fixtures, but must not treat persistence or event behavior as accepted.
+
+## Remediation evidence
+
+- Status: READY FOR COORDINATOR REVIEW (the coordinator remains the acceptance authority).
+- Remediation commit: `[B] fix: persist capsule control plane transactions` (`62e115462b4e3187db9ccdbeddae608e40172b52`).
+- PostgreSQL persistence: new migration `0007_capsule_control_plane_persistence` makes `sandlabx_capsule_drafts` authoritative, migrates legacy draft content once, clears the prototype `sandlabx_capsules.draft_document` column, and adds separately persisted immutable `sandlabx_capsule_private_revisions`.
+- Concurrency: Capsule parents maintain row-locked published/private counters and operations maintain an atomically incremented event counter; no Capsule revision or event sequence allocation uses `MAX(...) + 1`. Operation creation uses a single `ON CONFLICT` idempotency upsert.
+- Disposable PostgreSQL integration: `test/capsule-control-plane-postgres.test.js` creates and drops its own database and proves draft optimistic concurrency, private/public immutability, concurrent private revision numbering, idempotency, concurrent event sequencing, ordered cursor resume, transaction rollback, and owner-scoped event reads.
+- Focused results: `node --test test/capsule-control-plane-postgres.test.js` passed 1/1; Capsule/Scenario/assignment services passed 8/8; Capsule/instance/authorization API tests passed 5/5.
+- Legacy gate: `DATABASE_URL=postgresql://guacamole_user:guacamole_pass@127.0.0.1:5432/guacamole_db node scripts/test-legacy-upgrade.js` passed and recorded all seven migrations, including `0007`.
+- Full gate: final `npm run check` passed 67/67. A preceding full run had one `DUPLICATE_DIGEST` failure in the separately owned image-artifact concurrent test; five isolated reruns of that suite and the final full run passed, with no Agent B changes to that ownership area.
+- Source checks: `node -c` passed for the new migration and changed repositories; `git diff --check` passed. `graphify update .` completed; generated graph artifacts remain untracked.
+- Requested review: accept or reject this evidence before unblocking Agent F.
