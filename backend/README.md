@@ -21,7 +21,13 @@ npm run check            # Tests and JavaScript syntax checks
 npm run image:doctor     # Check local QEMU tools
 npm run image:list       # List managed custom images
 npm run sandlabx -- help # Developer CLI
+npm run db:migrate       # Apply pending PostgreSQL migrations
+npm run db:migrate:create -- add_feature # Create a UTC-prefixed migration
 ```
+
+Migration files are immutable once applied. The application uses a dedicated
+Compose migration service before starting the API; use UTC-prefixed migration
+names so parallel branches cannot reuse a numeric sequence.
 
 The full stack is normally started from the repository root with `make up`.
 

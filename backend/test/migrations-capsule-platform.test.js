@@ -17,6 +17,18 @@ const databaseName = `sandlabx_capsule_test_${crypto.randomUUID().replaceAll('-'
 const url = new URL(baseUrl); url.pathname = `/${databaseName}`;
 const disposableUrl = url.toString();
 const expectedTables = ['sandlabx_capsules', 'sandlabx_capsule_drafts', 'sandlabx_capsule_versions', 'sandlabx_capsule_private_revisions', 'sandlabx_capsule_version_artifacts', 'sandlabx_scenarios', 'sandlabx_scenario_drafts', 'sandlabx_scenario_versions', 'sandlabx_scenario_capsule_compatibility', 'sandlabx_bundles', 'sandlabx_bundle_versions', 'sandlabx_bundle_members', 'sandlabx_lab_instances', 'sandlabx_instance_nodes', 'sandlabx_instance_disks', 'sandlabx_instance_interfaces', 'sandlabx_network_segments', 'sandlabx_network_allocations', 'sandlabx_console_endpoints', 'sandlabx_resource_reservations', 'sandlabx_runtime_observations', 'sandlabx_operations', 'sandlabx_operation_steps', 'sandlabx_operation_attempts', 'sandlabx_instance_events', 'sandlabx_audit_events', 'sandlabx_verification_runs', 'sandlabx_verification_results', 'sandlabx_artifacts', 'sandlabx_checkpoints', 'sandlabx_checkpoint_node_disks', 'sandlabx_configuration_artifacts', 'sandlabx_image_capture_operations', 'sandlabx_assignments', 'sandlabx_assignment_members', 'sandlabx_scenario_attempts', 'sandlabx_scenario_stage_progress', 'sandlabx_scenario_check_results', 'sandlabx_scores', 'sandlabx_image_artifact_versions', 'sandlabx_workload_profile_versions'];
+const expectedMigrationNames = [
+  '0001_core_schema',
+  '0002_capsule_control_plane',
+  '0003_retire_legacy_migration_ledger',
+  '0004_capsule_platform_schema',
+  '0005_capsule_platform_constraints',
+  '0006_image_profile_versions',
+  '0007_capsule_control_plane_persistence',
+  '0008_resource_reservation_lifecycle',
+  '0009_drop_empty_legacy_lab_runtime',
+  '20260719000000_user_account_security',
+];
 
 async function adminClient() { const admin = new Client({ connectionString: baseUrl }); await admin.connect(); return admin; }
 async function migrate() { await run(process.execPath, ['scripts/migrate.js', 'up'], { cwd: __dirname + '/..', env: { ...process.env, DATABASE_URL: disposableUrl } }); }
@@ -28,6 +40,19 @@ test('final Capsule schema migrates fresh and adopted databases with constraints
   const client = new Client({ connectionString: disposableUrl }); await client.connect();
   const pool = new Pool({ connectionString: disposableUrl, max: 4 });
   t.after(async () => { await pool.end(); await client.end(); await admin.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`); await admin.end(); });
+  const appliedMigrations = await client.query('SELECT name FROM sandlabx_migrations ORDER BY id');
+  assert.deepEqual(appliedMigrations.rows.map((row) => row.name), expectedMigrationNames);
+  const userSecurityColumns = await client.query(`
+    SELECT column_name
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'sandlabx_users'
+       AND column_name = ANY($1::text[])
+  `, [['is_active', 'must_change_password', 'auth_version', 'updated_at']]);
+  assert.deepEqual(
+    new Set(userSecurityColumns.rows.map((row) => row.column_name)),
+    new Set(['is_active', 'must_change_password', 'auth_version', 'updated_at']),
+  );
   const tables = await client.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[])`, [expectedTables]);
   assert.deepEqual(new Set(tables.rows.map((row) => row.table_name)), new Set(expectedTables));
   const constraints = await client.query(`SELECT conname FROM pg_constraint WHERE conname = ANY($1::text[])`, [['capsule_version_digest_format', 'scenario_version_digest_format', 'network_allocation_live_unique', 'assignment_exact_version_unique', 'image_artifact_digest_format', 'workload_profile_digest_format']]);

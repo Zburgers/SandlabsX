@@ -149,6 +149,7 @@ async function verifyUpgrade(databaseUrl) {
       '0007_capsule_control_plane_persistence',
       '0008_resource_reservation_lifecycle',
       '0009_drop_empty_legacy_lab_runtime',
+      '20260719000000_user_account_security',
     ];
     const appliedMigrations = migrations.rows.map((migration) => migration.name);
     if (
