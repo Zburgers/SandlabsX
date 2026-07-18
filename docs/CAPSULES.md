@@ -55,7 +55,9 @@ Lifecycle actions return `202 Accepted`. Repeated destructive requests with the 
 
 `/api/labs`, `/api/nodes`, and `/lab` were removed in the Capsule cutover. Migration `0009_drop_empty_legacy_lab_runtime` aborts if any legacy lab, node, connection, or console-session table contains data.
 
-The API composition and schema cutover are verified. Real-host runner execution, scoped console grants, checkpoint/destructive-action HTTP routes, Scenario-run HTTP routes, capacity endpoints, and real-KVM qualification remain blocked pending completion of the durable production runner contract. They are not supported release claims.
+The API composition and schema cutover are verified. Authenticated Capsule and assignment listings, capacity/admission, desired topology, link-state actions, console grants, checkpoints, impact previews, reset, and destroy routes are mounted. A real KVM provision/start and stopped checkpoint/restore slice has run, but this is not a release-qualified lifecycle: runner results do not publish durable observed state or owned-resource identity, restart does not adopt VMs, reset/destroy cannot reconstruct required inputs, and the console transport URL is not mounted.
+
+Scenario-run HTTP remains unsupported because attempts are not durably persisted. The frontend intentionally retains `CONTRACT_PENDING` for Scenario verification and confirmed impact submission. See `docs/reports/CAPSULE-PLATFORM-QUALIFICATION.md` for the commit-specific blockers.
 
 ## Database
 

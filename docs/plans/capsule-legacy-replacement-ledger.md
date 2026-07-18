@@ -29,7 +29,8 @@ This is the deterministic Agent A inventory for the hard Capsule cutover. It rec
 
 ## Completion evidence
 
-- Status: PARTIAL CUTOVER COMPLETE; runtime qualification remains blocked.
+- Status: PARTIAL CUTOVER COMPLETE; final runtime qualification is `REMEDIATION REQUIRED`.
 - Deletion evidence: migration `0009_drop_empty_legacy_lab_runtime` checks all four legacy table counts before dropping them; `backend/test/legacy-cutover.test.js` proves legacy modules are absent and architecture enforcement has no legacy debt.
 - Retained platform primitives: `ImagePipeline`, lab-spec CLI validation, and Capsule runtime services remain; they are not legacy HTTP/runtime facades.
-- Updated evidence (2026-07-19): production `OperationRepository` and the separate Compose runner now implement the lease/step contract; the API container has no KVM/TUN/NET_ADMIN grants; fixed bridge startup is disabled and the legacy script is explicit opt-in quarantine. Remaining cutover blockers are durable Scenario attempts, restart-safe persisted process/resource identities for destructive cleanup, two frontend pending contracts, and real-KVM qualification with a pinned managed image.
+- Updated evidence (2026-07-19): production `OperationRepository` and the separate Compose runner implement the lease/step contract; the API container has no KVM/TUN/NET_ADMIN grants; fixed bridge startup is disabled and the legacy script is explicit opt-in quarantine. A pinned standalone managed CirrOS QCOW2 completed a two-node KVM provision/start and stopped checkpoint/restore slice. Pre/post audits confirmed that normal startup created no `sandlabx-br0`, `sandlabx-br1`, or legacy subnet.
+- Qualification blockers: runtime results do not persist process/resource identities or observed state, runner restart does not adopt VMs and leaves database allocations, reset/destroy cannot reconstruct required inputs, console transport and durable Scenario execution are unmounted, two frontend contracts remain pending, and `make capsule-qualify` has no real-host fixture.

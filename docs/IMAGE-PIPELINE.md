@@ -47,6 +47,8 @@ npm run sandlabx -- image import /path/to/disk.vmdk \
 
 The source is converted into a compressed standalone QCOW2 file and published through a staging file and atomic rename.
 
+Managed manifests record the source checksum and final artifact digest. Callers may also supply structured `provenance` and `license` metadata; the pipeline preserves these fields in the ignored sidecar manifest so a qualification artifact can be traced without committing its binary.
+
 ### Catalog pull
 
 ```bash
