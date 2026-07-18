@@ -16,7 +16,7 @@ const baseUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'po
 const databaseName = `sandlabx_capsule_test_${crypto.randomUUID().replaceAll('-', '')}`;
 const url = new URL(baseUrl); url.pathname = `/${databaseName}`;
 const disposableUrl = url.toString();
-const expectedTables = ['sandlabx_capsules', 'sandlabx_capsule_drafts', 'sandlabx_capsule_versions', 'sandlabx_capsule_private_revisions', 'sandlabx_capsule_version_artifacts', 'sandlabx_scenarios', 'sandlabx_scenario_drafts', 'sandlabx_scenario_versions', 'sandlabx_scenario_capsule_compatibility', 'sandlabx_bundles', 'sandlabx_bundle_versions', 'sandlabx_bundle_members', 'sandlabx_lab_instances', 'sandlabx_instance_nodes', 'sandlabx_instance_disks', 'sandlabx_instance_interfaces', 'sandlabx_network_segments', 'sandlabx_network_allocations', 'sandlabx_console_endpoints', 'sandlabx_resource_reservations', 'sandlabx_runtime_observations', 'sandlabx_operations', 'sandlabx_operation_steps', 'sandlabx_operation_attempts', 'sandlabx_instance_events', 'sandlabx_audit_events', 'sandlabx_verification_runs', 'sandlabx_verification_results', 'sandlabx_artifacts', 'sandlabx_checkpoints', 'sandlabx_checkpoint_node_disks', 'sandlabx_configuration_artifacts', 'sandlabx_image_capture_operations', 'sandlabx_assignments', 'sandlabx_assignment_members', 'sandlabx_scenario_attempts', 'sandlabx_scenario_stage_progress', 'sandlabx_scenario_check_results', 'sandlabx_scores', 'sandlabx_image_artifact_versions', 'sandlabx_workload_profile_versions'];
+const expectedTables = ['sandlabx_capsules', 'sandlabx_capsule_drafts', 'sandlabx_capsule_versions', 'sandlabx_capsule_private_revisions', 'sandlabx_capsule_version_artifacts', 'sandlabx_scenarios', 'sandlabx_scenario_drafts', 'sandlabx_scenario_versions', 'sandlabx_scenario_capsule_compatibility', 'sandlabx_bundles', 'sandlabx_bundle_versions', 'sandlabx_bundle_members', 'sandlabx_lab_instances', 'sandlabx_instance_nodes', 'sandlabx_instance_disks', 'sandlabx_instance_interfaces', 'sandlabx_network_segments', 'sandlabx_network_allocations', 'sandlabx_console_endpoints', 'sandlabx_resource_reservations', 'sandlabx_runtime_observations', 'sandlabx_operations', 'sandlabx_operation_steps', 'sandlabx_operation_attempts', 'sandlabx_operation_step_attempts', 'sandlabx_instance_events', 'sandlabx_audit_events', 'sandlabx_verification_runs', 'sandlabx_verification_results', 'sandlabx_artifacts', 'sandlabx_checkpoints', 'sandlabx_checkpoint_node_disks', 'sandlabx_configuration_artifacts', 'sandlabx_image_capture_operations', 'sandlabx_assignments', 'sandlabx_assignment_members', 'sandlabx_scenario_attempts', 'sandlabx_scenario_stage_progress', 'sandlabx_scenario_check_results', 'sandlabx_scores', 'sandlabx_image_artifact_versions', 'sandlabx_workload_profile_versions'];
 const expectedMigrationNames = [
   '0001_core_schema',
   '0002_capsule_control_plane',
@@ -28,6 +28,7 @@ const expectedMigrationNames = [
   '0008_resource_reservation_lifecycle',
   '0009_drop_empty_legacy_lab_runtime',
   '20260719000000_user_account_security',
+  '20260719010000_operation_runner_contract',
 ];
 
 async function adminClient() { const admin = new Client({ connectionString: baseUrl }); await admin.connect(); return admin; }

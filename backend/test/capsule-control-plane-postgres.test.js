@@ -81,6 +81,24 @@ test('PostgreSQL control plane persists authoritative drafts, immutable private/
   assert.deepEqual(ownerEvents.map(event => event.cursor), [...ownerEvents.map(event => event.cursor)].sort((a, b) => a - b));
   const resumed = await operations.listEventsForOwner(ownerA, ownerEvents[9].cursor);
   assert.deepEqual(resumed.map(event => event.cursor), ownerEvents.slice(10).map(event => event.cursor));
+  await operations.finish(sameA.id, 'SUCCEEDED');
+  await operations.finish(other.id, 'SUCCEEDED');
+
+  const leasedOperation = await operations.create({ ownerId: ownerA, type: 'START', resourceType: 'instance', resourceId: '10000000-0000-0000-0000-000000000001', idempotencyKey: 'runner-contract', input: { plan: { processes: [] } } });
+  const [leaseA, leaseB] = await Promise.all([operations.leaseNext('runner-a', 25), operations.leaseNext('runner-b', 25)]);
+  assert.equal([leaseA, leaseB].filter(value => value?.id === leasedOperation.id).length, 1, 'SKIP LOCKED leases an operation once');
+  const lease = leaseA?.id === leasedOperation.id ? leaseA : leaseB;
+  assert.equal(lease.leaseOwner, leaseA?.id === leasedOperation.id ? 'runner-a' : 'runner-b');
+  assert.deepEqual(lease.input, { plan: { processes: [] } });
+  let attempts = 0;
+  await operations.execute(leasedOperation.id, [{ key: 'start:router', run: async () => { attempts += 1; if (attempts === 1) throw Object.assign(new Error('retry once'), { retryable: true }); } }], { runnerId: lease.leaseOwner, maxAttempts: 2 });
+  assert.equal((await operations.get(leasedOperation.id)).state, 'SUCCEEDED');
+  assert.equal((await operations.steps(leasedOperation.id))[0].state, 'SUCCEEDED');
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS count FROM sandlabx_operation_step_attempts WHERE operation_id=$1', [leasedOperation.id])).rows[0].count, 2);
+
+  const recovery = await operations.create({ ownerId: ownerA, type: 'STOP', resourceType: 'instance', resourceId: '10000000-0000-0000-0000-000000000001', idempotencyKey: 'runner-recovery' });
+  await pool.query("UPDATE sandlabx_operations SET state='EXECUTING',lease_owner='dead-runner',lease_until=CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id=$1", [recovery.id]);
+  assert.equal((await operations.leaseNext('replacement-runner', 1000)).id, recovery.id, 'expired leases recover after runner restart');
 
   const admission = new AdmissionService({ reservations: new ReservationRepository({ pool }) });
   const instanceA = '10000000-0000-0000-0000-000000000001'; const instanceB = '10000000-0000-0000-0000-000000000002';
