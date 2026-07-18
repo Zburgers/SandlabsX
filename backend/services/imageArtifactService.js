@@ -27,6 +27,8 @@ class ImageArtifactService {
     return immutable(image);
   }
 
+  async listImageVersions(client) { return Object.freeze((await this.repository.listVersions(client)).map(immutable)); }
+
   assertImageCompatibility(image, profile, hostCapabilities = {}) {
     if (!profile.supportedImage?.formats?.includes(image.format) || (image.architecture && !profile.supportedImage?.architectures?.includes(image.architecture))) throw codeError('Image is not compatible with workload profile', 'IMAGE_PROFILE_INCOMPATIBLE');
     if (profile.architecture !== hostCapabilities.architecture) throw codeError('Host architecture does not support workload profile', 'HOST_CAPABILITY_UNSUPPORTED');

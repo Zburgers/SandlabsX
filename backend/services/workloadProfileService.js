@@ -10,8 +10,7 @@ class WorkloadProfileService {
   }
 
   async publish(profile, client) {
-    const issues = validateWorkloadProfile(profile);
-    if (issues.length) throw codeError(`Invalid workload profile: ${issues.join('; ')}`, 'INVALID_WORKLOAD_PROFILE', { issues });
+    this.assertValid(profile);
     const normalized = normalizeProfile(profile);
     return immutable(await this.repository.createVersion({
       name: normalized.name || normalized.id,
@@ -26,7 +25,19 @@ class WorkloadProfileService {
     return immutable(profile);
   }
 
+  async listWorkloadProfileVersions(client) { return Object.freeze((await this.repository.listVersions(client)).map(immutable)); }
+
   validateNodeOverrides(profile, overrides) { return validateNodeOverrides(profile, overrides); }
+
+  validate(profile) {
+    const issues = validateWorkloadProfile(profile);
+    return Object.freeze({ valid: issues.length === 0, issues: Object.freeze([...issues]) });
+  }
+
+  assertValid(profile) {
+    const result = this.validate(profile);
+    if (!result.valid) throw codeError(`Invalid workload profile: ${result.issues.join('; ')}`, 'INVALID_WORKLOAD_PROFILE', { issues: result.issues });
+  }
 }
 
 function validateNodeOverrides(profile, overrides = {}) {

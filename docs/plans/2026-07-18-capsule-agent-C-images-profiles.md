@@ -84,3 +84,17 @@ Commit: `feat: expose image profile workflows`
 ## Handoff requirements
 
 Provide Agent D and H the final SHA, profile/image interfaces, example immutable records, API router factory, CLI changes, migration assumptions, tests, and requested documentation edits. Append completion evidence only to this packet.
+
+## Completion evidence
+
+- Status: REMEDIATION REQUIRED
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine` at `9258862` before this evidence commit.
+- Commits: `f9605cc [C] test: define image and profile contracts`; `9258862 [C] feat: version images and workload profiles`.
+- Owned files changed: `backend/services/imageArtifactService.js`, `backend/services/workloadProfileService.js`, `backend/repositories/imageArtifactRepository.js`, `backend/repositories/workloadProfileRepository.js`, `backend/routes/images.js`, `backend/cli/sandlabx.js`, and their focused tests.
+- Contracts exported: `resolveImageVersion(imageVersionId, client)`, `resolveWorkloadProfileVersion(profileVersionId, client)`, `validateNodeOverrides(profile, overrides)`, and `assertImageCompatibility(image, profile, hostCapabilities)` through `createProfileResolutionInterfaces`. All return immutable plain objects or deterministic validation results.
+- Example immutable records: image `{ id, name, versionNumber, digest, format, storagePath, sizeBytes, architecture, provenance, metadata, createdAt }`; profile `{ id, name, versionNumber, contentHash, architecture, machine, resources, interfaces, disks, capabilities, supportedImage, permittedNodeOverrides, createdAt }`.
+- Tests run and results: initially observed C1 modules and C3 router fail with `MODULE_NOT_FOUND`; then `cd backend && node --test test/image-artifact-service.test.js test/workload-profile-service.test.js test/image-api-v2.test.js test/tooling.test.js` passed (15/15), and `cd backend && npm run check` passed (49/49).
+- External/runtime gates: `docker compose config --quiet` passed. `make doctor` found Docker, Compose, Node, QEMU, KVM, TUN, image/overlay/checkpoint directories available, but failed because `vms` and `pids` are not writable; ports 2000/3001/5432/8081 are already in use. Image unit tests use fake QEMU runners and no real disk capture was exercised.
+- Known limitations: durable repository adapters require the additive tables `sandlabx_image_artifact_versions` and `sandlabx_workload_profile_versions`; Agent A's accepted `0004`/`0005` migrations do not create them. API factory is intentionally unmounted because Agent H owns application composition. No real disk capture was exercised.
+- Requested changes for Agent H-owned files: add an additive migration defining the two immutable version tables (unique image digest; unique profile content SHA-256; version numbers; JSONB provenance/profile metadata; immutable triggers); compose `createImageRouter({ imageArtifacts, workloadProfiles })` under `/api/images/v2`; construct services using the PostgreSQL repositories; document the versioned commands and API routes in `docs/IMAGE-PIPELINE.md`/Swagger.
+- Downstream agents unblocked: Agent D can consume the exported contract factory now; final persisted planning/API integration remains blocked on the requested migration and Agent H composition.

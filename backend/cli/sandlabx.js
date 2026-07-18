@@ -2,6 +2,10 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { ImagePipeline } = require('../modules/imagePipeline');
+const { ImageArtifactService } = require('../services/imageArtifactService');
+const { WorkloadProfileService } = require('../services/workloadProfileService');
+const { ImageArtifactRepository } = require('../repositories/imageArtifactRepository');
+const { WorkloadProfileRepository } = require('../repositories/workloadProfileRepository');
 const { normalizeLabSpec, planInstall, validateLabSpec } = require('../modules/labSpec');
 const { capsuleHash, normalizeCapsule, validateCapsule } = require('../modules/capsuleSchema');
 
@@ -37,6 +41,7 @@ Image commands:
   sandlabx image pull <catalog-id> [--name id] [--overwrite]
   sandlabx image compact <name>
   sandlabx image resize <name> <size>
+  sandlabx image version-inspect <version-id>
   sandlabx image plan-install <iso> --name id [--disk-size 32G] [--cpus 2] [--memory 4096] [--vnc 5990] [--seed seed.iso]
 
 Lab commands:
@@ -46,6 +51,11 @@ Lab commands:
 Capsule commands:
   sandlabx capsule validate <file.json> [--published]
   sandlabx capsule normalize <file.json> [output.json]
+
+Workload profile commands:
+  sandlabx profile list
+  sandlabx profile inspect <version-id>
+  sandlabx profile validate <file.json>
 
 Global flags:
   --json
@@ -61,6 +71,7 @@ async function imageCommand(action, args, flags) {
     catalog: flags.catalog || path.join(projectRoot, 'images', 'catalog.json')
   });
 
+  if (action === 'version-inspect') return versionServices().imageArtifacts.resolveImageVersion(required(args[0], 'image version id'));
   switch (action) {
     case 'doctor': return pipeline.doctor();
     case 'list': return pipeline.list();
@@ -96,6 +107,27 @@ async function imageCommand(action, args, flags) {
       });
     default: throw Object.assign(new Error(`Unknown image command: ${action || '(missing)'}`), { code: 'USAGE_ERROR' });
   }
+}
+
+async function profileCommand(action, args) {
+  if (action === 'validate') {
+    const profile = JSON.parse(await fs.readFile(required(args[0], 'workload profile JSON path'), 'utf8'));
+    return new WorkloadProfileService({ repository: { createVersion() { throw new Error('not used'); }, getVersion() { throw new Error('not used'); } } }).validate(profile);
+  }
+  const profiles = versionServices().workloadProfiles;
+  if (action === 'list') return profiles.listWorkloadProfileVersions();
+  if (action === 'inspect') return profiles.resolveWorkloadProfileVersion(required(args[0], 'workload profile version id'));
+  throw Object.assign(new Error(`Unknown profile command: ${action || '(missing)'}`), { code: 'USAGE_ERROR' });
+}
+
+function versionServices() {
+  if (!process.env.DATABASE_URL) throw Object.assign(new Error('DATABASE_URL is required for persisted image/profile version commands'), { code: 'VERSION_STORE_UNAVAILABLE' });
+  const { Pool } = require('pg');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  return {
+    imageArtifacts: new ImageArtifactService({ repository: new ImageArtifactRepository({ pool }) }),
+    workloadProfiles: new WorkloadProfileService({ repository: new WorkloadProfileRepository({ pool }) }),
+  };
 }
 
 async function labCommand(action, args) {
@@ -147,7 +179,9 @@ async function main() {
       ? await labCommand(action, args)
       : group === 'capsule'
         ? await capsuleCommand(action, args, flags)
-      : (() => { throw Object.assign(new Error(`Unknown command group: ${group}`), { code: 'USAGE_ERROR' }); })();
+        : group === 'profile'
+          ? await profileCommand(action, args)
+        : (() => { throw Object.assign(new Error(`Unknown command group: ${group}`), { code: 'USAGE_ERROR' }); })();
 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (result?.valid === false || result?.ok === false) process.exitCode = 2;

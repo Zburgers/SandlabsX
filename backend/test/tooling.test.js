@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs').promises;
 const os = require('node:os');
 const path = require('node:path');
+const { execFile } = require('node:child_process');
 const test = require('node:test');
 const { ImageError, ImagePipeline, checksum, safeName } = require('../modules/imagePipeline');
 const { normalizeLabSpec, planInstall, validateLabSpec } = require('../modules/labSpec');
@@ -130,4 +131,13 @@ test('installer planner emits safe argument arrays', async t => {
   assert.equal(plan.id, 'debian-lab');
   assert.equal(plan.createDisk.command, 'qemu-img');
   assert.ok(plan.launchInstaller.args.includes('0.0.0.0:91'));
+});
+
+test('CLI validates workload profiles through the profile service', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'sandlabx-profile-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const profilePath = path.join(directory, 'profile.json');
+  await fs.writeFile(profilePath, JSON.stringify({ id: 'qemu', version: 'draft', architecture: 'x86_64', machine: 'q35', console: 'serial', resources: { minVcpus: 1, maxVcpus: 2 }, interfaces: { max: 2 } }));
+  const output = await new Promise((resolve, reject) => execFile(process.execPath, ['cli/sandlabx.js', 'profile', 'validate', profilePath], { cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => error ? reject(Object.assign(error, { stderr })) : resolve(stdout)));
+  assert.equal(JSON.parse(output).valid, true);
 });

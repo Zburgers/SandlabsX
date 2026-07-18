@@ -16,6 +16,7 @@ class MemoryWorkloadProfileRepository {
   }
 
   async getVersion(id) { const version = this.versions.get(id); return version ? clone(version) : null; }
+  async listVersions() { return [...this.versions.values()].map(clone); }
 }
 
 class WorkloadProfileRepository {
@@ -40,6 +41,11 @@ class WorkloadProfileRepository {
   async getVersion(id, client = this.pool) {
     const result = await client.query('SELECT * FROM sandlabx_workload_profile_versions WHERE id = $1', [id]);
     return result.rows[0] ? rowToWorkloadProfileVersion(result.rows[0]) : null;
+  }
+
+  async listVersions(client = this.pool) {
+    const result = await client.query('SELECT * FROM sandlabx_workload_profile_versions ORDER BY created_at DESC');
+    return result.rows.map(rowToWorkloadProfileVersion);
   }
 }
 
