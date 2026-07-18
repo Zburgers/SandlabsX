@@ -67,12 +67,17 @@ test('image import converts, validates, publishes, and writes a manifest', async
   const manifest = await item.pipeline.import(item.source, {
     name: 'Ubuntu Lab',
     displayName: 'Ubuntu Lab Image',
-    tags: ['linux', 'student']
+    tags: ['linux', 'student'],
+    source: 'https://images.example.invalid/ubuntu.raw',
+    provenance: { release: '24.04', checksumSource: 'https://images.example.invalid/SHA256SUMS' },
+    license: { expression: 'GPL-2.0-or-later', source: 'https://images.example.invalid/LICENSE' }
   });
 
   const managed = item.pipeline.managedPath('ubuntu-lab');
   assert.equal(manifest.id, 'ubuntu-lab');
   assert.equal(manifest.sha256, await checksum(managed));
+  assert.deepEqual(manifest.provenance, { release: '24.04', checksumSource: 'https://images.example.invalid/SHA256SUMS' });
+  assert.deepEqual(manifest.license, { expression: 'GPL-2.0-or-later', source: 'https://images.example.invalid/LICENSE' });
   assert.equal((await item.pipeline.list())[0].name, 'Ubuntu Lab Image');
 });
 
@@ -140,4 +145,10 @@ test('CLI validates workload profiles through the profile service', async t => {
   await fs.writeFile(profilePath, JSON.stringify({ id: 'qemu', version: 'draft', architecture: 'x86_64', machine: 'q35', console: 'serial', resources: { minVcpus: 1, maxVcpus: 2 }, interfaces: { max: 2 } }));
   const output = await new Promise((resolve, reject) => execFile(process.execPath, ['cli/sandlabx.js', 'profile', 'validate', profilePath], { cwd: path.join(__dirname, '..') }, (error, stdout, stderr) => error ? reject(Object.assign(error, { stderr })) : resolve(stdout)));
   assert.equal(JSON.parse(output).valid, true);
+});
+
+test('Compose runner disables the backend HTTP healthcheck it cannot serve', async () => {
+  const compose = await fs.readFile(path.join(__dirname, '..', '..', 'docker-compose.yml'), 'utf8');
+  const runner = compose.match(/\n  runner:\n([\s\S]*?)\n  frontend:/)?.[1] || '';
+  assert.match(runner, /healthcheck:\s*\n\s+disable:\s+true/);
 });

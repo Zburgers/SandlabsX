@@ -128,6 +128,8 @@ class ImagePipeline {
         description: options.description || '',
         tags: [...new Set(options.tags || [])],
         source: options.source || source,
+        provenance: options.provenance ? structuredClone(options.provenance) : undefined,
+        license: options.license ? structuredClone(options.license) : undefined,
         sourceFormat: sourceInfo.format,
         format: 'qcow2',
         sha256: await checksum(target),
