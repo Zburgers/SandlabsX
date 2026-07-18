@@ -49,6 +49,8 @@ const requiredTables = [
   'sandlabx_scenario_stage_progress',
   'sandlabx_scenario_check_results',
   'sandlabx_scores',
+  'sandlabx_image_artifact_versions',
+  'sandlabx_workload_profile_versions',
 ];
 
 const requiredConstraints = [
@@ -56,6 +58,8 @@ const requiredConstraints = [
   'scenario_version_digest_format',
   'network_allocation_live_unique',
   'assignment_exact_version_unique',
+  'image_artifact_digest_format',
+  'workload_profile_digest_format',
 ];
 
 const pendingLegacyTables = [

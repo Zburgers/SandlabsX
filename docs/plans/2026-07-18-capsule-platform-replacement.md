@@ -896,7 +896,7 @@ git commit -m "feat: add capsule operational readiness"
 - Delete: `backend/modules/networkAllocator.js`
 - Delete: `backend/modules/localRunner.js`
 - Delete: `frontend/app/lab/page.tsx`
-- Create: `backend/migrations/0006_drop_empty_legacy_lab_runtime.cjs`
+- Create: `backend/migrations/0007_drop_empty_legacy_lab_runtime.cjs`
 - Create: `backend/test/legacy-cutover.test.js`
 - Modify: `backend/server.js`
 - Modify: `backend/app.js`

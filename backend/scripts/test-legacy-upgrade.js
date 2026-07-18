@@ -149,6 +149,7 @@ async function verifyUpgrade(databaseUrl) {
       '0003_retire_legacy_migration_ledger',
       '0004_capsule_platform_schema',
       '0005_capsule_platform_constraints',
+      '0006_image_profile_versions',
     ];
     const appliedMigrations = migrations.rows.map((migration) => migration.name);
     if (
