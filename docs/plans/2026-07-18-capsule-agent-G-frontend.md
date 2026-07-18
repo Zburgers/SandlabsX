@@ -80,8 +80,8 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 ## Completion evidence
 
 - Status: REMEDIATION REQUIRED
-- Branch and final HEAD: `feat/lab-capsules-scenario-engine` at pending commit
-- Commits: pending commit
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine`; evidence commit follows the implementation commit below.
+- Commits: `ecb3916f754b099872e6794b048729cf2c0f8256` (`[G] feat: add capsule frontend workflows`); this evidence is committed separately.
 - Owned files changed: canonical client/types/event stream, Vitest harness, dashboard, Capsules visual workspace, editor components, instance runtime components, Scenario and assignment routes, frontend documentation, and Hallmark tokens/log.
 - Contracts exported: `capsuleApi`, canonical `CapsuleDocument`/draft/instance/operation types, resumable-event cursor and EventSource connector.
 - Tests run and results: `cd frontend && npm test` — 4 files / 5 tests passed; `cd frontend && npm run build` — compiled all 10 routes and type-checked successfully.
