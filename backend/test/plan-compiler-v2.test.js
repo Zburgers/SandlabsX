@@ -48,6 +48,7 @@ test('compiles an immutable deterministic plan with declared wiring only', () =>
   assert.equal(unwired.segmentId, null);
   assert.equal(first.interfaces.filter(nic => nic.segmentId).length, 5);
   assert.ok(first.processes.every(process => Array.isArray(process.args)));
+  assert.ok(first.processes.every(process => process.args.some(argument => argument.startsWith('virtio-net-pci,netdev='))));
   assert.ok(first.interfaces.every(nic => nic.tap.length <= 15 && nic.netdev.length <= 31));
   assert.ok(first.processes.every(process => !process.args.join(' ').includes('Routing Lab')));
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/plans/routing-lab-v2.json'), 'utf8'));

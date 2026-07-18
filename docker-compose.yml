@@ -160,6 +160,8 @@ services:
     restart: unless-stopped
     init: true
     command: ["node", "runner/production.js"]
+    healthcheck:
+      disable: true
     cap_add: [NET_ADMIN]
     security_opt: ["no-new-privileges:true"]
     devices:

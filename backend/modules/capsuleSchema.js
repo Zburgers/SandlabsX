@@ -170,7 +170,7 @@ function normalizeCapsule(capsule, options = {}) {
       image: node.image,
       role: node.role || 'host',
       resources: { vcpus: Number(node.resources?.vcpus ?? 1), memoryMiB: Number(node.resources?.memoryMiB ?? 1024), diskGiB: Number(node.resources?.diskGiB ?? 10) },
-      interfaces: [...(node.interfaces || [])].map(nic => ({ id: nic.id, guestName: nic.guestName || null, model: nic.model || 'virtio' })).sort((a, b) => a.id.localeCompare(b.id)),
+      interfaces: [...(node.interfaces || [])].map(nic => ({ id: nic.id, guestName: nic.guestName || null, model: nic.model || 'virtio-net-pci' })).sort((a, b) => a.id.localeCompare(b.id)),
       console: { type: node.console?.type || 'none' },
       bootstrap: node.bootstrap || null,
       presentation: node.position ? { position: { x: Number(node.position.x) || 0, y: Number(node.position.y) || 0 } } : null
@@ -243,4 +243,3 @@ function convertLegacyTopology(topology, metadata = {}) {
 }
 
 module.exports = { API_VERSION, KIND, CapsuleValidationError, capsuleHash, convertLegacyTopology, normalizeCapsule, stableStringify, validateCapsule };
-

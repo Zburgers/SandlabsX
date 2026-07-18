@@ -28,6 +28,7 @@ backend/nodes-state.json
 # VM runtime data and large disk formats
 overlays/
 vms/
+checkpoints/
 *.qcow2
 *.vmdk
 *.vdi

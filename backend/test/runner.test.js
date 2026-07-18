@@ -15,6 +15,17 @@ test('Runner leases one operation and retries a retryable stable step without du
   assert.equal(await runner.runOnce(), null);
 });
 
+test('Runner terminally fails a leased operation when handler construction rejects its input', async () => {
+  const store = new MemoryOperationStore(); const operations = new OperationService({ store });
+  const operation = await operations.submit({ ownerId: 'user-a', type: 'DESTROY', instanceId: 'instance-a', idempotencyKey: 'destroy-empty' });
+  const runner = new Runner({ id: 'runner-a', operations, handlers: { DESTROY: () => { throw Object.assign(new Error('owned resources required'), { code: 'OWNED_RESOURCES_REQUIRED' }); } } });
+  await assert.rejects(runner.runOnce(), error => error.code === 'OWNED_RESOURCES_REQUIRED');
+  const finished = await store.get(operation.id);
+  assert.equal(finished.state, 'FAILED');
+  assert.equal(finished.error.code, 'OWNED_RESOURCES_REQUIRED');
+  assert.equal(await runner.runOnce(), null);
+});
+
 test('lifecycle handlers execute runtime ports and expose reverse compensation', async () => {
   const calls = [];
   const handlers = createOperationHandlers({

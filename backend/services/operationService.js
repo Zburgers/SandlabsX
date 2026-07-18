@@ -4,8 +4,10 @@ const clone = value => structuredClone(value);
 class OperationService {
   constructor({ store, maxAttempts = 3 }) { if (!store) throw new TypeError('store is required'); this.store = store; this.maxAttempts = maxAttempts; }
   async submit(input) { if (!input.ownerId || !input.type || !input.instanceId || !input.idempotencyKey) throw new TypeError('ownerId, type, instanceId, and idempotencyKey are required'); return this.store.create(input); }
+  async get(id) { return this.store.get(id); }
   async requestCancel(id, ownerId) { return this.store.requestCancel(id, ownerId); }
   async leaseNext(runnerId, leaseMs = 30_000) { return this.store.leaseNext(runnerId, leaseMs); }
+  async finish(id, state, error = null) { return this.store.finish(id, state, error); }
   async execute(id, handlers) { const operation = await this.store.get(id); if (!operation) throw Object.assign(new Error('Operation not found'), { code: 'NOT_FOUND' }); const completed = [];
     try { for (const handler of handlers) { const step = await this.store.upsertStep(id, handler.key); if (step.state === 'SUCCEEDED') { completed.push(handler); continue; } await this.store.markStep(id, handler.key, 'RUNNING'); try { await retry(() => handler.run(), this.maxAttempts); await this.store.markStep(id, handler.key, 'SUCCEEDED'); completed.push(handler); } catch (error) { await this.store.markStep(id, handler.key, 'FAILED', { code: error.code || 'OPERATION_FAILED', message: error.message }); throw error; } const latest = await this.store.get(id); if (latest.cancelRequested) { for (const done of completed.reverse()) if (done.compensate) await done.compensate(); await this.store.finish(id, 'CANCELLED'); return this.store.get(id); } }
       await this.store.finish(id, 'SUCCEEDED'); return this.store.get(id);

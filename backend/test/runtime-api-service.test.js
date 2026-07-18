@@ -11,3 +11,15 @@ test('runtime API derives link and checkpoint operation inputs from the persiste
   assert.deepEqual(submitted[1].input.interface, { name: 'tap-owned', ownership: { instanceId: 'instance-a', nodeId: 'r1' } });
   await assert.rejects(service.setLinkState({ id: 'other' }, instance.id, 'eth0', true, 'foreign'), error => error.code === 'NOT_FOUND');
 });
+
+test('console grants query only columns present in the durable endpoint schema', async () => {
+  const instance = { id: 'instance-a', ownerId: 'user-a', name: 'lab', state: 'STOPPED', createdAt: 'now' };
+  const pool = { query: async sql => {
+    if (sql.includes('created_at')) throw Object.assign(new Error('column created_at does not exist'), { code: '42703' });
+    return { rows: [{ endpoint: '127.0.0.1:7000', console_type: 'serial', ownership: { nodeId: 'r1' } }] };
+  } };
+  const service = new RuntimeApiService({ pool, instances: { get: async () => instance }, operationService: { submit: async () => ({}) }, audit: { append: async () => {} }, secret: 'test-runtime-secret' });
+  const grant = await service.consoleGrant({ id: 'user-a' }, instance.id, 'r1', 'serial');
+  assert.equal(grant.transport, 'serial');
+  assert.match(grant.url, /\/consoles\/r1\?grant=/);
+});
