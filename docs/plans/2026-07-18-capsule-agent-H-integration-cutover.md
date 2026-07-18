@@ -131,3 +131,11 @@ Commit: `docs: qualify capsule platform replacement`
 - Known limitations: `OperationRepository` lacks `leaseNext`, step persistence, and operation execution methods required by `Runner`; frontend pending runtime calls lack safe mounted service contracts; no pinned managed qualification QCOW2 was supplied. These block runner Compose deployment and `make capsule-qualify`.
 - Requested changes for Agent H-owned files: add and test the durable production runner persistence/lease contract and complete the pending runtime/Scenario/capacity/console routes before release qualification.
 - Downstream agents unblocked: none; remediation is required before release/cutover acceptance.
+
+## 2026-07-19 remediation evidence
+
+- Status: REMEDIATION REQUIRED; software integration advanced, but the mounted Scenario attempt and confirmed destructive-action contracts remain pending and real-KVM qualification was not run.
+- Commits: `b52ba8d`, `3989141`, `7495364`, `2387ed9`, `7acd8d1`, `a4dedfe`.
+- Completed integration: PostgreSQL `SKIP LOCKED` runner leases, durable operation/step attempts and compensation state, expired-lease recovery, separate least-privilege Compose runner, persisted execution plans before admission, authenticated Capsule/assignment/capacity/topology/checkpoint/console/link-state/impact routes, and matching landed frontend calls.
+- Validation: `make prepare` passed; `make doctor` passed 18 checks with four occupied-port warnings; backend `npm run check` passed 92/92 on the final rerun with architecture enforcement clean; frontend passed 12/12 and built; Compose config, diff check, and network audit passed. An earlier backend run transiently hit the concurrent immutable-image `DUPLICATE_DIGEST` assertion; both its focused rerun and the final full rerun passed.
+- Remaining blockers: `capsuleApi.runVerification` and `confirmImpact` remain `CONTRACT_PENDING`; Scenario attempts still use an in-memory store; destructive cleanup lacks persisted process/resource identities sufficient to prove safe restart recovery; no pinned managed qualification image was provided and no real QEMU lifecycle was run.

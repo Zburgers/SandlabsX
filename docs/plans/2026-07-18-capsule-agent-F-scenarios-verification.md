@@ -91,3 +91,10 @@ Provide Agents G and H final SHA, check schemas, event/evidence shapes, transpor
 - Acceptance evidence: focused F suite passes 9/9; full backend passes 76/76; Compose configuration and diff checks pass. The implementation correctly refuses an unqualified transport, so unavailable host bind roots do not invalidate this dependency-injected slice.
 - Deferred integration: Agent E supplies and qualifies the real guest transport; Agent H composes persistent attempt/result repositories, mounts the API, and performs real-KVM Scenario qualification after the shared host preflight passes.
 - Agent G may consume the accepted result, stage, score, and evidence shapes now.
+
+## 2026-07-19 integration update
+
+- Status: REMEDIATION REQUIRED.
+- Typed checks, bounded evidence, scoring, and the canonical `ScenarioAttempt` shape remain green in unit tests.
+- The authenticated production Scenario-run route is not mounted because the current `ScenarioRunService` attempt-limit state remains in memory and no qualified production guest transport is composed. The frontend call therefore correctly remains `CONTRACT_PENDING`.
+- Required follow-up: persist attempt/stage/check/score rows transactionally, compose the owned guest transport, mount the exact-version assignment route, and qualify it without claiming real KVM in this slice.

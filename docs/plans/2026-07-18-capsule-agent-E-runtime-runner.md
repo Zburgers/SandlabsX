@@ -116,3 +116,11 @@ Provide Agent H the final SHA, runner command, required host capabilities/device
 - Coordinator fixes prevent `shell`/`detached`/stdio option override, normalize malformed console-token failures, replace lifecycle no-ops with disk/network/console/QEMU/checkpoint/capture/destruction port calls and compensation, and require QEMU readiness before START succeeds.
 - Acceptance evidence: focused E suite passes 11/11; full PostgreSQL-backed backend passes 87/87; legacy upgrade through `0008`, Compose configuration, syntax, diff, and safety gates pass. PostgreSQL was stopped after validation.
 - Real QEMU/TAP qualification remains Agent H's integration gate because no managed test image currently exists; this does not block composition of the accepted runtime contracts.
+
+## 2026-07-19 integration update
+
+- Agent H composed `backend/runner/production.js` in `docker-compose.yml`; only the runner receives `NET_ADMIN`, `/dev/kvm`, `/dev/net/tun`, writable overlay/checkpoint/runtime roots, and image access. The API container no longer receives those devices or capabilities.
+- `ProcessRunner` now has bounded output, `/proc/<pid>/cmdline` identity observation, JSON `ip link` observation, and constrained `SIGTERM`/`SIGKILL` signaling with fake-runner unit coverage.
+- `OperationRepository` now implements atomic leases, lease recovery, durable steps, operation and step attempts, cancellation, compensation state, and owner-scoped ordered events.
+- Fixed bridge startup is disabled in Compose and `backend/setup-network.sh` is quarantined behind `SANDLABX_ENABLE_LEGACY_NETWORK=true`.
+- Status remains REMEDIATION REQUIRED for end-to-end runtime qualification because process/resource identity publication across runner restarts and a pinned real-KVM fixture remain unqualified.

@@ -123,3 +123,10 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 - Status override: `COMPLETE` for Agent G's owned frontend contracts and workflows through `9c7cf66`.
 - Acceptance evidence: frontend tests pass 9/9 and the production build compiles/type-checks all 10 routes. The existing ESLint circular-configuration warning remains a shared tooling issue and did not fail the build.
 - Agent H owns replacement of the remaining `CONTRACT_PENDING` methods when it mounts runtime, capacity, console, destructive-action, checkpoint, Scenario-run, assignment-list, and Capsule-list endpoints.
+
+## 2026-07-19 integration update
+
+- Landed frontend contracts: Capsule listing, checkpoint creation, impact preview, and console grants now call authenticated `/api/v2` production routes; tests pass and the production build completes.
+- Backend-only mounted contracts also include assignment listing, host capacity/admission, desired/observed topology, checkpoint listing/restore, and link-state changes.
+- Exact pending inventory is now two methods: `runVerification` and `confirmImpact`. They remain `CONTRACT_PENDING` because durable Scenario-attempt persistence and the frontend's explicit typed destructive confirmation fields are not complete.
+- Status: REMEDIATION REQUIRED; do not mark the frontend integration complete while either pending method remains.
