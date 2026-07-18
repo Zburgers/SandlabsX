@@ -95,6 +95,7 @@ test('PostgreSQL control plane persists authoritative drafts, immutable private/
   assert.equal((await operations.get(leasedOperation.id)).state, 'SUCCEEDED');
   assert.equal((await operations.steps(leasedOperation.id))[0].state, 'SUCCEEDED');
   assert.equal((await pool.query('SELECT COUNT(*)::int AS count FROM sandlabx_operation_step_attempts WHERE operation_id=$1', [leasedOperation.id])).rows[0].count, 2);
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS count FROM sandlabx_operation_attempts WHERE operation_id=$1 AND outcome='SUCCEEDED'", [leasedOperation.id])).rows[0].count, 1);
 
   const recovery = await operations.create({ ownerId: ownerA, type: 'STOP', resourceType: 'instance', resourceId: '10000000-0000-0000-0000-000000000001', idempotencyKey: 'runner-recovery' });
   await pool.query("UPDATE sandlabx_operations SET state='EXECUTING',lease_owner='dead-runner',lease_until=CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id=$1", [recovery.id]);
