@@ -117,7 +117,7 @@ make up
 
 Open:
 
-- Frontend: `http://localhost:3000`
+- Frontend: `http://localhost:2000`
 - Backend health: `http://localhost:3001/api/health`
 - API documentation: `http://localhost:3001/api/docs`
 - Guacamole: `http://localhost:8081/guacamole`
@@ -145,7 +145,7 @@ The repository includes:
 
 - A root `Makefile` for common operations
 - `scripts/dev-doctor.sh` for KVM, TUN, QEMU, Docker, directory, and port checks
-- GitHub Actions for backend tests, frontend builds, syntax checks, Compose validation, and Docker builds
+- Three CI gates: code quality, database migrations, and Compose bootstrap
 - Service health dependencies so the backend does not race PostgreSQL initialization
 - Configurable ports and credentials through `.env`
 - Bounded Docker logs and graceful service shutdown
@@ -187,12 +187,12 @@ Copy `.env.example` to `.env`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `FRONTEND_PORT` | `3000` | Web interface port |
+| `FRONTEND_PORT` | `2000` | Web interface port |
 | `BACKEND_PORT` | `3001` | API port |
 | `GUACAMOLE_PORT` | `8081` | Browser console gateway |
 | `POSTGRES_PORT` | `5432` | Host database port |
 | `JWT_SECRET` | development fallback | Token signing secret |
-| `ALLOWED_ORIGINS` | `http://localhost:3000` | CORS allow-list |
+| `ALLOWED_ORIGINS` | `http://localhost:2000` | CORS allow-list |
 | `SANDLABX_PRIVILEGED` | `false` | Legacy privileged backend mode |
 
 ## Repository map

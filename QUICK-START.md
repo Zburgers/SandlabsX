@@ -2,44 +2,101 @@
 
 ## 1. Prepare the host
 
-SandLabX requires a Linux host with Docker Compose, KVM support, and TUN/TAP networking.
+SandLabX requires Linux, Docker Compose, KVM, and TUN/TAP networking for full
+virtual-machine execution.
 
 ```bash
 git clone https://github.com/Zburgers/SandlabsX.git
 cd SandlabsX
 cp .env.example .env
 make prepare
+make network-audit
 make doctor
 ```
 
-Resolve failed doctor checks before starting the stack. A KVM warning is not fatal, but virtual machines will use much slower software emulation.
+`make network-audit` is read-only. A KVM or TUN warning means the web/API stack
+may still start, but VM execution will be unavailable or slower.
 
 ## 2. Start SandLabX
 
+After pulling code, changing dependencies, or adding migrations:
+
 ```bash
-make up
-docker compose ps
-curl http://localhost:3001/api/health
+make rebuild
 ```
 
-Open the web interface at `http://localhost:3000`.
+For later starts that can reuse existing images:
+
+```bash
+make up
+```
+
+Startup follows this dependency graph:
+
+```text
+PostgreSQL
+├── version-matched Guacamole initializer -> Guacamole
+└── node-pg-migrate -> backend -> frontend
+```
+
+The migrator is invoked before the backend starts. `node-pg-migrate` reads the
+`sandlabx_migrations` ledger and applies only migration files that have not
+already been recorded. Previously applied migrations are not rerun; the schema
+check still runs so startup fails clearly if the database is incomplete.
+
+Existing PostgreSQL volumes are upgraded in place.
+
+```bash
+make verify
+docker compose ps --all
+```
+
+The two one-shot database containers should finish successfully:
+
+- `sandlabx-guacamole-db-init`
+- `sandlabx-migrate`
+
+Open the UI at `http://127.0.0.1:2000`.
 
 Other local endpoints:
 
-- API documentation: `http://localhost:3001/api/docs`
-- Guacamole: `http://localhost:8081/guacamole`
-- PostgreSQL: `localhost:5432`
+- API documentation: `http://127.0.0.1:3001/api/docs`
+- Guacamole: `http://127.0.0.1:8081/guacamole`
+- PostgreSQL: `127.0.0.1:5432`
 
-The project currently includes development administrator credentials:
+Published ports bind to loopback by default. Review credentials, CORS, and
+firewalling before exposing the stack to a network.
 
-- Email: `admin@sandlabx.com`
-- Password: `admin123`
+## 3. Database migrations
 
-Replace all development credentials and secrets before exposing the stack outside a trusted machine.
+SandLabX uses `node-pg-migrate`. Application tables are not created through
+PostgreSQL first-boot scripts and are not mutated by the API process.
 
-## 3. Install a cloud image
+```bash
+make db-migrate
+make db-check
+make db-create-migration NAME=add_example_column
+```
 
-The curated image catalog can download and convert supported cloud images into managed standalone QCOW2 files.
+Do not remove the PostgreSQL named volume as a troubleshooting step. Migration
+failures should be investigated through the one-shot migrator logs.
+
+```bash
+docker compose logs --tail=200 migrate guacamole-db-init postgres backend
+```
+
+## 4. Temporary legacy VM runtime
+
+Normal startup creates two unnumbered Layer-2 bridges inside the backend
+container for the fixed `tap0..tap3` QEMU path.
+
+It does not enable forwarding, assign router IP addresses to infrastructure
+bridges, add host routes/NAT rules, or write host QEMU helper files.
+
+This path is marked `LEGACY` and must be removed after the Capsule `LocalRunner`
+executes compiled per-instance networks.
+
+## 5. Install a cloud image
 
 ```bash
 cd backend
@@ -57,16 +114,20 @@ npm run sandlabx -- image import /path/to/appliance.vmdk \
   --display-name "Lab appliance"
 ```
 
-Inspect or validate an image without importing it:
+Inspect or validate an image:
 
 ```bash
 npm run sandlabx -- image inspect /path/to/appliance.vmdk
 npm run sandlabx -- image validate /path/to/base.qcow2
 ```
 
-## 4. Prepare an ISO installation
+The old fixed-image bootstrap remains explicit only:
 
-ISO files need an installation VM rather than direct disk conversion. Generate a deterministic installation plan:
+```bash
+AUTO_DOWNLOAD_IMAGES=false make image-init
+```
+
+## 6. Prepare an ISO installation
 
 ```bash
 npm run sandlabx -- image plan-install /path/to/debian.iso \
@@ -77,55 +138,37 @@ npm run sandlabx -- image plan-install /path/to/debian.iso \
   --vnc 5990
 ```
 
-The command prints the exact disk-creation and QEMU launch arguments. An optional `--seed /path/to/seed.iso` can attach unattended-installation metadata.
+Plan generation works. Durable automatic installer execution is still pending
+integration with the Capsule runner.
 
-## 5. Validate a lab definition
+## 7. Validate a lab definition
 
 ```bash
 npm run sandlabx -- lab validate ../examples/labs/basic-routing.json
 ```
 
-Create a deterministic normalized copy for version control:
+## 8. Operate the stack
 
 ```bash
-npm run sandlabx -- lab normalize \
-  ../examples/labs/basic-routing.json \
-  /tmp/basic-routing.normalized.json
+make logs
+make ps
+make restart
+make down
 ```
 
-## 6. Operate the stack
-
-```bash
-make logs       # Follow service logs
-make ps         # Inspect service state
-make restart    # Restart services
-make down       # Stop services
-```
-
-Stopping the stack retains PostgreSQL data, managed images, and VM overlays. Review disk files explicitly before deleting persistent data.
+Stopping the stack retains PostgreSQL data, managed images, checkpoints, and VM
+overlays.
 
 ## Troubleshooting
 
-Run the preflight again:
-
 ```bash
+make network-audit
 make doctor
+make verify
+docker compose ps --all
+docker compose logs --tail=200 migrate backend postgres guacamole-db-init guacamole
 ```
 
-Inspect health and recent logs:
-
-```bash
-docker compose ps
-docker compose logs --tail=200 backend postgres guacamole
-curl -v http://localhost:3001/api/health
-```
-
-For image-specific failures:
-
-```bash
-cd backend
-npm run image:doctor
-npm run sandlabx -- image inspect /path/to/image
-```
-
-See [Managed image pipeline](docs/IMAGE-PIPELINE.md) and [Architecture](docs/ARCHITECTURE.md) for deeper operational details.
+See [Startup and runtime model](docs/STARTUP-RUNTIME.md),
+[Database schema](docs/DATABASE-SCHEMA.md), and
+[Architecture](docs/ARCHITECTURE.md).

@@ -12,7 +12,12 @@
     "image:doctor": "node cli/sandlabx.js image doctor",
     "image:list": "node cli/sandlabx.js image list",
     "lab:validate": "node cli/sandlabx.js lab validate",
-    "check": "npm test && node -c server.js && node -c modules/imagePipeline.js && node -c modules/labSpec.js && node -c cli/sandlabx.js"
+    "db:migrate": "node scripts/migrate.js up",
+    "db:migrate:down": "node scripts/migrate.js down",
+    "db:migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-filename-format index --migration-file-language cjs",
+    "db:check": "node scripts/check-schema.js",
+    "db:test-legacy-upgrade": "node scripts/test-legacy-upgrade.js",
+    "check": "npm test && node -c server.js && node -c middleware/rateLimit.js && node -c modules/migrationRunner.js && node -c modules/imagePipeline.js && node -c modules/labSpec.js && node -c cli/sandlabx.js && node -c scripts/migrate.js && node -c scripts/check-schema.js && node -c scripts/test-legacy-upgrade.js && node -c migrations/0001_core_schema.cjs && node -c migrations/0002_capsule_control_plane.cjs && node -c migrations/0003_retire_legacy_migration_ledger.cjs"
   },
   "keywords": [
     "qemu",
@@ -25,7 +30,7 @@
   "author": "SandLabX",
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.11"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -35,6 +40,7 @@
     "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.0",
+    "node-pg-migrate": "8.0.4",
     "pg": "^8.11.0",
     "pino": "^10.1.0",
     "pino-http": "^11.0.0",

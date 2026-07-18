@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# LEGACY FIXED-TOPOLOGY HELPER
+#
+# This supports the old QemuManager mapping of tap0..tap3 onto two fixed
+# bridges. New Capsule execution must use the compiled per-instance TAP and
+# bridge allocations with script=no/downscript=no and explicit runner actions.
+# Do not extend this case statement for new labs.
+#
+# Remove this file when legacy node/lab start routes use QemuNetworkService.
+
+tap_name="${1:?QEMU did not provide a TAP interface name}"
+
+case "$tap_name" in
+  tap0|tap2)
+    bridge="sandlabx-br0"
+    ;;
+  tap1|tap3)
+    bridge="sandlabx-br1"
+    ;;
+  tap-*)
+    bridge="${SANDLABX_DEFAULT_LEGACY_BRIDGE:-sandlabx-br0}"
+    ;;
+  *)
+    printf 'Refusing to attach unexpected TAP interface: %s\n' "$tap_name" >&2
+    exit 64
+    ;;
+esac
+
+if ! ip link show "$bridge" >/dev/null 2>&1; then
+  printf 'Required SandLabX bridge does not exist: %s\n' "$bridge" >&2
+  exit 1
+fi
+
+ip link set "$tap_name" up
+ip link set "$tap_name" master "$bridge"

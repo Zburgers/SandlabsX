@@ -1,22 +1,38 @@
-const fs = require('node:fs').promises;
-const path = require('node:path');
+'use strict';
 
-async function runMigrations(pool, directory = path.join(__dirname, '..', 'migrations')) {
-  await pool.query('CREATE TABLE IF NOT EXISTS sandlabx_schema_migrations (version VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)');
-  const files = (await fs.readdir(directory)).filter(file => file.endsWith('.sql')).sort();
-  for (const file of files) {
-    const applied = await pool.query('SELECT 1 FROM sandlabx_schema_migrations WHERE version = $1', [file]);
-    if (applied.rows.length) continue;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query(await fs.readFile(path.join(directory, file), 'utf8'));
-      await client.query('INSERT INTO sandlabx_schema_migrations (version) VALUES ($1)', [file]);
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw error;
-    } finally { client.release(); }
+/**
+ * COMPATIBILITY SCHEMA GATE
+ *
+ * The historical implementation scanned arbitrary SQL files and created its own
+ * migration ledger from inside API startup. That behavior has been retired.
+ * Actual migrations are now executed by the dedicated Compose `migrate` service
+ * through node-pg-migrate before the backend container is allowed to start.
+ *
+ * server.js still calls this function while the monolith is being decomposed;
+ * it now performs read-only verification only. Remove this compatibility module
+ * when startup wiring moves into a dedicated application bootstrap module.
+ */
+async function runMigrations(pool) {
+  const result = await pool.query(`
+    SELECT
+      to_regclass('public.sandlabx_migrations') AS migration_ledger,
+      to_regclass('public.sandlabx_nodes') AS nodes_table,
+      to_regclass('public.sandlabx_capsules') AS capsules_table
+  `);
+
+  const schema = result.rows[0];
+  const missing = [];
+
+  if (!schema.migration_ledger) missing.push('sandlabx_migrations');
+  if (!schema.nodes_table) missing.push('sandlabx_nodes');
+  if (!schema.capsules_table) missing.push('sandlabx_capsules');
+
+  if (missing.length > 0) {
+    const error = new Error(
+      `Database migrations have not completed. Missing: ${missing.join(', ')}`,
+    );
+    error.code = 'SANDLABX_SCHEMA_NOT_READY';
+    throw error;
   }
 }
 

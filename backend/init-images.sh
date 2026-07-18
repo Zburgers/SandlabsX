@@ -1,5 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
+
+# LEGACY IMAGE BOOTSTRAP
+#
+# This script predates ImagePipeline and scans a fixed hard-coded image set.
+# It no longer runs during normal backend startup because qemu-img inspection
+# and network downloads can delay or fail the API for images that are not used.
+#
+# Use only through `make image-init` for compatibility with old lab definitions.
+# All new image discovery/import/download/install workflows must use ImagePipeline,
+# manifests, the catalog, and asynchronous operation tracking.
+#
+# Removal condition: legacy node definitions no longer reference these filenames.
 
 IMAGES_DIR="${IMAGES_DIR:-/images}"
 AUTO_DOWNLOAD="${AUTO_DOWNLOAD_IMAGES:-false}"
@@ -11,7 +23,7 @@ IMAGES["debian-13.qcow2"]="https://cloud.debian.org/images/cloud/bookworm/latest
 
 mkdir -p "${IMAGES_DIR}"
 
-echo "Checking VM base images in ${IMAGES_DIR}"
+echo "LEGACY image check in ${IMAGES_DIR}"
 echo "AUTO_DOWNLOAD_IMAGES=${AUTO_DOWNLOAD}"
 
 download_image() {
@@ -50,8 +62,10 @@ for image in "${!IMAGES[@]}"; do
       continue
     fi
 
-    echo "Invalid or corrupted image found: ${image}"
-    rm -f "${filepath}"
+    quarantine_path="${filepath}.invalid.$(date -u +%Y%m%dT%H%M%SZ)"
+    echo "Invalid or unreadable image found: ${image}" >&2
+    echo "Quarantining it at: ${quarantine_path}" >&2
+    mv "${filepath}" "${quarantine_path}"
   fi
 
   echo "Missing image: ${image}"
@@ -61,9 +75,9 @@ for image in "${!IMAGES[@]}"; do
       echo "Warning: failed to download ${image}; VMs using this image will fail to start."
     }
   else
-    echo "Auto-download disabled. To download automatically, set AUTO_DOWNLOAD_IMAGES=true."
+    echo "Auto-download disabled. Set AUTO_DOWNLOAD_IMAGES=true only for an explicit make image-init run."
     echo "Manual URL: ${IMAGES[${image}]}"
   fi
 done
 
-echo "Image initialization complete."
+echo "LEGACY image initialization complete."

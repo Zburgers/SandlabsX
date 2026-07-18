@@ -3,61 +3,135 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, dev/**]
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  backend:
+  quality:
+    name: Code quality
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell and Compose configuration
+        run: |
+          bash -n \
+            backend/docker-entrypoint.sh \
+            backend/init-images.sh \
+            backend/setup-network.sh \
+            backend/qemu-ifup \
+            backend/qemu-ifdown \
+            docker/guacamole-db-init/guacamole-db-init.sh \
+            run-all.sh \
+            setup-all.sh \
+            scripts/stack.sh \
+            scripts/dev-doctor.sh \
+            scripts/init-postgres.sh \
+            scripts/network-audit.sh \
+            scripts/run-local-backend.sh \
+            scripts/stop-all.sh \
+            scripts/status.sh \
+            scripts/verify-setup.sh \
+            scripts/fix-kvm-and-rebuild.sh
+          docker compose config --quiet
+
+      - name: Enforce startup ownership boundaries
+        run: |
+          ! grep -Eq 'sysctl|ip_forward|iptables|192\.168\.[12]\.1/' backend/setup-network.sh
+          grep -q 'SANDLABX_ALLOW_HOST_NETWORK_SETUP' backend/setup-network.sh
+          test ! -e backend/schema/nodes-schema.sql
+          test ! -e backend/migrations/001_lab_capsules.sql
+          test ! -e docs/archive/initdb-schema.sql
+          ! grep -q '/docker-entrypoint-initdb.d' docker-compose.yml
+          grep -q 'service_completed_successfully' docker-compose.yml
+          grep -q 'node-pg-migrate' backend/package.json
+          ! grep -q 'CREATE TABLE IF NOT EXISTS sandlabx_schema_migrations' backend/modules/migrationRunner.js
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Check backend
+        working-directory: backend
+        run: |
+          npm install --no-audit --no-fund
+          npm run check
+          node -e "require('./middleware/rateLimit')"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+  migrations:
+    name: Database migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sandlabx
+          POSTGRES_PASSWORD: sandlabx_test
+          POSTGRES_DB: sandlabx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sandlabx -d sandlabx_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     defaults:
       run:
         working-directory: backend
+    env:
+      DATABASE_URL: postgresql://sandlabx:sandlabx_test@127.0.0.1:5432/sandlabx_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm install --no-audit --no-fund
-      - run: npm test
-      - run: npm run check
+      - name: Apply and verify migrations
+        run: |
+          npm run db:migrate
+          npm run db:check
+      - name: Verify no-op rerun
+        run: npm run db:migrate
+      - name: Upgrade incomplete legacy schema without data loss
+        run: npm run db:test-legacy-upgrade
 
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
-
-  compose-config:
+  compose:
+    name: Compose bootstrap
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose config --quiet
-
-  docker-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
-        with:
-          context: backend
-          push: false
-          tags: sandlabx/backend:ci
-      - uses: docker/build-push-action@v6
-        with:
-          context: frontend
-          push: false
-          tags: sandlabx/frontend:ci
+      - name: Validate configuration
+        run: docker compose config --quiet
+      - name: Start PostgreSQL
+        run: docker compose up -d postgres
+      - name: Initialize vendor schema
+        run: docker compose run --rm --no-deps --build guacamole-db-init
+      - name: Apply application migrations
+        run: docker compose run --rm --no-deps --build migrate
+      - name: Build frontend container
+        run: docker compose build frontend
+      - name: Verify initialized database objects
+        run: |
+          docker compose exec -T postgres psql -U guacamole_user -d guacamole_db -Atqc \
+            "SELECT to_regclass('public.guacamole_connection') IS NOT NULL AND to_regclass('public.sandlabx_nodes') IS NOT NULL AND to_regclass('public.sandlabx_migrations') IS NOT NULL" \
+            | grep -Fxq t
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail=200 postgres guacamole-db-init migrate
+      - name: Clean up
+        if: always()
+        run: docker compose down --volumes --remove-orphans

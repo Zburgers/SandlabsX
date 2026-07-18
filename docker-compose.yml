@@ -17,63 +17,110 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docs/archive/initdb-schema.sql:/docker-entrypoint-initdb.d/10-guacamole.sql:ro
-      - ./backend/schema/nodes-schema.sql:/docker-entrypoint-initdb.d/20-sandlabx.sql:ro
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 5s
+    stop_grace_period: 30s
+    shm_size: 256mb
+    networks: [sandlabx-network]
+    logging: *default-logging
+
+  # Version-matched vendor schema owner. The image copies PostgreSQL schema
+  # files from the pinned Guacamole image at build time into a PostgreSQL client
+  # image, removing runtime volume population and entrypoint assumptions.
+  guacamole-db-init:
+    build:
+      context: ./docker/guacamole-db-init
+      args:
+        GUACAMOLE_VERSION: ${GUACAMOLE_VERSION:-1.5.4}
+    container_name: sandlabx-guacamole-db-init
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+      DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [sandlabx-network]
+    logging: *default-logging
+
+  # Authoritative SandLabX schema owner. node-pg-migrate applies all pending
+  # versions transactionally under an advisory lock, then verifies the result.
+  migrate:
+    build:
+      context: ./backend
+    container_name: sandlabx-migrate
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - "npm run db:migrate && npm run db:check"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
+      SANDLABX_MIGRATION_VERBOSE: ${SANDLABX_MIGRATION_VERBOSE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks: [sandlabx-network]
     logging: *default-logging
 
   guacd:
-    image: guacamole/guacd:1.5.4
+    image: guacamole/guacd:${GUACAMOLE_VERSION:-1.5.4}
     container_name: sandlabx-guacd
     restart: unless-stopped
     networks: [sandlabx-network]
     logging: *default-logging
 
   guacamole:
-    image: guacamole/guacamole:1.5.4
+    image: guacamole/guacamole:${GUACAMOLE_VERSION:-1.5.4}
     container_name: sandlabx-guacamole
     restart: unless-stopped
     environment:
       GUACD_HOSTNAME: guacd
-      POSTGRES_HOSTNAME: postgres
-      POSTGRES_DATABASE: ${POSTGRES_DB:-guacamole_db}
-      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-guacamole_db}
+      POSTGRESQL_USER: ${POSTGRES_USER:-guacamole_user}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
     ports:
-      - "${GUACAMOLE_PORT:-8081}:8080"
+      - "${BIND_ADDRESS:-127.0.0.1}:${GUACAMOLE_PORT:-8081}:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      guacamole-db-init:
+        condition: service_completed_successfully
       guacd:
         condition: service_started
     networks: [sandlabx-network]
     logging: *default-logging
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
     container_name: sandlabx-backend
     restart: unless-stopped
     init: true
-    privileged: ${SANDLABX_PRIVILEGED:-false}
+
+    # LEGACY RUNTIME BOUNDARY
+    # NET_ADMIN plus KVM/TUN are needed only by the pre-Capsule QemuManager that
+    # runs QEMU in the API container. Remove these grants when execution moves
+    # to the dedicated Capsule runner.
     cap_add:
       - NET_ADMIN
-      - NET_RAW
-      - SYS_ADMIN
+    security_opt:
+      - no-new-privileges:true
     devices:
       - /dev/kvm:/dev/kvm
       - /dev/net/tun:/dev/net/tun
     environment:
       PORT: 3001
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
       GUAC_BASE_URL: http://guacamole:8080/guacamole
+      VNC_HOST: backend
       STATE_FILE: /app/data/nodes-state.json
       DB_HOST: postgres
       DB_PORT: 5432
@@ -81,19 +128,24 @@ services:
       DB_USER: ${POSTGRES_USER:-guacamole_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-secret}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:2000}
       CUSTOM_IMAGES_PATH: /images/custom
       IMAGE_CATALOG_PATH: /images/catalog.json
       OVERLAYS_PATH: /overlays
       VMS_PATH: /vms
+      CHECKPOINTS_PATH: /checkpoints
+      SANDLABX_NETWORK_MODE: ${SANDLABX_NETWORK_MODE:-legacy-l2}
+      SANDLABX_VALIDATE_IMAGES_ON_STARTUP: ${SANDLABX_VALIDATE_IMAGES_ON_STARTUP:-false}
+      QEMU_IFUP: /usr/local/libexec/sandlabx/qemu-ifup
+      QEMU_IFDOWN: /usr/local/libexec/sandlabx/qemu-ifdown
     ports:
-      - "${BACKEND_PORT:-3001}:3001"
+      - "${BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-3001}:3001"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3001/api/health"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 12
+      start_period: 20s
     stop_grace_period: 30s
     volumes:
       - backend-data:/app/data
@@ -101,21 +153,21 @@ services:
       - ./overlays:/overlays
       - ./vms:/vms
       - ./pids:/pids
-      - ./backend/modules:/app/modules
-      - ./backend/middleware:/app/middleware
-      - ./backend/controllers:/app/controllers
-      - ./backend/cli:/app/cli
-      - ./backend/server.js:/app/server.js
+      - ./checkpoints:/checkpoints
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       guacamole:
         condition: service_started
     networks: [sandlabx-network]
     logging: *default-logging
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_GUAC_URL: ${NEXT_PUBLIC_GUAC_URL:-http://localhost:8081/guacamole}
     container_name: sandlabx-frontend
     restart: unless-stopped
     init: true
@@ -123,12 +175,7 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
       NEXT_PUBLIC_GUAC_URL: ${NEXT_PUBLIC_GUAC_URL:-http://localhost:8081/guacamole}
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    volumes:
-      - ./frontend/app:/app/app
-      - ./frontend/components:/app/components
-      - ./frontend/lib:/app/lib
-      - ./frontend/hooks:/app/hooks
+      - "${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-2000}:3000"
     depends_on:
       backend:
         condition: service_healthy
