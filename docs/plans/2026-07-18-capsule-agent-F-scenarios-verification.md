@@ -84,3 +84,10 @@ Provide Agents G and H final SHA, check schemas, event/evidence shapes, transpor
 - Known limitations: guest transports remain dependency-injected and mocked in tests; scenario documents do not execute host code; real transport qualification awaits repaired `vms/` ownership and Agent E's published transport.
 - Requested changes for Agent H-owned files: delete the compatibility `VerificationRunner` facade only after all legacy callers use `ScenarioRunService`/`TypedCheckRunner`; compose `createScenarioRunService` with Agent E's qualified transport and a persistent attempt repository.
 - Downstream agents unblocked: Agent G can consume the result/evidence/stage shapes and the OSPF example; Agent H can qualify the injected transport after host preflight is repaired.
+
+## Coordinator acceptance
+
+- Status override: `COMPLETE` for Agent F's owned typed-check, bounded guest-command, Scenario-run, evidence, scoring, and example contracts.
+- Acceptance evidence: focused F suite passes 9/9; full backend passes 76/76; Compose configuration and diff checks pass. The implementation correctly refuses an unqualified transport, so unavailable host bind roots do not invalidate this dependency-injected slice.
+- Deferred integration: Agent E supplies and qualifies the real guest transport; Agent H composes persistent attempt/result repositories, mounts the API, and performs real-KVM Scenario qualification after the shared host preflight passes.
+- Agent G may consume the accepted result, stage, score, and evidence shapes now.

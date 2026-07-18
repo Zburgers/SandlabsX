@@ -42,7 +42,7 @@ Source-of-truth documents remain authoritative. If evidence requires a correctio
 - `backend/scripts/check-schema.js`
 - `backend/scripts/test-legacy-upgrade.js`
 - `backend/migrations/0006_image_profile_versions.cjs`
-- `backend/migrations/0008_drop_empty_legacy_lab_runtime.cjs`
+- `backend/migrations/0009_drop_empty_legacy_lab_runtime.cjs`
 - `backend/test/legacy-cutover.test.js`
 - `backend/test/integration/**`
 - `frontend/app/lab/page.tsx` deletion

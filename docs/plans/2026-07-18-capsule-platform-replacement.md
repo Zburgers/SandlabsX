@@ -896,7 +896,7 @@ git commit -m "feat: add capsule operational readiness"
 - Delete: `backend/modules/networkAllocator.js`
 - Delete: `backend/modules/localRunner.js`
 - Delete: `frontend/app/lab/page.tsx`
-- Create: `backend/migrations/0008_drop_empty_legacy_lab_runtime.cjs`
+- Create: `backend/migrations/0009_drop_empty_legacy_lab_runtime.cjs`
 - Create: `backend/test/legacy-cutover.test.js`
 - Modify: `backend/server.js`
 - Modify: `backend/app.js`
@@ -1044,8 +1044,8 @@ This is the coordinator-owned status ledger. Agent packets contain detailed evid
 | A | Foundation, contracts, additive schema | COMPLETE | Agent commits through `1804f8b`; shared gates `5b8d706`; security review fix `6fd3c8d`; 42 tests, disposable migration/adoption, and legacy-upgrade gates pass. Live Compose DB has not yet applied `0004`/`0005`. |
 | B | Control plane and API | COMPLETE | Remediation `62e1154`/`37fd315`; PostgreSQL 1/1, services 8/8, API 5/5, backend 67/67, and legacy upgrade through `0007` pass. H must compose owner-scoped events. |
 | C | Images and workload profiles | COMPLETE | Agent work plus persistence remediation `05a65c4`/`20c6967`/`063e847`; focused 6/6, backend 62/62, concurrent publication, disposable migration, and legacy-upgrade gates pass. |
-| D | Planning and admission | REMEDIATION REQUIRED | Compiler tests pass, but PostgreSQL reservation rows are not mapped, released keys cannot be reused, and the fixture is incomplete. See D coordinator review. |
-| E | Runtime and runner | BLOCKED | Wait for Agent D's accepted plan/admission contract; then follow the shared virtualization preflight. |
-| F | Scenarios and verification | READY | Agent A and accepted Agent B contracts are available. |
-| G | Frontend | PARTIAL / BLOCKED | Canonical and landed-v2 remediation `58db5b7`/`0ea29dd` accepted; 8 tests/build pass. Final runtime/capacity/console/destructive/checkpoint/verification/list integrations wait for E/F/H. |
+| D | Planning and admission | COMPLETE | Remediation `23762be`; full schema-v2 fixture comparison, PostgreSQL capacity/release/reuse coverage, backend 76/76, migration/adoption, and legacy upgrade through `0008` pass after shared ledger registration. |
+| E | Runtime and runner | READY | Agent D plan/admission contract is accepted. Use temporary roots for tests and follow the shared virtualization preflight for live gates. |
+| F | Scenarios and verification | COMPLETE | Commits `cfb6800`/`7805454`/`a10fcfe`/`bb2a4c0`; focused 9/9 and backend 76/76 pass. Qualified real guest transport and persistent attempt composition belong to E/H integration. |
+| G | Frontend | PARTIAL / READY | Canonical and landed-v2 remediation accepted; may now integrate F result/evidence shapes. Runtime/capacity/console/destructive/checkpoint/list integrations still wait for E/H. |
 | H | Integration and cutover | PARTIAL / BLOCKED | Foundation and C persistence integration are complete; mount C provisionally, but final composition/cutover waits for accepted B, D, E, F, and G handoffs. |

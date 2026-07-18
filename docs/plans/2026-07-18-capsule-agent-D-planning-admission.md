@@ -102,3 +102,9 @@ Provide Agent E and H final SHA, plan schema/fixture, error codes, reservation l
 - Status: COMPLETE
 - Fixes: active-only PostgreSQL reservation uniqueness, database-row mapping coverage, persisted-instance admission/release/reuse coverage, and a complete schema-v2 serialized fixture with deep comparison.
 - Validation: focused compiler, admission PostgreSQL, and migration tests passed; `npm run check` passed with 70 tests.
+
+## Coordinator acceptance
+
+- Status override: `COMPLETE` for Agent D after remediation `23762be` and coordinator registration of migration `0008` in the legacy-upgrade gate.
+- Acceptance evidence: focused D/PostgreSQL/migration suites pass; full backend passes 76/76; the disposable migration/adoption test passes; legacy upgrade applies and verifies migrations `0001` through `0008`; complete schema-v2 fixture deep comparison passes.
+- Agent E is unblocked against the accepted plan and admission contracts. Real host execution remains an Agent E/H qualification responsibility.
