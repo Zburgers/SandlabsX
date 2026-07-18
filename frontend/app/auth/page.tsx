@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
-import { isAuthenticated, fetchUserProfile } from '../../lib/auth';
+import { isAuthenticated, fetchUserProfile, readApiJson } from '../../lib/auth';
 
 export default function AuthPage() {
     const router = useRouter();
@@ -54,7 +54,7 @@ export default function AuthPage() {
                 body: JSON.stringify({ email, password }),
             });
 
-            const data = await res.json();
+            const data = await readApiJson(res);
 
             if (!res.ok) {
                 throw new Error(data.error || 'Authentication failed');

@@ -3,6 +3,14 @@ const pino = require('pino');
 // Create logger with JSON output (pretty print in development)
 const logger = pino({
     level: process.env.LOG_LEVEL || 'info',
+    redact: {
+        paths: [
+            'req.headers.authorization', 'req.headers.cookie', 'headers.authorization', 'headers.cookie',
+            'password', '*.password', 'currentPassword', '*.currentPassword', 'newPassword', '*.newPassword',
+            'token', '*.token', 'jwt', '*.jwt'
+        ],
+        censor: '[REDACTED]'
+    },
     transport: process.env.NODE_ENV === 'development'
         ? { target: 'pino-pretty', options: { colorize: true } }
         : undefined,

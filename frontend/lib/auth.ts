@@ -13,6 +13,14 @@ export interface AuthResponse {
   error?: string;
 }
 
+export async function readApiJson(response: Response): Promise<any> {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Authentication service returned an invalid response. Check that the API is running.');
+  }
+  return response.json();
+}
+
 // Check if user is authenticated by checking for token
 export function isAuthenticated(): boolean {
   if (typeof window === 'undefined') {
@@ -88,7 +96,7 @@ export async function fetchUserProfile(): Promise<AuthResponse> {
       },
     });
 
-    const data = await response.json();
+    const data = await readApiJson(response);
 
     if (!response.ok) {
       clearAuthData();
