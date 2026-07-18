@@ -46,6 +46,11 @@ async function main() {
       throw new Error(`Required migrated tables are missing: ${missing.join(', ')}`);
     }
 
+    const columns = await client.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='sandlabx_users' AND column_name = ANY($1::text[])`, [['is_active', 'must_change_password', 'auth_version', 'updated_at']]);
+    const presentColumns = new Set(columns.rows.map((row) => row.column_name));
+    const missingColumns = ['is_active', 'must_change_password', 'auth_version', 'updated_at'].filter((column) => !presentColumns.has(column));
+    if (missingColumns.length) throw new Error(`Required user security columns are missing: ${missingColumns.join(', ')}`);
+
     const legacyLedger = await client.query(
       "SELECT to_regclass('public.sandlabx_schema_migrations') AS legacy_table",
     );

@@ -75,6 +75,10 @@ export function AccountDropdown({ user }: AccountDropdownProps) {
           </div>
           
           <div className="py-1">
+            {user.role === 'admin' && <button
+              onClick={() => { router.push('/admin/users'); setIsOpen(false); }}
+              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-lab-gray-light hover:text-white transition-colors"
+            >User administration</button>}
             <button
               onClick={() => {
                 router.push('/account/settings');

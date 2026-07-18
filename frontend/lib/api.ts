@@ -16,6 +16,11 @@ import type {
   LabOperation,
 } from './types';
 
+export interface AdminUser {
+  id: string; email: string; role: 'admin' | 'instructor' | 'student';
+  isActive: boolean; mustChangePassword: boolean; createdAt: string; updatedAt?: string;
+}
+
 // Normalize base URL: strip trailing /api if present, then add /api
 // This ensures consistent behavior whether NEXT_PUBLIC_API_URL includes /api or not
 const API_BASE_URL = ((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '')) + '/api';
@@ -192,6 +197,27 @@ class ApiClient {
 
   async instanceAction(instanceId: string, action: 'start' | 'stop' | 'reset'): Promise<ApiResponse<{ operation: LabOperation }>> {
     return this.request<{ operation: LabOperation }>(`/instances/${instanceId}/actions/${action}`, { method: 'POST', headers: { 'Idempotency-Key': `${instanceId}-${action}-${Date.now()}` } });
+  }
+
+  async listUsers(params: { page?: number; limit?: number; search?: string; role?: string; status?: string } = {}): Promise<ApiResponse<{ users: AdminUser[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>> {
+    const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)]));
+    return this.request(`/users${query.toString() ? `?${query}` : ''}`);
+  }
+
+  async createUser(data: { email: string; password: string; role: string }): Promise<ApiResponse<{ user: AdminUser }>> {
+    return this.request('/users', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateUserRole(id: string, role: string): Promise<ApiResponse<{ user: AdminUser }>> {
+    return this.request(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+  }
+
+  async updateUserStatus(id: string, isActive: boolean): Promise<ApiResponse<{ user: AdminUser }>> {
+    return this.request(`/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) });
+  }
+
+  async resetUserPassword(id: string): Promise<ApiResponse<{ user: AdminUser; temporaryPassword: string }>> {
+    return this.request(`/users/${id}/reset-password`, { method: 'POST' });
   }
 }
 

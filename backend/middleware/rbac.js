@@ -10,6 +10,8 @@
 
 const { Pool } = require('pg');
 const logger = require('../logger');
+const { shouldRequirePasswordChange } = require('../modules/userSecurity');
+const { auditLogger } = require('../modules/auditLogger');
 
 // Database pool for ownership checks
 const pool = new Pool({
@@ -30,11 +32,12 @@ const VALID_ROLES = ['admin', 'instructor', 'student'];
  * @param {string[]} allowedRoles - Array of roles that can access this route
  */
 const requireRole = (allowedRoles) => {
-    return (req, res, next) => {
+    return async (req, res, next) => {
         const userRole = req.user?.role;
 
         if (!userRole) {
             logger.warn({ userId: req.user?.id }, 'RBAC: No role found for user');
+            await auditLogger.log(req.user?.id, 'PROTECTED_ACTION_FAILED', 'route', null, { required: allowedRoles, reason: 'no-role' }, false);
             return res.status(403).json({
                 success: false,
                 error: 'User role not found',
@@ -53,6 +56,7 @@ const requireRole = (allowedRoles) => {
                 role: userRole,
                 required: allowedRoles
             }, 'RBAC: Insufficient permissions');
+            await auditLogger.log(req.user?.id, 'PROTECTED_ACTION_FAILED', 'route', null, { required: allowedRoles, role: userRole }, false);
 
             return res.status(403).json({
                 success: false,
@@ -285,36 +289,41 @@ const enrichUserRole = async (req, res, next) => {
 
     try {
         const result = await pool.query(
-            'SELECT id, email, role FROM sandlabx_users WHERE id = $1',
+            'SELECT id, email, role, is_active, must_change_password, auth_version FROM sandlabx_users WHERE id = $1',
             [req.auth.sub]
         );
 
-        if (result.rows.length > 0) {
-            req.user = {
-                id: result.rows[0].id,
-                email: result.rows[0].email,
-                role: result.rows[0].role
-            };
-        } else {
-            // User not found in DB - use default student role
-            req.user = {
-                id: req.auth.sub,
-                email: req.auth.email,
-                role: 'student'
-            };
+        if (result.rows.length === 0 || result.rows[0].is_active === false) {
+            await requireAuditFailure(req, 'AUTH_ACCOUNT_INVALID');
+            return res.status(401).json({ success: false, error: 'Account is not available', code: 'UNAUTHORIZED' });
+        }
+
+        const row = result.rows[0];
+        if (Number(req.auth.authVersion ?? -1) !== Number(row.auth_version)) {
+            await requireAuditFailure(req, 'AUTH_TOKEN_REVOKED');
+            return res.status(401).json({ success: false, error: 'Authentication token is no longer valid', code: 'UNAUTHORIZED' });
+        }
+        req.user = { id: row.id, email: row.email, role: row.role, isActive: row.is_active, mustChangePassword: row.must_change_password, authVersion: row.auth_version };
+        if (shouldRequirePasswordChange(row, req.originalUrl.split('?')[0])) {
+            await requireAuditFailure(req, 'PASSWORD_CHANGE_REQUIRED');
+            return res.status(403).json({ success: false, error: 'Change your password before continuing', code: 'PASSWORD_CHANGE_REQUIRED' });
         }
 
         next();
     } catch (error) {
         logger.error({ err: error, userId: req.auth.sub }, 'Failed to enrich user role');
-        // Continue with basic user info
-        req.user = {
-            id: req.auth.sub,
-            role: 'student'
-        };
-        next();
+        return res.status(503).json({ success: false, error: 'Authentication service unavailable', code: 'SERVICE_UNAVAILABLE' });
     }
 };
+
+async function requireAuditFailure(req, action) {
+    try {
+        const { auditLogger } = require('../modules/auditLogger');
+        await auditLogger.log(req.auth?.sub || null, action, 'user', req.auth?.sub || null, {}, false);
+    } catch (error) {
+        logger.warn({ err: error, action }, 'Failed to write authentication audit event');
+    }
+}
 
 module.exports = {
     requireRole,

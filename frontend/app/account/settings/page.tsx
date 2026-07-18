@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { apiClient } from '../../../lib/api';
+import { clearAuthData } from '../../../lib/auth';
 
 export default function AccountSettingsPage() {
   const { user, logout } = useAuth();
@@ -11,6 +12,7 @@ export default function AccountSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const passwordSetupRequired = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('required') === '1';
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +44,14 @@ export default function AccountSettingsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('Password changed successfully');
-        setError('');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
+        clearAuthData();
+        window.location.href = '/auth?passwordChanged=1';
       } else {
+        if (response.status === 401) {
+          clearAuthData();
+          window.location.href = '/auth';
+          return;
+        }
         setError(data.error || 'Failed to change password');
         setMessage('');
       }
@@ -81,6 +85,7 @@ export default function AccountSettingsPage() {
     <div className="min-h-screen bg-lab-darker grid-pattern">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
+          {passwordSetupRequired && <div role="alert" className="mb-5 rounded-xl border border-amber-300/30 bg-amber-300/[0.08] p-4 text-amber-100"><p className="font-medium">Finish securing your account</p><p className="mt-1 text-sm text-amber-100/70">Your bootstrap password must be changed before you can use SandLabX.</p></div>}
           <h1 className="text-3xl font-bold text-white">Account Settings</h1>
           <p className="text-gray-400">Manage your account information and security settings</p>
         </div>

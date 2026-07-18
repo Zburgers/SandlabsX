@@ -5,6 +5,12 @@ const { Client } = require('pg');
 
 const TEST_DATABASE = 'sandlabx_legacy_upgrade_test';
 const LEGACY_USER_ID = '11111111-1111-4111-8111-111111111111';
+const REQUIRED_UPGRADE_MIGRATIONS = [
+  '0001_core_schema',
+  '0002_capsule_control_plane',
+  '0003_retire_legacy_migration_ledger',
+  '0004_user_account_security',
+];
 
 function databaseUrlFor(database) {
   const url = new URL(process.env.DATABASE_URL);
@@ -119,10 +125,19 @@ async function verifyUpgrade(databaseUrl) {
   await client.connect();
   try {
     const user = await client.query(
-      'SELECT email, password_hash, role FROM sandlabx_users WHERE id = $1',
+      `SELECT email, password_hash, role, is_active, must_change_password, auth_version
+         FROM sandlabx_users
+        WHERE id = $1`,
       [LEGACY_USER_ID],
     );
-    if (user.rowCount !== 1 || user.rows[0].password_hash !== 'preserve-me') {
+    if (
+      user.rowCount !== 1
+      || user.rows[0].password_hash !== 'preserve-me'
+      || user.rows[0].role !== 'admin'
+      || user.rows[0].is_active !== true
+      || user.rows[0].must_change_password !== false
+      || user.rows[0].auth_version !== 0
+    ) {
       throw new Error('Legacy user data was not preserved');
     }
 
@@ -143,8 +158,10 @@ async function verifyUpgrade(databaseUrl) {
     const migrations = await client.query(
       'SELECT name FROM sandlabx_migrations ORDER BY id',
     );
-    if (migrations.rowCount !== 3) {
-      throw new Error(`Expected 3 migrations, found ${migrations.rowCount}`);
+    const appliedMigrations = new Set(migrations.rows.map((row) => row.name));
+    const missingMigrations = REQUIRED_UPGRADE_MIGRATIONS.filter((name) => !appliedMigrations.has(name));
+    if (missingMigrations.length > 0) {
+      throw new Error(`Required migrations are missing: ${missingMigrations.join(', ')}`);
     }
 
     console.log('[legacy-upgrade] partial legacy database upgraded without data loss');

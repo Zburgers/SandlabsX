@@ -37,6 +37,8 @@ const { runMigrations } = require('./modules/migrationRunner');
 const { ImagePipeline } = require('./modules/imagePipeline');
 const { VerificationRunner } = require('./modules/verificationRunner');
 const { CheckpointService } = require('./modules/checkpointService');
+const { bootstrapAdmin } = require('./modules/adminBootstrap');
+const { requestSerializer, responseSerializer, requestLogObject, requestLogLevel } = require('./modules/httpLogging');
 
 // Initialize Express app
 const app = express();
@@ -46,7 +48,7 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
   exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Total-Count']
 }));
@@ -54,7 +56,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware (Pino HTTP)
-app.use(pinoHttp({ logger }));
+app.use(pinoHttp({
+  logger,
+  quietReqLogger: true,
+  quietResLogger: true,
+  serializers: { req: requestSerializer, res: responseSerializer },
+  customLogLevel: requestLogLevel,
+  customSuccessObject: requestLogObject,
+  customErrorObject: requestLogObject,
+  customSuccessMessage: (req, res) => `${req.method} ${req.originalUrl} ${res.statusCode}`,
+  customErrorMessage: (req, res) => `${req.method} ${req.originalUrl} ${res.statusCode}`,
+}));
 
 // Initialize managers
 const nodeManager = new NodeManager();
@@ -1118,6 +1130,12 @@ app.post('/api/users', requireRole(['admin']), userController.createUser);
  */
 app.patch('/api/users/:id/role', requireRole(['admin']), userController.updateUserRole);
 
+/** PATCH /api/users/:id/status - enable or disable an account */
+app.patch('/api/users/:id/status', requireRole(['admin']), userController.updateUserStatus);
+
+/** POST /api/users/:id/reset-password - issue a one-time temporary password */
+app.post('/api/users/:id/reset-password', requireRole(['admin']), userController.resetPassword);
+
 /**
  * DELETE /api/users/:id
  * Delete a user (admin only)
@@ -1142,16 +1160,18 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
 
-  // Log full error details server-side
-  logger.error({
-    err,
-    requestId,
-    userId: req.user?.id,
-    endpoint: req.originalUrl,
-    method: req.method
-  }, 'Unhandled error');
-
   // Determine error type and sanitize response
+  const isUnauthorized = err.name === 'UnauthorizedError';
+  if (!isUnauthorized) {
+    logger.error({
+      err: { name: err.name, code: err.code, message: err.message },
+      requestId,
+      userId: req.user?.id,
+      endpoint: req.originalUrl,
+      method: req.method
+    }, 'Unhandled error');
+  }
+
   let statusCode = 500;
   let errorCode = 'INTERNAL_ERROR';
   let clientMessage = 'Internal server error';
@@ -1199,6 +1219,7 @@ app.use((err, req, res, next) => {
 async function initializeServer() {
   try {
     await runMigrations(capsulePool);
+    await bootstrapAdmin(capsulePool);
     // Initialize managers
     await nodeManager.initialize();
     await guacamoleClient.initialize();

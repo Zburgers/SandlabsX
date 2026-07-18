@@ -1,428 +1,155 @@
-/**
- * User Controller - Admin user management
- * Feature Module 6.2 (PRD)
- * 
- * Admin-only endpoints for managing users and roles
- */
+'use strict';
 
 const { Pool } = require('pg');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../logger');
+const { auditLogger } = require('../modules/auditLogger');
+const { hashPassword } = require('../modules/adminBootstrap');
+const { canChangeOwnRole } = require('../modules/userSecurity');
 
-// Database pool
 const pool = new Pool({
-    host: process.env.DB_HOST || 'postgres',
-    port: parseInt(process.env.DB_PORT) || 5432,
-    database: process.env.DB_NAME || 'guacamole_db',
-    user: process.env.DB_USER || 'guacamole_user',
-    password: process.env.DB_PASSWORD || 'guacamole_pass',
-    max: 5,
-    idleTimeoutMillis: 30000,
+  host: process.env.DB_HOST || 'postgres', port: parseInt(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME || 'guacamole_db', user: process.env.DB_USER || 'guacamole_user',
+  password: process.env.DB_PASSWORD || 'guacamole_pass', max: 5, idleTimeoutMillis: 30000,
 });
-
 const VALID_ROLES = ['admin', 'instructor', 'student'];
-const SALT_LENGTH = 16;
-const ITERATIONS = 100000;
-const KEY_LENGTH = 64;
-const DIGEST = 'sha512';
 
-/**
- * Hash a password using PBKDF2
- * @param {string} password - Plain text password
- * @returns {string} Hash in format salt:hash
- */
-const hashPassword = (password) => {
-    const salt = crypto.randomBytes(SALT_LENGTH).toString('hex');
-    const hash = crypto.pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, DIGEST).toString('hex');
-    return `${salt}:${hash}`;
-};
+function publicUser(row) {
+  return {
+    id: row.id, email: row.email, role: row.role, isActive: row.is_active,
+    mustChangePassword: row.must_change_password, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
 
-/**
- * List all users (admin only)
- * GET /api/users
- */
-const listUsers = async (req, res) => {
-    try {
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-        const offset = (page - 1) * limit;
-        const roleFilter = req.query.role;
+function parseFilters(query) {
+  const page = Math.max(1, parseInt(query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(query.limit) || 20));
+  const role = query.role || null;
+  const status = query.status || null;
+  if (role && !VALID_ROLES.includes(role)) throw Object.assign(new Error('Invalid role filter'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  if (status && !['active', 'disabled'].includes(status)) throw Object.assign(new Error('Invalid status filter'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+  return { page, limit, role, status, search: typeof query.search === 'string' ? query.search.trim() : '' };
+}
 
-        let whereClause = '';
-        const values = [];
-        let paramIndex = 1;
+async function listUsers(req, res) {
+  try {
+    const { page, limit, role, status, search } = parseFilters(req.query);
+    const clauses = [];
+    const values = [];
+    const add = value => { values.push(value); return `$${values.length}`; };
+    if (role) clauses.push(`role = ${add(role)}`);
+    if (status) clauses.push(`is_active = ${add(status === 'active')}`);
+    if (search) clauses.push(`email ILIKE ${add(`%${search}%`)}`);
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const count = await pool.query(`SELECT COUNT(*)::int AS count FROM sandlabx_users ${where}`, values);
+    const offset = (page - 1) * limit;
+    const rows = await pool.query(`SELECT id,email,role,is_active,must_change_password,created_at,updated_at FROM sandlabx_users ${where} ORDER BY created_at DESC LIMIT ${add(limit)} OFFSET ${add(offset)}`, values);
+    const total = count.rows[0].count;
+    return res.json({ success: true, users: rows.rows.map(publicUser), pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  } catch (error) {
+    logger.error({ err: error, action: 'listUsers' }, 'Failed to list users');
+    return res.status(error.statusCode || 500).json({ success: false, error: error.statusCode ? error.message : 'Failed to list users', code: error.code || 'INTERNAL_ERROR' });
+  }
+}
 
-        if (roleFilter && VALID_ROLES.includes(roleFilter)) {
-            whereClause = `WHERE role = $${paramIndex++}`;
-            values.push(roleFilter);
-        }
+async function getUser(req, res) {
+  try {
+    const result = await pool.query('SELECT id,email,role,is_active,must_change_password,created_at,updated_at FROM sandlabx_users WHERE id=$1', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ success: false, error: 'User not found', code: 'NOT_FOUND' });
+    return res.json({ success: true, user: publicUser(result.rows[0]) });
+  } catch (error) { logger.error({ err: error, action: 'getUser' }, 'Failed to get user'); return res.status(500).json({ success: false, error: 'Failed to get user', code: 'INTERNAL_ERROR' }); }
+}
 
-        // Get total count
-        const countResult = await pool.query(
-            `SELECT COUNT(*) FROM sandlabx_users ${whereClause}`,
-            values
-        );
-        const total = parseInt(countResult.rows[0].count);
+async function createUser(req, res) {
+  const { email, password, role = 'student' } = req.body || {};
+  if (typeof email !== 'string' || !email.includes('@') || typeof password !== 'string' || password.length < 8 || !VALID_ROLES.includes(role)) {
+    return res.status(400).json({ success: false, error: 'Valid email, password of at least 8 characters, and role are required', code: 'VALIDATION_ERROR' });
+  }
+  try {
+    const result = await pool.query(`INSERT INTO sandlabx_users (id,email,password_hash,role) VALUES ($1,$2,$3,$4) RETURNING id,email,role,is_active,must_change_password,created_at,updated_at`, [uuidv4(), email.trim().toLowerCase(), hashPassword(password), role]);
+    const user = result.rows[0];
+    await auditLogger.log(req.user.id, 'USER_CREATED', 'user', user.id, { email: user.email, role: user.role }, true);
+    return res.status(201).json({ success: true, user: publicUser(user) });
+  } catch (error) {
+    if (error.code === '23505') return res.status(409).json({ success: false, error: 'A user with this email already exists', code: 'DUPLICATE_EMAIL' });
+    logger.error({ err: error, action: 'createUser' }, 'Failed to create user'); return res.status(500).json({ success: false, error: 'Failed to create user', code: 'INTERNAL_ERROR' });
+  }
+}
 
-        // Get users
-        const result = await pool.query(`
-            SELECT id, email, role, created_at
-            FROM sandlabx_users
-            ${whereClause}
-            ORDER BY created_at DESC
-            LIMIT $${paramIndex++} OFFSET $${paramIndex}
-        `, [...values, limit, offset]);
+async function withLockedUser(id, operation) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('sandlabx:user-admin-mutation', 0))");
+    const found = await client.query('SELECT id,email,role,is_active,must_change_password,created_at,updated_at FROM sandlabx_users WHERE id=$1 FOR UPDATE', [id]);
+    if (!found.rows.length) { await client.query('ROLLBACK'); return { notFound: true }; }
+    const result = await operation(client, found.rows[0]);
+    await client.query('COMMIT');
+    return { result };
+  } catch (error) { await client.query('ROLLBACK').catch(() => {}); throw error; } finally { client.release(); }
+}
 
-        const users = result.rows.map(row => ({
-            id: row.id,
-            email: row.email,
-            role: row.role,
-            createdAt: row.created_at
-        }));
+async function ensureActiveAdminRemains(client, target, nextRole, nextActive) {
+  const losesAdmin = target.role === 'admin' && (nextRole !== 'admin' || nextActive === false);
+  if (!losesAdmin) return;
+  const admins = await client.query("SELECT COUNT(*)::int AS count FROM sandlabx_users WHERE role='admin' AND is_active=TRUE AND id <> $1", [target.id]);
+  if (admins.rows[0].count < 1) throw Object.assign(new Error('The last active admin cannot be removed'), { statusCode: 409, code: 'LAST_ADMIN' });
+}
 
-        logger.info({ action: 'listUsers', userId: req.user?.id, count: users.length }, 'Listed users');
+async function updateUserRole(req, res) {
+  const { role } = req.body || {}; const { id } = req.params;
+  if (!VALID_ROLES.includes(role)) return res.status(400).json({ success: false, error: 'Invalid role', code: 'VALIDATION_ERROR' });
+  if (!canChangeOwnRole(req.user.id, id)) { await auditLogger.log(req.user.id, 'USER_ROLE_CHANGE', 'user', id, { role, reason: 'self-change' }, false); return res.status(403).json({ success: false, error: 'Cannot change your own role', code: 'FORBIDDEN' }); }
+  try {
+    const outcome = await withLockedUser(id, async (client, target) => {
+      await ensureActiveAdminRemains(client, target, role, target.is_active);
+      const result = await client.query('UPDATE sandlabx_users SET role=$1, auth_version=auth_version+1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING id,email,role,is_active,must_change_password,created_at,updated_at', [role, id]);
+      return result.rows[0];
+    });
+    if (outcome.notFound) return res.status(404).json({ success: false, error: 'User not found', code: 'NOT_FOUND' });
+    await auditLogger.log(req.user.id, 'USER_ROLE_CHANGED', 'user', id, { role }, true);
+    return res.json({ success: true, user: publicUser(outcome.result) });
+  } catch (error) { if (error.statusCode) return res.status(error.statusCode).json({ success: false, error: error.message, code: error.code }); logger.error({ err: error, action: 'updateUserRole' }, 'Failed to update user role'); return res.status(500).json({ success: false, error: 'Failed to update user role', code: 'INTERNAL_ERROR' }); }
+}
 
-        res.json({
-            success: true,
-            users,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit)
-            }
-        });
-    } catch (error) {
-        logger.error({ err: error, action: 'listUsers' }, 'Failed to list users');
-        res.status(500).json({
-            success: false,
-            error: 'Failed to list users',
-            code: 'INTERNAL_ERROR'
-        });
-    }
-};
+async function updateUserStatus(req, res) {
+  const { id } = req.params; const active = req.body?.isActive;
+  if (typeof active !== 'boolean') return res.status(400).json({ success: false, error: 'isActive must be boolean', code: 'VALIDATION_ERROR' });
+  if (id === req.user.id && !active) { await auditLogger.log(req.user.id, 'USER_STATUS_CHANGE', 'user', id, { isActive: active, reason: 'self-change' }, false); return res.status(403).json({ success: false, error: 'Cannot disable yourself', code: 'FORBIDDEN' }); }
+  try {
+    const outcome = await withLockedUser(id, async (client, target) => {
+      await ensureActiveAdminRemains(client, target, target.role, active);
+      const result = await client.query('UPDATE sandlabx_users SET is_active=$1, auth_version=auth_version+1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING id,email,role,is_active,must_change_password,created_at,updated_at', [active, id]);
+      return result.rows[0];
+    });
+    if (outcome.notFound) return res.status(404).json({ success: false, error: 'User not found', code: 'NOT_FOUND' });
+    await auditLogger.log(req.user.id, active ? 'USER_ENABLED' : 'USER_DISABLED', 'user', id, {}, true);
+    return res.json({ success: true, user: publicUser(outcome.result) });
+  } catch (error) { if (error.statusCode) return res.status(error.statusCode).json({ success: false, error: error.message, code: error.code }); logger.error({ err: error, action: 'updateUserStatus' }, 'Failed to update user status'); return res.status(500).json({ success: false, error: 'Failed to update user status', code: 'INTERNAL_ERROR' }); }
+}
 
-/**
- * Get a single user by ID
- * GET /api/users/:id
- */
-const getUser = async (req, res) => {
-    try {
-        const { id } = req.params;
+async function resetPassword(req, res) {
+  const temporaryPassword = crypto.randomBytes(12).toString('base64url');
+  try {
+    const outcome = await withLockedUser(req.params.id, async (client) => {
+      const result = await client.query('UPDATE sandlabx_users SET password_hash=$1, must_change_password=TRUE, auth_version=auth_version+1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING id,email,role,is_active,must_change_password,created_at,updated_at', [hashPassword(temporaryPassword), req.params.id]);
+      return result.rows[0];
+    });
+    if (outcome.notFound) return res.status(404).json({ success: false, error: 'User not found', code: 'NOT_FOUND' });
+    await auditLogger.log(req.user.id, 'PASSWORD_RESET', 'user', req.params.id, {}, true);
+    return res.json({ success: true, user: publicUser(outcome.result), temporaryPassword });
+  } catch (error) { logger.error({ err: error, action: 'resetPassword' }, 'Failed to reset password'); return res.status(500).json({ success: false, error: 'Failed to reset password', code: 'INTERNAL_ERROR' }); }
+}
 
-        const result = await pool.query(
-            'SELECT id, email, role, created_at FROM sandlabx_users WHERE id = $1',
-            [id]
-        );
+async function deleteUser(req, res) { req.body = { isActive: false }; return updateUserStatus(req, res); }
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found',
-                code: 'NOT_FOUND'
-            });
-        }
+async function getCurrentUser(req, res) {
+  try {
+    const result = await pool.query('SELECT id,email,role,is_active,must_change_password,created_at,updated_at FROM sandlabx_users WHERE id=$1', [req.user.id]);
+    if (!result.rows.length) return res.status(401).json({ success: false, error: 'User not found', code: 'UNAUTHORIZED' });
+    return res.json({ success: true, user: publicUser(result.rows[0]) });
+  } catch (error) { logger.error({ err: error, action: 'getCurrentUser' }, 'Failed to get user profile'); return res.status(500).json({ success: false, error: 'Failed to get user profile', code: 'INTERNAL_ERROR' }); }
+}
 
-        const user = result.rows[0];
-
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                createdAt: user.created_at
-            }
-        });
-    } catch (error) {
-        logger.error({ err: error, action: 'getUser' }, 'Failed to get user');
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get user',
-            code: 'INTERNAL_ERROR'
-        });
-    }
-};
-
-/**
- * Create a new user (admin only)
- * POST /api/users
- */
-const createUser = async (req, res) => {
-    try {
-        const { email, password, role = 'student' } = req.body;
-
-        // Validate email
-        if (!email || typeof email !== 'string' || !email.includes('@')) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid email is required',
-                code: 'VALIDATION_ERROR'
-            });
-        }
-
-        // Validate password
-        if (!password || typeof password !== 'string' || password.length < 8) {
-            return res.status(400).json({
-                success: false,
-                error: 'Password must be at least 8 characters',
-                code: 'VALIDATION_ERROR'
-            });
-        }
-
-        // Validate role
-        if (!VALID_ROLES.includes(role)) {
-            return res.status(400).json({
-                success: false,
-                error: `Role must be one of: ${VALID_ROLES.join(', ')}`,
-                code: 'VALIDATION_ERROR'
-            });
-        }
-
-        // Check for duplicate email
-        const existing = await pool.query(
-            'SELECT id FROM sandlabx_users WHERE LOWER(email) = LOWER($1)',
-            [email]
-        );
-
-        if (existing.rows.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'A user with this email already exists',
-                code: 'DUPLICATE_EMAIL'
-            });
-        }
-
-        // Hash password using PBKDF2
-        const passwordHash = hashPassword(password);
-
-        // Create user
-        const id = uuidv4();
-        const result = await pool.query(`
-            INSERT INTO sandlabx_users (id, email, password_hash, role)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, email, role, created_at
-        `, [id, email.toLowerCase(), passwordHash, role]);
-
-        const user = result.rows[0];
-
-        logger.info({
-            action: 'createUser',
-            adminId: req.user?.id,
-            newUserId: user.id,
-            email: user.email,
-            role: user.role
-        }, 'Created user');
-
-        res.status(201).json({
-            success: true,
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                createdAt: user.created_at
-            }
-        });
-    } catch (error) {
-        logger.error({ err: error, action: 'createUser' }, 'Failed to create user');
-        res.status(500).json({
-            success: false,
-            error: 'Failed to create user',
-            code: 'INTERNAL_ERROR'
-        });
-    }
-};
-
-/**
- * Update a user's role (admin only)
- * PATCH /api/users/:id/role
- */
-const updateUserRole = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { role } = req.body;
-
-        // Validate role
-        if (!role || !VALID_ROLES.includes(role)) {
-            return res.status(400).json({
-                success: false,
-                error: `Role must be one of: ${VALID_ROLES.join(', ')}`,
-                code: 'VALIDATION_ERROR'
-            });
-        }
-
-        // Check user exists
-        const existing = await pool.query(
-            'SELECT id, email, role FROM sandlabx_users WHERE id = $1',
-            [id]
-        );
-
-        if (existing.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found',
-                code: 'NOT_FOUND'
-            });
-        }
-
-        // Prevent demoting self (admin protection)
-        if (id === req.user?.id && role !== 'admin') {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot change your own role',
-                code: 'FORBIDDEN'
-            });
-        }
-
-        // Update role
-        const result = await pool.query(`
-            UPDATE sandlabx_users 
-            SET role = $1
-            WHERE id = $2
-            RETURNING id, email, role, created_at
-        `, [role, id]);
-
-        const user = result.rows[0];
-
-        logger.info({
-            action: 'updateUserRole',
-            adminId: req.user?.id,
-            userId: id,
-            oldRole: existing.rows[0].role,
-            newRole: role
-        }, 'Updated user role');
-
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                createdAt: user.created_at
-            }
-        });
-    } catch (error) {
-        logger.error({ err: error, action: 'updateUserRole' }, 'Failed to update user role');
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update user role',
-            code: 'INTERNAL_ERROR'
-        });
-    }
-};
-
-/**
- * Delete a user (admin only)
- * DELETE /api/users/:id
- */
-const deleteUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Prevent self-deletion
-        if (id === req.user?.id) {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot delete your own account',
-                code: 'FORBIDDEN'
-            });
-        }
-
-        // Check user exists
-        const existing = await pool.query(
-            'SELECT id, email FROM sandlabx_users WHERE id = $1',
-            [id]
-        );
-
-        if (existing.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found',
-                code: 'NOT_FOUND'
-            });
-        }
-
-        // Delete user (cascades to labs via FK)
-        await pool.query('DELETE FROM sandlabx_users WHERE id = $1', [id]);
-
-        logger.info({
-            action: 'deleteUser',
-            adminId: req.user?.id,
-            deletedUserId: id,
-            deletedEmail: existing.rows[0].email
-        }, 'Deleted user');
-
-        res.json({
-            success: true,
-            message: 'User deleted',
-            id
-        });
-    } catch (error) {
-        logger.error({ err: error, action: 'deleteUser' }, 'Failed to delete user');
-        res.status(500).json({
-            success: false,
-            error: 'Failed to delete user',
-            code: 'INTERNAL_ERROR'
-        });
-    }
-};
-
-/**
- * Get current user profile
- * GET /api/users/me
- */
-const getCurrentUser = async (req, res) => {
-    try {
-        const userId = req.user?.id;
-
-        if (!userId) {
-            return res.status(401).json({
-                success: false,
-                error: 'Not authenticated',
-                code: 'UNAUTHORIZED'
-            });
-        }
-
-        const result = await pool.query(
-            'SELECT id, email, role, created_at FROM sandlabx_users WHERE id = $1',
-            [userId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found',
-                code: 'NOT_FOUND'
-            });
-        }
-
-        const user = result.rows[0];
-
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                createdAt: user.created_at
-            }
-        });
-    } catch (error) {
-        logger.error({ err: error, action: 'getCurrentUser' }, 'Failed to get current user');
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get user profile',
-            code: 'INTERNAL_ERROR'
-        });
-    }
-};
-
-module.exports = {
-    listUsers,
-    getUser,
-    createUser,
-    updateUserRole,
-    deleteUser,
-    getCurrentUser
-};
+module.exports = { listUsers, getUser, createUser, updateUserRole, updateUserStatus, resetPassword, deleteUser, getCurrentUser, hashPassword };

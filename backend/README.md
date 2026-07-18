@@ -72,6 +72,13 @@ Authenticated endpoint groups:
 - `/api/instances`, `/api/operations` — immutable-version runtime records and durable action intents
 - `/api/users` — user administration
 
+User administration is restricted to active admins and supports email search,
+role/status filters, pagination, role changes, enable/disable, and one-time
+password resets. Password hashes and temporary passwords are never persisted in
+API responses after the reset response. The first empty database bootstrap is
+configured with `SANDBOXX_ADMIN_EMAIL` and `SANDBOXX_ADMIN_PASSWORD`; the
+bootstrap account must change its password before normal access.
+
 The Swagger UI at `/api/docs` is the canonical endpoint reference.
 
 ## Managed images
@@ -140,7 +147,10 @@ The Compose stack supplies most values. Important variables include:
 | `PORT` | HTTP port |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_SECRET` | JWT signing secret |
+| `LOG_LEVEL` | Pino threshold, default `info` |
 | `ALLOWED_ORIGINS` | Comma-separated CORS allow-list |
+| `SANDBOXX_ADMIN_EMAIL` | First-start bootstrap admin email |
+| `SANDBOXX_ADMIN_PASSWORD` | First-start bootstrap password; development-only default |
 | `GUAC_BASE_URL` | Guacamole base URL |
 | `CUSTOM_IMAGES_PATH` | Managed image directory |
 | `IMAGE_CATALOG_PATH` | Curated image catalog |
@@ -149,6 +159,11 @@ The Compose stack supplies most values. Important variables include:
 | `QEMU_IFUP` / `QEMU_IFDOWN` | TAP network scripts |
 
 Never use the repository’s development defaults on an exposed deployment.
+
+HTTP access logs are intentionally compact and include only request method, URL,
+status, request ID, and response time. Expected `401` authentication failures,
+including expired tokens, are not emitted as normal request log entries; server
+errors remain available at `error` level.
 
 ## Testing
 

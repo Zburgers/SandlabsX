@@ -64,8 +64,8 @@ export default function AuthPage() {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
 
-            // Redirect to dashboard
-            router.push('/');
+            // Bootstrap and reset accounts must complete password setup first.
+            router.push(data.user?.mustChangePassword ? '/account/settings?required=1' : '/');
         } catch (err: any) {
             setError(err.message);
         } finally {

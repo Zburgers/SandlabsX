@@ -122,12 +122,21 @@ Open:
 - API documentation: `http://localhost:3001/api/docs`
 - Guacamole: `http://localhost:8081/guacamole`
 
-Development credentials currently documented by the project are:
+Development-only first-start bootstrap credentials are:
 
 - Email: `admin@sandlabx.com`
 - Password: `admin123`
 
 Change all development credentials before exposing SandLabX outside a trusted local environment.
+The bootstrap admin must change its password immediately after first login. Override
+`SANDBOXX_ADMIN_EMAIL` and `SANDBOXX_ADMIN_PASSWORD` for deployment. Existing
+databases with users but no admin are never auto-promoted; use the explicit recovery
+command after reviewing the account:
+
+```bash
+cd backend
+DATABASE_URL=postgresql://... npm run sandlabx -- admin recover --email user@example.com
+```
 
 ## Development workflow
 

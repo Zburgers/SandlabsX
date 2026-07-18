@@ -5,6 +5,8 @@ export interface User {
   email: string;
   role: string;
   createdAt: string;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface AuthResponse {

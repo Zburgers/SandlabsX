@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const logger = require('../logger');
 const { auditLogger } = require('../modules/auditLogger');
+const { buildTokenClaims } = require('../modules/userSecurity');
 
 // Database pool (shared config)
 const pool = new Pool({
@@ -54,11 +55,7 @@ const generateToken = (user) => {
         throw new Error('JWT_SECRET is not defined');
     }
     return jwt.sign(
-        {
-            sub: user.id,
-            email: user.email,
-            role: user.role
-        },
+        buildTokenClaims(user),
         JWT_SECRET,
         { expiresIn: '24h' }
     );
@@ -94,7 +91,7 @@ const register = async (req, res) => {
         const result = await pool.query(`
             INSERT INTO sandlabx_users (id, email, password_hash, role)
             VALUES ($1, $2, $3, $4)
-            RETURNING id, email, role, created_at
+            RETURNING id, email, role, created_at, auth_version, must_change_password
         `, [id, email.toLowerCase(), passwordHash, role]);
 
         const user = result.rows[0];
@@ -111,7 +108,8 @@ const register = async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                mustChangePassword: user.must_change_password
             }
         });
 
@@ -144,6 +142,11 @@ const login = async (req, res) => {
 
         const user = result.rows[0];
 
+        if (user.is_active === false) {
+            await auditLogger.log(user.id, 'LOGIN_FAILED', 'user', user.id, { reason: 'Account disabled' }, false);
+            return res.status(401).json({ success: false, error: 'Account is disabled' });
+        }
+
         // Verify password
         if (!verifyPassword(password, user.password_hash)) {
             await auditLogger.log(user.id, 'LOGIN_FAILED', 'user', user.id, { email, reason: 'Invalid password' }, false);
@@ -164,7 +167,8 @@ const login = async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                mustChangePassword: user.must_change_password
             }
         });
 
@@ -237,11 +241,12 @@ const changePassword = async (req, res) => {
 
         // Update password
         await pool.query(
-            'UPDATE sandlabx_users SET password_hash = $1 WHERE id = $2',
+            'UPDATE sandlabx_users SET password_hash = $1, must_change_password = FALSE, auth_version = auth_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
             [newPasswordHash, userId]
         );
 
         logger.info({ action: 'changePassword', userId }, 'User password changed');
+        await auditLogger.log(userId, 'PASSWORD_CHANGED', 'user', userId, {}, true);
 
         res.json({
             success: true,
