@@ -27,9 +27,15 @@ class WorkloadProfileRepository {
     const id = input.id || crypto.randomUUID();
     try {
       const result = await client.query(
-        `INSERT INTO sandlabx_workload_profile_versions
+        `WITH name_lock AS MATERIALIZED (
+           SELECT pg_advisory_xact_lock(hashtextextended($2::text, 0))
+         )
+         INSERT INTO sandlabx_workload_profile_versions
           (id, profile_name, version_number, content_sha256, profile)
-         VALUES ($1, $2::varchar, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM sandlabx_workload_profile_versions WHERE profile_name = $2::varchar), $3, $4) RETURNING *`,
+         SELECT $1, $2::varchar, COALESCE(MAX(version_number), 0) + 1, $3, $4
+         FROM name_lock
+         LEFT JOIN sandlabx_workload_profile_versions ON profile_name = $2::varchar
+         RETURNING *`,
         [id, input.name, input.contentHash, input.profile],
       );
       return rowToWorkloadProfileVersion(result.rows[0]);

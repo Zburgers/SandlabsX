@@ -27,9 +27,15 @@ class ImageArtifactRepository {
     const id = input.id || crypto.randomUUID();
     try {
       const result = await client.query(
-        `INSERT INTO sandlabx_image_artifact_versions
+        `WITH name_lock AS MATERIALIZED (
+           SELECT pg_advisory_xact_lock(hashtextextended($2::text, 0))
+         )
+         INSERT INTO sandlabx_image_artifact_versions
           (id, artifact_name, version_number, digest, format, storage_path, size_bytes, virtual_size_bytes, architecture, provenance, metadata)
-         VALUES ($1, $2::varchar, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM sandlabx_image_artifact_versions WHERE artifact_name = $2::varchar), $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+         SELECT $1, $2::varchar, COALESCE(MAX(version_number), 0) + 1, $3, $4, $5, $6, $7, $8, $9, $10
+         FROM name_lock
+         LEFT JOIN sandlabx_image_artifact_versions ON artifact_name = $2::varchar
+         RETURNING *`,
         [id, input.name, input.digest, input.format, input.storagePath, input.sizeBytes, input.virtualSizeBytes || null, input.architecture || null, input.provenance, input.metadata || {}],
       );
       return rowToImageVersion(result.rows[0]);

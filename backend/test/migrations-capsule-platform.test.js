@@ -5,7 +5,7 @@ const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Client } = require('pg');
+const { Client, Pool } = require('pg');
 const { ImageArtifactRepository } = require('../repositories/imageArtifactRepository');
 const { WorkloadProfileRepository } = require('../repositories/workloadProfileRepository');
 const { ImageArtifactService } = require('../services/imageArtifactService');
@@ -26,7 +26,8 @@ test('final Capsule schema migrates fresh and adopted databases with constraints
   await admin.query(`CREATE DATABASE ${databaseName}`);
   await migrate();
   const client = new Client({ connectionString: disposableUrl }); await client.connect();
-  t.after(async () => { await client.end(); await admin.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`); await admin.end(); });
+  const pool = new Pool({ connectionString: disposableUrl, max: 4 });
+  t.after(async () => { await pool.end(); await client.end(); await admin.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`); await admin.end(); });
   const tables = await client.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1::text[])`, [expectedTables]);
   assert.deepEqual(new Set(tables.rows.map((row) => row.table_name)), new Set(expectedTables));
   const constraints = await client.query(`SELECT conname FROM pg_constraint WHERE conname = ANY($1::text[])`, [['capsule_version_digest_format', 'scenario_version_digest_format', 'network_allocation_live_unique', 'assignment_exact_version_unique', 'image_artifact_digest_format', 'workload_profile_digest_format']]);
@@ -39,12 +40,17 @@ test('final Capsule schema migrates fresh and adopted databases with constraints
   await migrate();
   const adopted = await client.query(`SELECT email FROM sandlabx_users WHERE email = 'adopted@example.test'`); assert.equal(adopted.rowCount, 1);
 
-  const images = new ImageArtifactService({ repository: new ImageArtifactRepository({ pool: client }) });
+  const images = new ImageArtifactService({ repository: new ImageArtifactRepository({ pool }) });
   const firstImage = await images.publish({ name: 'router', digest: `sha256:${'a'.repeat(64)}`, format: 'qcow2', storagePath: '/images/router-v1.qcow2', sizeBytes: 1, provenance: { kind: 'TEST' } });
   const secondImage = await images.publish({ name: 'router', digest: `sha256:${'b'.repeat(64)}`, format: 'qcow2', storagePath: '/images/router-v2.qcow2', sizeBytes: 2, provenance: { kind: 'TEST' } });
   assert.equal(firstImage.versionNumber, 1); assert.equal(secondImage.versionNumber, 2);
+  const concurrentImages = await Promise.all([
+    images.publish({ name: 'router', digest: `sha256:${'c'.repeat(64)}`, format: 'qcow2', storagePath: '/images/router-v3.qcow2', sizeBytes: 3, provenance: { kind: 'TEST' } }),
+    images.publish({ name: 'router', digest: `sha256:${'d'.repeat(64)}`, format: 'qcow2', storagePath: '/images/router-v4.qcow2', sizeBytes: 4, provenance: { kind: 'TEST' } }),
+  ]);
+  assert.deepEqual(concurrentImages.map((image) => image.versionNumber).sort(), [3, 4]);
 
-  const profiles = new WorkloadProfileService({ repository: new WorkloadProfileRepository({ pool: client }) });
+  const profiles = new WorkloadProfileService({ repository: new WorkloadProfileRepository({ pool }) });
   const baseProfile = { id: 'qemu-router', version: 'draft', architecture: 'x86_64', acceleration: ['kvm'], machine: 'q35', console: 'serial', consoles: ['serial'], resources: { minVcpus: 1, maxVcpus: 2, minMemoryMiB: 512, maxMemoryMiB: 2048 }, interfaces: { max: 4, models: ['virtio-net'] }, disks: { max: 2, formats: ['qcow2'] }, capabilities: { capture: true }, supportedImage: { architectures: ['x86_64'], formats: ['qcow2'] }, permittedNodeOverrides: [] };
   const firstProfile = await profiles.publish(baseProfile);
   const secondProfile = await profiles.publish({ ...baseProfile, resources: { ...baseProfile.resources, maxVcpus: 4 } });
