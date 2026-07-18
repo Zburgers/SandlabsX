@@ -1,0 +1,11 @@
+'use strict';
+const crypto = require('node:crypto');
+const { OwnershipError, requireIdentity, assertOwned } = require('./ownership');
+class ConsoleService {
+  constructor({ registry, secret = 'development-console-secret', now = () => Date.now() }) { if (!registry?.register || !registry.unregister) throw new TypeError('registry register and unregister are required'); this.registry = registry; this.secret = secret; this.now = now; }
+  async register(input) { const ownership = requireIdentity(input); const id = `${ownership.instanceId}:${ownership.nodeId}:${input.type}`; await this.registry.register({ id, ...input, ownership }); return { id, type: input.type, endpoint: input.endpoint, ownership }; }
+  async unregister(resource, ownership) { assertOwned(resource, ownership); await this.registry.unregister(resource.id); }
+  issueToken(resource, { userId, ttlMs = 60_000 }) { assertOwned(resource, resource.ownership); const claims = { userId, instanceId: resource.ownership.instanceId, nodeId: resource.ownership.nodeId, exp: this.now() + ttlMs }; const body = Buffer.from(JSON.stringify(claims)).toString('base64url'); const signature = crypto.createHmac('sha256', this.secret).update(body).digest('base64url'); return `${body}.${signature}`; }
+  verifyToken(token, expected) { const [body, signature] = String(token).split('.'); const valid = crypto.createHmac('sha256', this.secret).update(body).digest('base64url'); if (!body || !signature || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(valid))) throw new OwnershipError('Invalid console token', 'INVALID_TOKEN'); const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); if (claims.exp < this.now() || claims.userId !== expected.userId || claims.instanceId !== expected.instanceId || claims.nodeId !== expected.nodeId) throw new OwnershipError('Console token scope is invalid', 'INVALID_TOKEN'); return { userId: claims.userId, instanceId: claims.instanceId, nodeId: claims.nodeId }; }
+}
+module.exports = { ConsoleService, OwnershipError };
