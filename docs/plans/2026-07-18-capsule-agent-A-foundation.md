@@ -156,7 +156,7 @@ Remediation must use `[A]` commit prefixes, run the disposable PostgreSQL gate, 
 
 ## Completion evidence
 
-- Status: REMEDIATION REQUIRED
+- Status: COMPLETE - accepted by coordinator after shared-gate integration
 - Branch and final HEAD: `feat/lab-capsules-scenario-engine` at `68e5b49` before this evidence commit.
 - Commits:
   - `8f4f179 [A] test: expand capsule foundation gates`
@@ -178,4 +178,14 @@ Remediation must use `[A]` commit prefixes, run the disposable PostgreSQL gate, 
   - In `backend/scripts/test-legacy-upgrade.js`, replace the hard-coded `migrations.rowCount !== 3` assertion with an assertion for the exact applied names `0001_core_schema` through `0005_capsule_platform_constraints` (or update the count to 5). Then rerun the command above.
   - In `backend/package.json`, add `architecture:inventory` and `architecture:check` scripts and add syntax checks for migrations `0004`/`0005`; do not add enforce mode to the global gate until Task 18.
   - In `backend/scripts/check-schema.js`, add the final Capsule tables/constraints to the schema verification contract and label legacy tables pending deletion.
-- Downstream agents unblocked: None while the shared legacy-upgrade gate is red. Once Agent H makes the requested shared-file changes and the command passes, Agents B–G may consume the published foundation contracts and final schema.
+- Downstream agents unblocked: Agents B, C, and G. Agent D waits for Agent C's profile-contract checkpoint; Agent F waits for Agent B's service contracts; Agent E waits for Agent D's plan contract.
+
+### Coordinator acceptance
+
+- Shared Agent H requests applied in `5b8d706 [H] test: integrate capsule schema gates`.
+- Security review fixes applied in `6fd3c8d [coord] fix: redact audit and internal errors`.
+- Independent `npm run check`: PASS, 42 tests.
+- Independent disposable PostgreSQL migration/adoption test: PASS, 38 final Capsule tables asserted and disposable database removed.
+- Independent legacy-upgrade test: PASS, migrations `0001` through `0005`, 46 total required tables, four Capsule constraints, preserved legacy user data, and pending legacy-table deletion reported.
+- Architecture inventory: PASS in inventory mode; enforcement intentionally remains deferred until Task 18 removes inventoried debt.
+- Live Compose database note: its standalone `db:check` remains pending until the running stack deliberately applies migrations `0004` and `0005`; no live database mutation was performed during review.
