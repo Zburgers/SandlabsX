@@ -94,3 +94,17 @@ Provide Agent H and Agent G:
 - final commit SHA and tests.
 
 Append `## Completion evidence` here only.
+
+## Completion evidence
+
+- Status: COMPLETE
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine` at completion-evidence commit (service/API commits: `f9783f874887e3a10126f467c0de7224f1227c44`, `75803102e45d7e80edfb71abf7fa6316cf1b6ee6`)
+- Commits: `[B] feat: add capsule control plane services` (`f9783f8`); `[B] feat(api): expose capsule control plane` (`7580310`)
+- Owned files changed: all six repositories; `capsuleService`, `scenarioService`, `assignmentService`; route factories for Capsules, Scenarios, assignments, instances, operations, and events; focused service/API tests.
+- Contracts exported: `createCapsuleRouter({ capsuleService })` at `/api/v2/capsules`; `createScenarioRouter({ scenarioService })` at `/api/v2/scenarios`; `createAssignmentRouter({ assignmentService })` at `/api/v2/assignments`; `createInstanceRouter({ instanceService, operationService })` at `/api/v2/instances`; `createOperationRouter({ operationService })` at `/api/v2/operations`; `createEventRouter({ eventService })` at `/api/v2/events`. Routers accept authenticated principal data from `req.user` or `req.auth` and do not access repositories or host services.
+- Tests run and results: RED gates first observed failing due to missing service/repository modules and missing routers. `node --test test/capsule-service.test.js test/scenario-service.test.js test/assignment-service.test.js` passed 8/8. `node --test test/capsule-api-v2.test.js test/instance-api.test.js test/authorization-api.test.js` passed 5/5. Full `npm test` passed 62/62. New source files passed `node -c`; `git diff --check` passed.
+- External/runtime gates: no host mutation is in this packet; `make doctor` is not applicable. `graphify update .` completed successfully and refreshed the code graph.
+- SSE event shape and cursor rules: `GET /api/v2/events?after=<non-negative integer>` accepts `Last-Event-ID` as the preferred resume cursor and emits ordered `id: <cursor>`, `event: <type>`, `data: <payload>` records for events strictly after that cursor. Event cursors are monotonically increasing.
+- Known limitations: Agent H must assemble production services/repositories and mount these routers in `backend/app.js`/`backend/server.js`; those shared composition files were intentionally not modified. Host execution remains represented only by operation intents.
+- Requested changes for Agent H-owned files: register the stated `/api/v2/*` mounts, remove prototype Capsule-router registration once the cutover is qualified, and publish corresponding Swagger/OpenAPI paths.
+- Downstream agents unblocked: Agent F (Scenario integration), Agent G (live API integration), and Agent H (composition/cutover).
