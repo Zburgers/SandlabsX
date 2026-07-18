@@ -129,6 +129,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-guacamole_pass}
       JWT_SECRET: ${JWT_SECRET:-change-this-development-secret}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:2000}
+      SANDBOXX_ADMIN_EMAIL: ${SANDBOXX_ADMIN_EMAIL:-admin@sandlabx.com}
+      SANDBOXX_ADMIN_PASSWORD: ${SANDBOXX_ADMIN_PASSWORD:-admin123}
       CUSTOM_IMAGES_PATH: /images/custom
       IMAGE_CATALOG_PATH: /images/catalog.json
       OVERLAYS_PATH: /overlays

@@ -4,6 +4,7 @@ const path = require('path');
 const { ImagePipeline } = require('../modules/imagePipeline');
 const { normalizeLabSpec, planInstall, validateLabSpec } = require('../modules/labSpec');
 const { capsuleHash, normalizeCapsule, validateCapsule } = require('../modules/capsuleSchema');
+const { Pool } = require('pg');
 
 function parse(argv) {
   const positional = [];
@@ -47,11 +48,34 @@ Capsule commands:
   sandlabx capsule validate <file.json> [--published]
   sandlabx capsule normalize <file.json> [output.json]
 
+Admin recovery (explicit; never automatic):
+  sandlabx admin recover --email user@example.com
+
 Global flags:
   --json
   --images-root <path>
   --catalog <path>
 `;
+}
+
+async function adminCommand(action, args, flags) {
+  if (action !== 'recover') throw Object.assign(new Error(`Unknown admin command: ${action || '(missing)'}`), { code: 'USAGE_ERROR' });
+  const email = required(flags.email, 'admin recovery email').trim().toLowerCase();
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for admin recovery');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('sandlabx:bootstrap-admin', 0))");
+    const activeAdmin = await client.query("SELECT 1 FROM sandlabx_users WHERE role='admin' AND is_active=TRUE LIMIT 1");
+    if (activeAdmin.rows.length) throw new Error('An active admin already exists; recovery refused');
+    const user = await client.query('SELECT id,email FROM sandlabx_users WHERE LOWER(email)=LOWER($1) FOR UPDATE', [email]);
+    if (!user.rows.length) throw new Error('Recovery user not found');
+    await client.query("UPDATE sandlabx_users SET role='admin', is_active=TRUE, auth_version=auth_version+1, updated_at=CURRENT_TIMESTAMP WHERE id=$1", [user.rows[0].id]);
+    await client.query('INSERT INTO sandlabx_audit_log (user_id,action,resource_type,resource_id,details) VALUES ($1,$2,$3,$4,$5)', [user.rows[0].id, 'ADMIN_RECOVERY', 'user', user.rows[0].id, JSON.stringify({ email: user.rows[0].email })]);
+    await client.query('COMMIT');
+    return { success: true, email: user.rows[0].email };
+  } catch (error) { await client.query('ROLLBACK').catch(() => {}); throw error; } finally { client.release(); await pool.end(); }
 }
 
 async function imageCommand(action, args, flags) {
@@ -147,6 +171,8 @@ async function main() {
       ? await labCommand(action, args)
       : group === 'capsule'
         ? await capsuleCommand(action, args, flags)
+        : group === 'admin'
+          ? await adminCommand(action, args, flags)
       : (() => { throw Object.assign(new Error(`Unknown command group: ${group}`), { code: 'USAGE_ERROR' }); })();
 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

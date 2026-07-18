@@ -7,10 +7,10 @@ The SandLabX web application is built with Next.js 15, React 19, TypeScript, Tai
 ```bash
 cd frontend
 npm install --no-audit --no-fund
-npm run dev
+npm run dev -- -p 2000
 ```
 
-The development server listens on `http://localhost:3000`.
+The development server listens on `http://localhost:2000`.
 
 Production compilation:
 

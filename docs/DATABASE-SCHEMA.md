@@ -64,6 +64,13 @@ Application accounts and roles.
 | `password_hash` | Password hash |
 | `role` | `admin`, `instructor`, or `student` |
 | `created_at` | Creation timestamp |
+| `is_active` | Whether login and protected requests are enabled |
+| `must_change_password` | Forces password change before normal access |
+| `auth_version` | Monotonic session-revocation version included in JWTs |
+| `updated_at` | Last account-state update |
+
+On an empty database, the backend creates one environment-configured bootstrap
+admin under an advisory lock. It never promotes an existing user implicitly.
 
 ### `sandlabx_labs`
 
