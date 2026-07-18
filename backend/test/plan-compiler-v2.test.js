@@ -51,8 +51,7 @@ test('compiles an immutable deterministic plan with declared wiring only', () =>
   assert.ok(first.interfaces.every(nic => nic.tap.length <= 15 && nic.netdev.length <= 31));
   assert.ok(first.processes.every(process => !process.args.join(' ').includes('Routing Lab')));
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/plans/routing-lab-v2.json'), 'utf8'));
-  assert.equal(fixture.semanticHash, first.semanticHash);
-  assert.equal(fixture.fullHash, first.fullHash);
+  assert.deepEqual(fixture, first);
 });
 
 test('requires exact resolved image and profile versions and stable host capability errors', () => {

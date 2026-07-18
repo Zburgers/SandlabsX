@@ -96,3 +96,9 @@ Provide Agent E and H final SHA, plan schema/fixture, error codes, reservation l
 - Add a disposable-PostgreSQL integration test with a persisted lab instance that proves CPU/memory/storage accounting, concurrent admission serialization, duplicate allocation rejection, rollback, stop-time release, and safe reuse. Memory repositories are not acceptance evidence.
 - Replace the abbreviated hand-authored plan fixture with the complete serialized schema-v2 plan, then deep-compare compiler output to it. Hash-only comparison does not prove the runner handoff shape.
 - Re-run focused D tests, full backend check, migration/adoption and legacy-upgrade gates. Agent E remains blocked until coordinator acceptance.
+
+## Remediation evidence
+
+- Status: COMPLETE
+- Fixes: active-only PostgreSQL reservation uniqueness, database-row mapping coverage, persisted-instance admission/release/reuse coverage, and a complete schema-v2 serialized fixture with deep comparison.
+- Validation: focused compiler, admission PostgreSQL, and migration tests passed; `npm run check` passed with 70 tests.

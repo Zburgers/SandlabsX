@@ -8,6 +8,8 @@ const test = require('node:test');
 const { Client, Pool } = require('pg');
 const { CapsuleRepository } = require('../repositories/capsuleRepository');
 const { OperationRepository } = require('../repositories/operationRepository');
+const { ReservationRepository } = require('../repositories/reservationRepository');
+const { AdmissionService } = require('../services/admissionService');
 
 const run = promisify(execFile);
 const baseUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://guacamole_user:guacamole_pass@127.0.0.1:5432/guacamole_db';
@@ -79,4 +81,15 @@ test('PostgreSQL control plane persists authoritative drafts, immutable private/
   assert.deepEqual(ownerEvents.map(event => event.cursor), [...ownerEvents.map(event => event.cursor)].sort((a, b) => a - b));
   const resumed = await operations.listEventsForOwner(ownerA, ownerEvents[9].cursor);
   assert.deepEqual(resumed.map(event => event.cursor), ownerEvents.slice(10).map(event => event.cursor));
+
+  const admission = new AdmissionService({ reservations: new ReservationRepository({ pool }) });
+  const instanceA = '10000000-0000-0000-0000-000000000001'; const instanceB = '10000000-0000-0000-0000-000000000002';
+  await pool.query('INSERT INTO sandlabx_lab_instances (id,capsule_version_id,owner_user_id,name) VALUES ($1,$2,$3,$4),($5,$2,$3,$6)', [instanceA, publishedVersion.id, ownerA, 'admission-a', instanceB, 'admission-b']);
+  const host = { id: 'host-a', capabilities: ['kvm'], capacity: { vcpus: 2, memoryMiB: 2048, storageGiB: 20, consolePorts: 2 } };
+  const plan = (instanceId) => ({ instanceId, resources: { vcpus: 2, memoryMiB: 2048, storageGiB: 10 }, interfaces: [{ tap: `tap-${instanceId}`, mac: `02:00:00:00:00:${instanceId.endsWith('1') ? '01' : '02'}` }], segments: [], consoles: [{ port: instanceId.endsWith('1') ? 5901 : 5902 }] });
+  await admission.admit({ plan: plan(instanceA), host, requiredCapabilities: ['kvm'] });
+  await assert.rejects(admission.admit({ plan: plan(instanceB), host, requiredCapabilities: ['kvm'] }), error => error.code === 'INSUFFICIENT_VCPU_CAPACITY');
+  await admission.releaseForStoppedInstance(instanceA);
+  await admission.admit({ plan: plan(instanceB), host, requiredCapabilities: ['kvm'] });
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS count FROM sandlabx_resource_reservations WHERE state='ACTIVE' AND instance_id=$1", [instanceB])).rows[0].count, 6);
 });
