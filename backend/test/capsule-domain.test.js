@@ -1,0 +1,5 @@
+'use strict';
+const test = require('node:test'); const assert = require('node:assert/strict'); const { normalizeCapsule, validateCapsule, hashCapsule } = require('../domain/capsule');
+const fixture = { kind: 'LabCapsule', metadata: { name: 'basic-routing', displayName: 'A' }, runtime: { architecture: 'x86_64' }, policy: { network: { internetEgress: false } }, images: { router: { digest: 'sha256:' + 'a'.repeat(64) } }, nodes: { r1: { driver: 'qemu', image: 'router', interfaces: [{ id: 'ge0' }] } }, links: [] };
+test('normalization preserves labels but semantic hashing ignores presentation metadata', () => { const a = normalizeCapsule(fixture); const b = normalizeCapsule({ ...fixture, metadata: { ...fixture.metadata, displayName: 'Other', canvas: { x: 10 } } }); assert.notDeepEqual(a, b); assert.equal(hashCapsule(a), hashCapsule(b)); });
+test('published validation requires isolated networking and image digests', () => { assert.deepEqual(validateCapsule(fixture, { published: true }), []); assert.ok(validateCapsule({ ...fixture, policy: { network: { internetEgress: true } } }).length); });
