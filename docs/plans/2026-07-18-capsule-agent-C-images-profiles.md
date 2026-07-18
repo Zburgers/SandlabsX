@@ -98,3 +98,11 @@ Provide Agent D and H the final SHA, profile/image interfaces, example immutable
 - Known limitations: durable repository adapters require the additive tables `sandlabx_image_artifact_versions` and `sandlabx_workload_profile_versions`; Agent A's accepted `0004`/`0005` migrations do not create them. API factory is intentionally unmounted because Agent H owns application composition. No real disk capture was exercised.
 - Requested changes for Agent H-owned files: add an additive migration defining the two immutable version tables (unique image digest; unique profile content SHA-256; version numbers; JSONB provenance/profile metadata; immutable triggers); compose `createImageRouter({ imageArtifacts, workloadProfiles })` under `/api/images/v2`; construct services using the PostgreSQL repositories; document the versioned commands and API routes in `docs/IMAGE-PIPELINE.md`/Swagger.
 - Downstream agents unblocked: Agent D can consume the exported contract factory now; final persisted planning/API integration remains blocked on the requested migration and Agent H composition.
+
+## Coordinator acceptance
+
+- Status override: `COMPLETE` after remediation in `05a65c4`, `20c6967`, and `063e847`.
+- Agent H added migration `0006_image_profile_versions.cjs`, immutable triggers, schema/legacy-upgrade registration, and disposable-PostgreSQL repository coverage.
+- The coordinator fixed monotonically increasing per-name versions in both memory and PostgreSQL adapters, serialized PostgreSQL allocation per artifact/profile name, and added v1/v2 plus concurrent-publication regressions.
+- Acceptance evidence: focused C/schema tests pass 6/6; full backend `npm run check` passes 62/62; `npm run db:test-legacy-upgrade` applies migrations `0001` through `0006`, verifies 48 required tables and six Capsule constraints, and preserves adopted legacy data; `git diff --check` passes.
+- Remaining composition work belongs to Agent H and does not block Agent D from consuming the accepted resolution contracts.

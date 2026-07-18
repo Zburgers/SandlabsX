@@ -108,3 +108,13 @@ Append `## Completion evidence` here only.
 - Known limitations: Agent H must assemble production services/repositories and mount these routers in `backend/app.js`/`backend/server.js`; those shared composition files were intentionally not modified. Host execution remains represented only by operation intents.
 - Requested changes for Agent H-owned files: register the stated `/api/v2/*` mounts, remove prototype Capsule-router registration once the cutover is qualified, and publish corresponding Swagger/OpenAPI paths.
 - Downstream agents unblocked: Agent F (Scenario integration), Agent G (live API integration), and Agent H (composition/cutover).
+
+## Coordinator review - remediation required
+
+- Status override: `REMEDIATION REQUIRED`. The agent evidence is preserved above, but coordinator acceptance has not been granted.
+- Persist Capsule drafts in the final `sandlabx_capsule_drafts` model. Do not use the prototype `sandlabx_capsules.draft_document` column as the authoritative draft store.
+- Persist and query private-run revisions separately from published versions so visibility and mutability are durable, not inferred only by service behavior.
+- Replace `MAX(sequence) + 1` event allocation and equivalent version allocation with concurrency-safe database behavior. Prove ordered, unique cursors under concurrent writers.
+- Add disposable-PostgreSQL integration tests for draft optimistic concurrency, immutable private/published versions, operation idempotency, event ordering/resume, rollback, and owner-scoped event access. Memory repositories alone are not acceptance evidence.
+- Re-run the focused API/service tests, full `npm run check`, and legacy-upgrade gate. Append the remediation commit SHAs and exact results here; do not mark this packet complete until coordinator review accepts those gates.
+- Dependency effect: Agent F remains blocked. Agent G may use the published route shapes as provisional fixtures, but must not treat persistence or event behavior as accepted.

@@ -89,3 +89,13 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 - Known limitations: `capsuleApi` surfaces `CONTRACT_PENDING` for the missing planned service contracts. The current backend's prototype Capsule routes support draft, publish, instance action, operation, verification, and checkpoint flows only; final integrations must be implemented at the typed client boundary after Agents B, E, and F land.
 - Requested changes for Agent H-owned files: wire the authenticated navigation to `/dashboard`, `/capsules`, `/assignments`, and instance runtime routes; remove legacy `/lab` only during final cutover.
 - Downstream agents unblocked: Agent H can compose the routes and replace only the pending typed-client methods once authoritative service contracts are available.
+
+## Coordinator review - remediation required
+
+- Status remains `REMEDIATION REQUIRED`; the current build is green but its typed model is not yet canonical.
+- Remove embedded `scenarios` from `CapsuleDocument`. Scenario remains a separate object that pins an exact immutable Capsule version.
+- Align node contracts with Agent A: exact image artifact and workload-profile versions, interface objects with stable identifiers, and canonical link/interface references. Do not retain frontend-only `profileId` or string-interface substitutes.
+- Move landed Agent B calls to the `/api/v2/*` route families and update fixtures to the actual request/response and resumable-SSE shapes. Keep `CONTRACT_PENDING` only for genuinely unlanded Agent E/F/H capabilities.
+- Add contract tests that consume shared backend fixtures or equivalent canonical examples, including desired-versus-observed topology and event cursor resume behavior. A successful isolated frontend build is necessary but not sufficient.
+- Do not claim dashboard/runtime integration complete while capacity, console grants, impact preview/destruction, and durable runtime APIs remain pending. Preserve the visual workflows behind typed boundaries.
+- Re-run frontend tests/build and append remediation commits and exact pending-contract inventory here for coordinator acceptance.

@@ -1042,10 +1042,10 @@ This is the coordinator-owned status ledger. Agent packets contain detailed evid
 | Agent | Scope | Status | Evidence / blocker |
 |---|---|---|---|
 | A | Foundation, contracts, additive schema | COMPLETE | Agent commits through `1804f8b`; shared gates `5b8d706`; security review fix `6fd3c8d`; 42 tests, disposable migration/adoption, and legacy-upgrade gates pass. Live Compose DB has not yet applied `0004`/`0005`. |
-| B | Control plane and API | READY | Agent A contracts and schema accepted. |
-| C | Images and workload profiles | READY | Agent A contracts and schema accepted. |
-| D | Planning and admission | BLOCKED | Wait for Agent A and Agent C contract checkpoint. |
-| E | Runtime and runner | BLOCKED | Wait for Agent A and Agent D plan contract. |
-| F | Scenarios and verification | BLOCKED | Wait for Agent A and Agent B service contracts. |
-| G | Frontend | READY | Canonical contracts accepted; begin against contract fixtures and integrate B/E/F later. |
-| H | Integration and cutover | PARTIAL / BLOCKED | Early schema/package integration complete in `5b8d706`; remaining integration waits for B-G handoffs. |
+| B | Control plane and API | REMEDIATION REQUIRED | Unit/API gates pass, but final draft persistence, private/public durability, concurrency-safe event sequencing, and PostgreSQL integration evidence are missing. See Agent B coordinator review. |
+| C | Images and workload profiles | COMPLETE | Agent work plus persistence remediation `05a65c4`/`20c6967`/`063e847`; focused 6/6, backend 62/62, concurrent publication, disposable migration, and legacy-upgrade gates pass. |
+| D | Planning and admission | READY | Agent A and C contracts are accepted. Consume C's resolution factory and final immutable version tables. |
+| E | Runtime and runner | BLOCKED | Wait for Agent D's accepted plan/admission contract. |
+| F | Scenarios and verification | BLOCKED | Wait for Agent B persistence/concurrency remediation and coordinator acceptance. |
+| G | Frontend | REMEDIATION REQUIRED | Tests/build pass, but Capsule/Scenario/node types and API paths diverge from accepted A/B contracts; E/F/H capabilities remain legitimately pending. |
+| H | Integration and cutover | PARTIAL / BLOCKED | Foundation and C persistence integration are complete; mount C provisionally, but final composition/cutover waits for accepted B, D, E, F, and G handoffs. |
