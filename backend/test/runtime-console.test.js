@@ -11,4 +11,5 @@ test('ConsoleService scopes short-lived tokens and reverses owned registration',
   assert.deepEqual(service.verifyToken(token, { userId: 'user-a', instanceId: 'instance-a', nodeId: 'node-a' }), { userId: 'user-a', instanceId: 'instance-a', nodeId: 'node-a' });
   await assert.rejects(service.unregister(endpoint, { instanceId: 'other', nodeId: 'node-a' }), OwnershipError);
   await service.unregister(endpoint, endpoint.ownership); assert.equal(registrations.size, 0);
+  assert.throws(() => service.verifyToken('x.y', { userId: 'user-a', instanceId: 'instance-a', nodeId: 'node-a' }), error => error instanceof OwnershipError && error.code === 'INVALID_TOKEN');
 });

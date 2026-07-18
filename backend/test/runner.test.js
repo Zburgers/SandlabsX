@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { OperationService, MemoryOperationStore } = require('../services/operationService');
 const { Runner } = require('../runner/runner');
+const { createOperationHandlers } = require('../runner/operationHandlers');
 
 test('Runner leases one operation and retries a retryable stable step without duplicate completion', async () => {
   const store = new MemoryOperationStore(); const operations = new OperationService({ store, maxAttempts: 2 });
@@ -11,4 +12,21 @@ test('Runner leases one operation and retries a retryable stable step without du
   await runner.runOnce();
   assert.equal(calls, 2); assert.equal((await store.get(operation.id)).state, 'SUCCEEDED');
   assert.equal(await runner.runOnce(), null);
+});
+
+test('lifecycle handlers execute runtime ports and expose reverse compensation', async () => {
+  const calls = [];
+  const handlers = createOperationHandlers({
+    disk: { createOverlay: async input => (calls.push(['disk.create', input.nodeId]), { path: input.overlayPath, ownership: input }), removeOverlay: async resource => calls.push(['disk.remove', resource.ownership.nodeId]) },
+    network: { createSegment: async input => (calls.push(['segment.create', input.id]), { ...input, ownership: { instanceId: input.instanceId, nodeId: '_segment' } }), deleteSegment: async resource => calls.push(['segment.delete', resource.id]), createTap: async input => (calls.push(['tap.create', input.nodeId]), { name: input.name, ownership: input }), deleteTap: async resource => calls.push(['tap.delete', resource.ownership.nodeId]) },
+    qemu: { start: async input => (calls.push(['qemu.start', input.nodeId]), { pid: 7, ownership: input, identity: { command: input.command, args: input.args } }), ready: async resource => (calls.push(['qemu.ready', resource.ownership.nodeId]), true), stop: async resource => calls.push(['qemu.stop', resource.ownership.nodeId]) },
+    console: { register: async input => (calls.push(['console.register', input.nodeId]), { id: input.nodeId, ownership: input }), unregister: async resource => calls.push(['console.unregister', resource.ownership.nodeId]) },
+    checkpoints: { create: async () => calls.push(['checkpoint.create']), restore: async () => calls.push(['checkpoint.restore']) },
+    capture: { capture: async () => calls.push(['capture']) },
+  });
+  const operation = { instanceId: 'instance-a', ownerId: 'user-a', input: { plan: { disks: [{ nodeId: 'node-a', overlayPath: '/tmp/a', baseImage: '/tmp/base' }], segments: [{ id: 'lan', hostBridge: 'br-a' }], interfaces: [{ nodeId: 'node-a', tap: 'tap-a', segmentId: 'lan' }], consoles: [{ nodeId: 'node-a', type: 'serial', endpoint: '127.0.0.1:7000' }], processes: [{ nodeId: 'node-a', command: 'qemu-system-x86_64', args: ['-name', 'safe'] }] } } };
+  const provision = handlers.PROVISION(operation); for (const step of provision) await step.run();
+  assert.deepEqual(calls.slice(0, 4).map(call => call[0]), ['disk.create', 'segment.create', 'tap.create', 'console.register']);
+  const start = handlers.START(operation); await start[0].run(); await start[0].compensate();
+  assert.deepEqual(calls.slice(-3).map(call => call[0]), ['qemu.start', 'qemu.ready', 'qemu.stop']);
 });
