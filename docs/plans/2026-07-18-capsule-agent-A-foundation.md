@@ -153,3 +153,29 @@ Blocking omissions:
 8. No committed `## Completion evidence` handoff exists.
 
 Remediation must use `[A]` commit prefixes, run the disposable PostgreSQL gate, append completion evidence, and leave the status as `REMEDIATION REQUIRED` until all items pass.
+
+## Completion evidence
+
+- Status: REMEDIATION REQUIRED
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine` at `68e5b49` before this evidence commit.
+- Commits:
+  - `8f4f179 [A] test: expand capsule foundation gates`
+  - `f83ba4f [A] feat: harden capsule domain contracts`
+  - `68e5b49 [A] feat(db): complete capsule platform schema`
+- Owned files changed: `backend/domain/**`, `backend/platform/{database,observability,errors,auditRepository}.js`, `backend/middleware/requestContext.js`, `backend/scripts/check-architecture.js`, Agent A focused tests, migrations `0004`/`0005`, the replacement ledger, and the OSPF Capsule/Scenario fixtures.
+- Contracts exported: `normalizeCapsule`, `validateCapsule`, `hashCapsule`, `normalizeScenario`, `validateScenario`, `validateWorkloadProfile`, `assertStateTransition`, `createDatabase`, `withTransaction`, `createObservability`, and `toPublicError` from the paths named in this packet.
+- Tests run and results:
+  - `node --test test/architecture.test.js test/observability.test.js test/database.test.js test/capsule-domain.test.js test/scenario-domain.test.js test/workload-profile.test.js test/migrations-capsule-platform.test.js`: 19 passed.
+  - `npm test`: 42 passed.
+  - `npm run check`: passed.
+  - `node scripts/check-architecture.js inventory`, syntax checks for `0004`/`0005`, and `git diff --check`: passed.
+- External/runtime gates:
+  - Healthy Compose PostgreSQL 16 at `127.0.0.1:5432` was used.
+  - `test/migrations-capsule-platform.test.js` created and removed a disposable database, migrated `0001`–`0005`, asserted 38 final tables plus constraints/indexes/foreign keys, reran migrations safely, and preserved an adopted row.
+  - `DATABASE_URL=postgresql://guacamole_user:guacamole_pass@127.0.0.1:5432/guacamole_db npm run db:test-legacy-upgrade` migrated and passed `db:check`, but failed its stale `Expected 3 migrations, found 5` assertion.
+- Known limitations: No real-KVM, runner, recovery, security, backup, or final cutover qualification is claimed; those are outside Agent A.
+- Requested changes for Agent H-owned files:
+  - In `backend/scripts/test-legacy-upgrade.js`, replace the hard-coded `migrations.rowCount !== 3` assertion with an assertion for the exact applied names `0001_core_schema` through `0005_capsule_platform_constraints` (or update the count to 5). Then rerun the command above.
+  - In `backend/package.json`, add `architecture:inventory` and `architecture:check` scripts and add syntax checks for migrations `0004`/`0005`; do not add enforce mode to the global gate until Task 18.
+  - In `backend/scripts/check-schema.js`, add the final Capsule tables/constraints to the schema verification contract and label legacy tables pending deletion.
+- Downstream agents unblocked: None while the shared legacy-upgrade gate is red. Once Agent H makes the requested shared-file changes and the command passes, Agents B–G may consume the published foundation contracts and final schema.
