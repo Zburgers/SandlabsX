@@ -109,3 +109,11 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 - Contract tests: canonical Capsule fixture verifies V2 save URL/method/revision header, stable error mapping, numeric cursor resumption, named-SSE normalization, and editor insertion of canonical profile/image/interface references.
 - Tests run and results: `cd frontend && npm test` — 4 files / 8 tests passed; `cd frontend && npm run build` — 10 routes compiled and type-checked; `git diff --check` passed.
 - Exact pending-contract inventory: Capsule listing, capacity/admission, console grants, impact preview/reset/destroy confirmation, checkpoints, Scenario-run verification, and assignment listing are not exposed by the landed `/api/v2` routes. They remain `CONTRACT_PENDING` only at the typed client boundary.
+
+## Agent F Scenario-result integration evidence
+
+- Status: REMEDIATION REQUIRED — Agent F’s accepted result presentation is integrated; the Scenario-run HTTP mount remains Agent H-owned and unlanded.
+- Contracts consumed: `ScenarioAttempt { id, status, score, maximumScore, stages, evidence }`; `ScenarioStageResult { id, status, score, maximumScore, results }`; `ScenarioCheckResult { id, type, status, attempts, expected, observed, evidence, hint? }`; and redacted evidence records `{ stageId, checkId, outcome, evidence }`.
+- UI behavior: `ScenarioRunner` renders aggregate and stage scoring, check status/retry count, server-redacted evidence, and authored hints without reinterpreting check outcomes or exposing guest-command input.
+- Tests run and results: focused `npm test -- ScenarioRunner` passed; full `npm test` passed 5 files / 9 tests; `npm run build` compiled/type-checked all 10 routes; `git diff --check` passed.
+- Pending integration: `capsuleApi.runVerification` remains `CONTRACT_PENDING` until Agent H mounts an authenticated Scenario-run route that returns the accepted `ScenarioAttempt` payload.

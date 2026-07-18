@@ -12,6 +12,11 @@ export interface CapsuleDraft { id: string; revision: number; status?: CapsuleSt
 export interface CapsuleVersion { id: string; capsuleId?: string; versionNumber?: number; document: CapsuleDocument }
 export interface ScenarioDraft { id: string; revision: number; document: ScenarioDocument }
 export interface ScenarioVersion { id: string; scenarioId?: string; capsuleVersionId: string; versionNumber?: number; document: ScenarioDocument }
+export type ScenarioCheckStatus = 'PASSED' | 'FAILED' | 'SKIPPED';
+export interface ScenarioCheckResult { id: string; type: string; status: ScenarioCheckStatus; attempts: number; expected: unknown; observed: unknown; evidence: unknown; hint?: string }
+export interface ScenarioStageResult { id: string; status: ScenarioCheckStatus; score: number; maximumScore: number; results: ScenarioCheckResult[] }
+export interface ScenarioEvidence { stageId: string; checkId: string; outcome: ScenarioCheckStatus; evidence: unknown }
+export interface ScenarioAttempt { id: string; status: 'ACTIVE' | 'PASSED' | 'FAILED'; score: number; maximumScore: number; stages: ScenarioStageResult[]; evidence: ScenarioEvidence[]; startedAt?: string; finishedAt?: string }
 export interface CapsuleProfile { id: string; version: string; name: string; image: { name: string; version: string; digest: string }; interfaces: CapsuleInterface[] }
 export interface InstanceSummary { id: string; name: string; capsuleVersionId: string; state: InstanceState; desiredState: InstanceState; observedState?: InstanceState; ownerName?: string }
 export interface OperationEvent { cursor: number; type: string; payload: unknown; timestamp?: string }
