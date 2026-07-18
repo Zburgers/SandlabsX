@@ -1,0 +1,26 @@
+{
+  "apiVersion": "sandlabx.io/v1alpha1",
+  "kind": "LabScenario",
+  "metadata": {
+    "name": "ospf-failure-recovery",
+    "displayName": "Recover an OSPF adjacency"
+  },
+  "spec": {
+    "capsuleVersion": "PIN_THE_PUBLISHED_CAPSULE_VERSION",
+    "attemptPolicy": { "maxAttempts": 3 },
+    "objectives": ["Diagnose an OSPF adjacency failure", "Restore transit connectivity", "Verify convergence with evidence"]
+  },
+  "stages": [
+    {
+      "id": "inspect",
+      "instructions": ["Inspect the routers and identify the failed transit adjacency."],
+      "checks": [{ "id": "routers-ready", "type": "nodeReadiness", "node": "r1", "expected": { "state": "RUNNING" }, "score": 2 }]
+    },
+    {
+      "id": "recover",
+      "instructions": ["Repair the intended transit interface and wait for OSPF to converge."],
+      "hints": ["Check interface state before changing routing configuration."],
+      "checks": [{ "id": "ospf-full", "type": "serialOutput", "node": "r1", "expected": { "contains": "FULL" }, "hint": "Wait for the adjacency to converge after repairing the link.", "score": 3 }]
+    }
+  ]
+}

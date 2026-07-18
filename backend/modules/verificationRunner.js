@@ -1,13 +1,17 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs').promises;
 const path = require('node:path');
+const { TypedCheckRunner } = require('../verification/typedChecks');
 
 class VerificationError extends Error {
   constructor(message, code = 'VERIFICATION_ERROR') { super(message); this.name = 'VerificationError'; this.code = code; }
 }
 
 class VerificationRunner {
-  constructor(options = {}) { this.timeoutMs = options.timeoutMs || 10000; this.maxOutputBytes = options.maxOutputBytes || 65536; }
+  constructor(options = {}) { this.timeoutMs = options.timeoutMs || 10000; this.maxOutputBytes = options.maxOutputBytes || 65536; this.typedChecks = options.typedChecks || new TypedCheckRunner({ timeoutMs: this.timeoutMs, maxEvidenceBytes: this.maxOutputBytes }); }
+
+  // Compatibility facade for existing callers while ScenarioRunService adopts the typed registry directly.
+  async runTypedStage(stage, context = {}) { return this.typedChecks.runStage(stage, context); }
 
   async run(scenario, context = {}) {
     const startedAt = new Date().toISOString();
