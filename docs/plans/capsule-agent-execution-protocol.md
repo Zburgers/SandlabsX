@@ -41,6 +41,20 @@ Passing the repository's existing tests is necessary but not sufficient. An agen
 
 An agent must report `BLOCKED` or `REMEDIATION REQUIRED`, never `complete`, when a mandatory test file or gate is missing.
 
+## Virtualization preflight and blocked-host policy
+
+Agents whose packet touches disks, QEMU, TAP/bridge networking, consoles, checkpoints, or end-to-end runtime qualification must run these checks before claiming live verification:
+
+```bash
+make prepare
+make doctor
+docker compose config --quiet
+```
+
+`vms/` and `pids/` are host bind-mount roots and must be writable by the developer running host-side checks. Root ownership is not intended; it commonly occurs when Docker creates a missing bind source before `make prepare`. Do not bypass this with world-writable permissions and do not recursively change ownership of VM data. Stop the stack and ask the user to repair only each affected root directory, for example `sudo chown "$(id -u):$(id -g)" vms pids`, then rerun `make prepare && make doctor`.
+
+Occupied default ports are warnings when they belong to the intended SandLabX stack. Prove ownership with `docker compose ps` and `ss -ltnp`; otherwise use explicit alternate `FRONTEND_PORT`, `BACKEND_PORT`, `GUACAMOLE_PORT`, and `POSTGRES_PORT` values for isolated qualification. Unit tests must use temporary directories and fake runners and must not be blocked by host bind mounts. Real-KVM qualification may not be marked passed until writable runtime roots, KVM/TUN access, isolated ports, managed test images, cleanup, and post-run network audit all pass.
+
 ## Handoff format
 
 No separate prose prompt is required. The agent packet plus this protocol is the prompt. At completion, append this structure to the packet and commit it:
@@ -74,4 +88,3 @@ If an agent discovers a source-of-truth defect, it must stop that affected porti
 - downstream impact.
 
 Only Agent H or the coordinator updates the architecture or master plan.
-

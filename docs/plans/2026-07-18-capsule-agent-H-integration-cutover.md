@@ -42,7 +42,7 @@ Source-of-truth documents remain authoritative. If evidence requires a correctio
 - `backend/scripts/check-schema.js`
 - `backend/scripts/test-legacy-upgrade.js`
 - `backend/migrations/0006_image_profile_versions.cjs`
-- `backend/migrations/0007_drop_empty_legacy_lab_runtime.cjs`
+- `backend/migrations/0008_drop_empty_legacy_lab_runtime.cjs`
 - `backend/test/legacy-cutover.test.js`
 - `backend/test/integration/**`
 - `frontend/app/lab/page.tsx` deletion
@@ -79,6 +79,8 @@ Execute master Task 16. Add guarded integration fixtures and prove authored netw
 
 Run: `bash ./scripts/dev-doctor.sh && make capsule-qualify`  
 Expected: real-host PASS. Missing KVM/TUN/images is an explicit release blocker, not a silent success.
+
+Before qualification, follow the shared virtualization preflight. Do not run the live gate against root-owned bind roots or unidentified occupied ports. Unit/integration harnesses use temporary roots; the real gate must use writable persistent roots, identify the intended Compose listeners, capture pre/post network audits, and prove cleanup of PIDs, TAPs, bridges, overlays, and console grants.
 
 Commit: `test: qualify capsule runtime on kvm`
 

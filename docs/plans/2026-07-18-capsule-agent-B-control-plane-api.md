@@ -131,3 +131,10 @@ Append `## Completion evidence` here only.
 - Full gate: final `npm run check` passed 67/67. A preceding full run had one `DUPLICATE_DIGEST` failure in the separately owned image-artifact concurrent test; five isolated reruns of that suite and the final full run passed, with no Agent B changes to that ownership area.
 - Source checks: `node -c` passed for the new migration and changed repositories; `git diff --check` passed. `graphify update .` completed; generated graph artifacts remain untracked.
 - Requested review: accept or reject this evidence before unblocking Agent F.
+
+## Coordinator acceptance
+
+- Status override: `COMPLETE` for Agent B's owned control-plane persistence and API contracts after `62e1154`/`37fd315` plus shared-gate corrections by the coordinator.
+- Acceptance evidence: PostgreSQL integration 1/1, focused service 8/8, focused API 5/5, full backend 67/67, and legacy upgrade through migration `0007` pass.
+- Agent H must instantiate an event service whose `list(actor, { after })` delegates to `listEventsForOwner(actor.id, after)`; the unscoped repository method is not permitted on authenticated `/api/v2/events`.
+- Agent H must mount the accepted routers and retire the prototype composition. Agent F is unblocked against these accepted service contracts.

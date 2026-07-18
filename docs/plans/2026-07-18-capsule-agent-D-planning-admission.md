@@ -87,3 +87,12 @@ Provide Agent E and H final SHA, plan schema/fixture, error codes, reservation l
 - Known limitations: PostgreSQL reservations use an advisory transaction lock per host and release all active reservation claims when an instance stops. Runner integration persists/executes plans later (Agent E/H).
 - Requested changes for Agent H-owned files: compose `AdmissionService` with the runner operation handlers, persist plans before admission, and call `releaseForStoppedInstance` only after a durable stopped transition.
 - Downstream agents unblocked: Agent E can consume schema version 2 plans and the fixture; Agent H can wire transactional admission and remove the two temporary facades at cutover.
+
+## Coordinator review - remediation required
+
+- Status override: `REMEDIATION REQUIRED`; memory-backed tests pass, but the PostgreSQL admission lifecycle is not yet valid.
+- `ReservationRepository.listActive()` currently returns raw database rows while `AdmissionService` reads `type`, `key`, and numeric `quantity`. Map `resource_type`, `resource_key`, and `instance_id` at the repository boundary and prove existing capacity is counted.
+- The schema's unconditional `UNIQUE(resource_type, resource_key)` prevents a released TAP, MAC, segment, or console-port key from being reserved again. Add an additive migration using an active-only uniqueness rule or an equivalent safe lifecycle design; prove release then reuse.
+- Add a disposable-PostgreSQL integration test with a persisted lab instance that proves CPU/memory/storage accounting, concurrent admission serialization, duplicate allocation rejection, rollback, stop-time release, and safe reuse. Memory repositories are not acceptance evidence.
+- Replace the abbreviated hand-authored plan fixture with the complete serialized schema-v2 plan, then deep-compare compiler output to it. Hash-only comparison does not prove the runner handoff shape.
+- Re-run focused D tests, full backend check, migration/adoption and legacy-upgrade gates. Agent E remains blocked until coordinator acceptance.

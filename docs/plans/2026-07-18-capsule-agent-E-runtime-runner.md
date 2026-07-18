@@ -28,6 +28,7 @@ Sources are read-only.
 - Follow `docs/plans/capsule-agent-execution-protocol.md`.
 - Shared-branch execution is allowed; use `[E]` on every commit subject.
 - Optional worktree: `feat/capsule-E-runtime-runner`.
+- Do not begin implementation against Agent D until its coordinator remediation is accepted. Once unblocked, run the virtualization preflight in `capsule-agent-execution-protocol.md` before live gates.
 
 ## Exclusive file ownership
 
@@ -89,6 +90,8 @@ rg -n "exec\(|shell:\s*true|PC1|PC2|tap[0-9]" backend/runtime backend/runner bac
 ```
 
 Expected: no unsafe or hard-coded matches.
+
+Unit and failure-path suites must use temporary runtime roots and fake shell-disabled process runners, so host `vms/` or `pids/` permissions cannot suppress coverage. Live QEMU/TAP/console checks require the protocol's writable-root and isolated-port evidence and must record cleanup plus a post-run network audit.
 
 ## Handoff requirements
 
