@@ -2,6 +2,7 @@
 const express = require('express'); const { actor, requireIdempotency, asyncRoute } = require('./_http');
 function createCapsuleRouter({ capsuleService }) {
   if (!capsuleService) throw new TypeError('capsuleService is required'); const router = express.Router();
+  router.get('/', asyncRoute(async (req, res) => res.json({ success: true, capsules: await capsuleService.listDrafts(actor(req)) })));
   router.post('/', asyncRoute(async (req, res) => res.status(202).json({ success: true, capsule: await capsuleService.createDraft(actor(req), req.body) })));
   router.get('/:id', asyncRoute(async (req, res) => res.json({ success: true, capsule: await capsuleService.getDraft(actor(req), req.params.id) })));
   router.put('/:id', asyncRoute(async (req, res) => res.status(202).json({ success: true, capsule: await capsuleService.updateDraft(actor(req), req.params.id, Number(req.get('if-match') || req.body?.revision), req.body?.patch || req.body) })));

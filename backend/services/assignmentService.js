@@ -16,6 +16,7 @@ class AssignmentService {
       return immutable(assignment);
     });
   }
+  async listAssignments(actor) { if (!actorId(actor)) throw error('Authentication is required', 'UNAUTHORIZED'); return Object.freeze((await this.repository.listForUser(actorId(actor), { all: actor.role === 'admin' })).map(immutable)); }
   async canAccessAssignment(actor, assignmentId) { const assignment = await this.repository.get(assignmentId); if (!assignment) return false; if (actor?.role === 'admin' || assignment.ownerId === actorId(actor)) return true; return Boolean(await this.repository.memberRole(assignmentId, actorId(actor))); }
   async grantInstructorObserver(actor, assignmentId, instructorId) { requireInstructor(actor); const assignment = await this.repository.get(assignmentId); if (!assignment) throw error('Assignment not found', 'NOT_FOUND'); if (actor.role !== 'admin' && assignment.ownerId !== actorId(actor)) throw error('Assignment access denied', 'FORBIDDEN'); await this.repository.addMember(assignmentId, instructorId, 'instructor-observer'); }
   async canObserveInstance(actor, assignmentId) { const assignment = await this.repository.get(assignmentId); if (!assignment) return false; return actor?.role === 'admin' || assignment.ownerId === actorId(actor) || (actor?.role === 'instructor' && await this.repository.memberRole(assignmentId, actorId(actor)) === 'instructor-observer'); }

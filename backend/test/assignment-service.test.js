@@ -13,6 +13,8 @@ test('AssignmentService pins compatible immutable versions and grants assignees 
   assert.equal(assignment.capsuleVersionId, 'capsule-v1');
   assert.equal(await service.canAccessAssignment({ id: 'student-a', role: 'student' }, assignment.id), true);
   assert.equal(await service.canAccessAssignment({ id: 'student-b', role: 'student' }, assignment.id), false);
+  assert.deepEqual((await service.listAssignments({ id: 'student-a', role: 'student' })).map(item => item.id), [assignment.id]);
+  assert.equal((await service.listAssignments({ id: 'student-b', role: 'student' })).length, 0);
 });
 
 test('AssignmentService permits explicitly granted instructor observers only', async () => {

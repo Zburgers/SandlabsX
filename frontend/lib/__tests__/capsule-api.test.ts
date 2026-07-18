@@ -27,6 +27,13 @@ describe('Capsule API boundary', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/v2\/capsules\/draft-1$/), expect.objectContaining({ method: 'PUT', headers: expect.objectContaining({ 'If-Match': '1' }), body: JSON.stringify(canonicalCapsule) }));
   });
 
+  it('lists Capsule drafts from the authenticated production contract', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, capsules: [{ id: 'draft-1', revision: 1, document: canonicalCapsule }] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(capsuleApi.listDrafts()).resolves.toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/v2\/capsules$/), expect.any(Object));
+  });
+
   it('uses monotonic numeric cursors for v2 durable event resumes', () => {
     expect(afterEventCursor(8)).toBe('/v2/events?after=8');
   });

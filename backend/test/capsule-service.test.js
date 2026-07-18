@@ -52,3 +52,10 @@ test('CapsuleService restricts authoring to admins and instructors', async () =>
   const service = new CapsuleService({ repository: new MemoryCapsuleRepository() });
   await assert.rejects(service.createDraft({ id: 'student-a', role: 'student' }, capsule()), error => error.code === 'FORBIDDEN');
 });
+
+test('CapsuleService lists only owned drafts unless the actor is admin', async () => {
+  const repository = new MemoryCapsuleRepository(); const service = new CapsuleService({ repository });
+  await service.createDraft(owner, capsule('owned')); await service.createDraft({ id: 'instructor-b', role: 'instructor' }, capsule('other'));
+  assert.deepEqual((await service.listDrafts(owner)).map(item => item.document.metadata.name), ['owned']);
+  assert.equal((await service.listDrafts({ id: 'admin', role: 'admin' })).length, 2);
+});

@@ -8,7 +8,7 @@ export function normalizeCapsuleError(value: unknown, status?: number): CapsuleA
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> { const token = typeof localStorage === 'undefined' ? null : localStorage.getItem('token'); const response = await fetch(`${baseUrl}${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } }); const body = await response.json().catch(() => ({})); if (!response.ok || body.success === false) throw normalizeCapsuleError(body, response.status); return body as T; }
 const pending = (capability: string): never => { throw new CapsuleApiError(`${capability} contract has not landed.`, 'CONTRACT_PENDING'); };
 export const capsuleApi = {
-  listDrafts: async (): Promise<CapsuleDraft[]> => pending('Capsule-list'),
+  listDrafts: async (): Promise<CapsuleDraft[]> => (await request<{ capsules: CapsuleDraft[] }>(v2('/capsules'))).capsules,
   getDraft: async (id: string) => (await request<{ capsule: CapsuleDraft }>(v2(`/capsules/${id}`))).capsule,
   createDraft: async (document: CapsuleDocument) => (await request<{ capsule: CapsuleDraft }>(v2('/capsules'), { method: 'POST', body: JSON.stringify(document) })).capsule,
   saveDraft: async (id: string, revision: number, document: CapsuleDocument) => (await request<{ capsule: CapsuleDraft }>(v2(`/capsules/${id}`), { method: 'PUT', headers: { 'If-Match': String(revision) }, body: JSON.stringify(document) })).capsule,

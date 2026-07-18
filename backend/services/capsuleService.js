@@ -8,6 +8,7 @@ function requireAuthor(actor) { if (!actorId(actor)) throw error('Authentication
 class CapsuleService {
   constructor({ repository, planPreview, instanceService, operationService }) { if (!repository) throw new TypeError('repository is required'); this.repository = repository; this.planPreview = planPreview; this.instanceService = instanceService; this.operationService = operationService; }
   async createDraft(actor, document) { requireAuthor(actor); return immutable(await this.repository.createDraft(actorId(actor), document)); }
+  async listDrafts(actor) { if (!actorId(actor)) throw error('Authentication is required', 'UNAUTHORIZED'); return Object.freeze((await this.repository.listDrafts(actorId(actor), { all: actor.role === 'admin' })).map(immutable)); }
   async getDraft(actor, id) { const draft = await this.repository.getDraft(id); this.#assertDraftAccess(actor, draft); return immutable(draft); }
   async updateDraft(actor, id, revision, patch) { const draft = await this.repository.getDraft(id); this.#assertDraftAccess(actor, draft); return immutable(await this.repository.updateDraft(id, revision, patch)); }
   async validateDraft(actor, id, published = false) { const draft = await this.getDraft(actor, id); const issues = validateCapsule(draft.document, { published }); return Object.freeze({ valid: issues.length === 0, issues }); }
