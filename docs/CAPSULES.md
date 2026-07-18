@@ -5,7 +5,7 @@ Lab Capsules are the canonical desired-state model for new SandLabX labs. A Caps
 ## Implemented workflow
 
 1. Author or import JSON with `apiVersion: sandlabx.io/v1alpha1` and `kind: LabCapsule`.
-2. Validate and normalize it with the CLI or `POST /api/capsules/:id/validate`.
+2. Validate and normalize it with the CLI or `POST /api/v2/capsules/:id/validate`.
 3. Publish it. Publication rejects missing or invalid SHA-256 image digests.
 4. Compile a deterministic plan. Declared endpoint interfaces produce instance-scoped MACs, TAPs, segments, console ports, overlay actions, and QEMU argument arrays.
 5. Create an instance from the immutable version.
@@ -27,19 +27,15 @@ npm run sandlabx -- capsule normalize ../examples/capsules/ospf-failure-recovery
 The authenticated API provides definitions, versions, plans, instances, operations, verification, and checkpoints:
 
 ```text
-POST /api/capsules
-PATCH /api/capsules/:id
-POST /api/capsules/:id/validate
-POST /api/capsules/:id/publish
-GET /api/capsules/:id/versions
-GET /api/capsule-versions/:id/export
-POST /api/capsule-versions/:id/plan
-POST /api/instances
-POST /api/instances/:id/actions/{start|stop|reset}
-GET /api/operations/:id/events
-POST /api/instances/:id/verifications
-POST /api/instances/:id/checkpoints
-POST /api/instances/:id/checkpoints/:checkpointId/restore
+POST /api/v2/capsules
+PUT /api/v2/capsules/:id
+POST /api/v2/capsules/:id/validate
+POST /api/v2/capsules/:id/publish
+GET /api/v2/capsules/:id/versions
+POST /api/v2/instances
+POST /api/v2/instances/:id/actions/:action
+GET /api/v2/operations/:id
+GET /api/v2/events?after=<cursor>
 ```
 
 Lifecycle actions return `202 Accepted`. Repeated destructive requests with the same owner and `Idempotency-Key` reuse the original operation. If the backend has no configured single-host runner, the operation is durably marked `FAILED` with `RUNNER_UNAVAILABLE`; it never pretends a VM started.
@@ -54,6 +50,12 @@ Lifecycle actions return `202 Accepted`. Repeated destructive requests with the 
 - Checkpoints copy through staging and verify SHA-256 before restore.
 - Stale PID files are not sufficient evidence to kill a process; QEMU identity is checked first.
 - Multi-host scheduling, live snapshots, external connectors, and unrestricted egress remain deferred.
+
+## Cutover and support boundary
+
+`/api/labs`, `/api/nodes`, and `/lab` were removed in the Capsule cutover. Migration `0009_drop_empty_legacy_lab_runtime` aborts if any legacy lab, node, connection, or console-session table contains data.
+
+The API composition and schema cutover are verified. Real-host runner execution, scoped console grants, checkpoint/destructive-action HTTP routes, Scenario-run HTTP routes, capacity endpoints, and real-KVM qualification remain blocked pending completion of the durable production runner contract. They are not supported release claims.
 
 ## Database
 

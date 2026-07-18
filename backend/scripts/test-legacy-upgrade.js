@@ -126,12 +126,8 @@ async function verifyUpgrade(databaseUrl) {
       throw new Error('Legacy user data was not preserved');
     }
 
-    const nodes = await client.query(
-      "SELECT to_regclass('public.sandlabx_nodes') AS table_name",
-    );
-    if (!nodes.rows[0].table_name) {
-      throw new Error('sandlabx_nodes was not created during legacy upgrade');
-    }
+    const nodes = await client.query("SELECT to_regclass('public.sandlabx_nodes') AS table_name");
+    if (nodes.rows[0].table_name) throw new Error('sandlabx_nodes survived the guarded Capsule cutover');
 
     const legacyLedger = await client.query(
       "SELECT to_regclass('public.sandlabx_schema_migrations') AS table_name",
@@ -152,6 +148,7 @@ async function verifyUpgrade(databaseUrl) {
       '0006_image_profile_versions',
       '0007_capsule_control_plane_persistence',
       '0008_resource_reservation_lifecycle',
+      '0009_drop_empty_legacy_lab_runtime',
     ];
     const appliedMigrations = migrations.rows.map((migration) => migration.name);
     if (

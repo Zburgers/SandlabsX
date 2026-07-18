@@ -2,7 +2,7 @@ SHELL := /usr/bin/env bash
 COMPOSE ?= docker compose
 STACK := bash ./scripts/stack.sh
 
-.PHONY: help prepare doctor network-audit verify install test build up rebuild down restart logs ps clean db-migrate db-check db-create-migration image-init image-list image-doctor
+.PHONY: help prepare doctor network-audit verify install test build up rebuild down restart logs ps clean db-migrate db-check db-create-migration image-init image-list image-doctor capsule-qualify
 
 help:
 	@printf '%s\n' \
@@ -98,3 +98,6 @@ image-list:
 
 image-doctor:
 	cd backend && npm run image:doctor
+
+capsule-qualify:
+	@bash ./scripts/qualify-capsule-runtime.sh

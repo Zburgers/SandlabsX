@@ -5,12 +5,8 @@ const { Client } = require('pg');
 const requiredTables = [
   'sandlabx_migrations',
   'sandlabx_users',
-  'sandlabx_labs',
   'sandlabx_images',
   'sandlabx_audit_log',
-  'sandlabx_nodes',
-  'sandlabx_console_sessions',
-  'sandlabx_connections',
   'sandlabx_capsules',
   'sandlabx_capsule_drafts',
   'sandlabx_capsule_versions',
@@ -63,13 +59,6 @@ const requiredConstraints = [
   'workload_profile_digest_format',
 ];
 
-const pendingLegacyTables = [
-  'sandlabx_labs',
-  'sandlabx_nodes',
-  'sandlabx_connections',
-  'sandlabx_console_sessions',
-];
-
 async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required for schema verification.');
@@ -116,30 +105,12 @@ async function main() {
       throw new Error(`Required Capsule constraints are missing: ${missingConstraints.join(', ')}`);
     }
 
-    const legacyTables = await client.query(
-      `SELECT table_name
-         FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name = ANY($1::text[])`,
-      [pendingLegacyTables],
-    );
-    const presentLegacyTables = new Set(legacyTables.rows.map((row) => row.table_name));
-    const unexpectedlyMissingLegacy = pendingLegacyTables.filter(
-      (table) => !presentLegacyTables.has(table),
-    );
-    if (unexpectedlyMissingLegacy.length > 0) {
-      throw new Error(
-        `Legacy tables disappeared before the guarded cutover migration: ${unexpectedlyMissingLegacy.join(', ')}`,
-      );
-    }
-
     const applied = await client.query(
       'SELECT name, run_on FROM sandlabx_migrations ORDER BY id',
     );
 
     console.log(`[sandlabx-schema] ${requiredTables.length} required tables verified`);
     console.log(`[sandlabx-schema] ${requiredConstraints.length} Capsule constraints verified`);
-    console.log(`[sandlabx-schema] pending legacy deletion: ${pendingLegacyTables.join(', ')}`);
     console.log(`[sandlabx-schema] ${applied.rowCount} migration(s) recorded`);
     for (const migration of applied.rows) {
       console.log(`[sandlabx-schema] applied ${migration.name}`);

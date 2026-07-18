@@ -29,5 +29,7 @@ This is the deterministic Agent A inventory for the hard Capsule cutover. It rec
 
 ## Completion evidence
 
-- Status: REMEDIATION REQUIRED
-- This section is superseded only by a committed Agent A completion section after all focused and PostgreSQL gates pass.
+- Status: PARTIAL CUTOVER COMPLETE; runtime qualification remains blocked.
+- Deletion evidence: migration `0009_drop_empty_legacy_lab_runtime` checks all four legacy table counts before dropping them; `backend/test/legacy-cutover.test.js` proves legacy modules are absent and architecture enforcement has no legacy debt.
+- Retained platform primitives: `ImagePipeline`, lab-spec CLI validation, and Capsule runtime services remain; they are not legacy HTTP/runtime facades.
+- Blocking evidence: production `OperationRepository` does not implement the `Runner` lease/step-execution persistence contract, so real-host runtime qualification and runner Compose deployment are not safe to claim.

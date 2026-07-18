@@ -118,3 +118,16 @@ Commit: `docs: qualify capsule platform replacement`
 - Every legacy ledger row is `deleted` or an explicitly approved retained platform primitive.
 - No temporary adapter, route, table, UI, topology shape, hard-coded network rule, or direct host mutation survives.
 - The final PR includes exact CI and KVM evidence and is not merged or released on unsupported claims.
+
+## Completion evidence
+
+- Status: REMEDIATION REQUIRED
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine`; final SHA recorded after the Agent H cutover commit.
+- Commits: pending commit for app composition, guarded legacy-table removal, health/readiness, and evidence documentation.
+- Owned files changed: `backend/app.js`, `backend/server.js`, Swagger, schema/architecture/upgrade checks, migration `0009`, legacy-cutover and health/integration tests, deleted legacy modules/UI, and operational documentation.
+- Contracts exported: canonical `/api/v2` composition, `/api/health` and `/api/health/ready`, scoped owner event reads, and guarded irreversible legacy-table migration.
+- Tests run and results: `DATABASE_URL=postgresql://guacamole_user:guacamole_pass@127.0.0.1:5432/guacamole_db npm run db:test-legacy-upgrade` passed; `npm run check` passed 86 tests; `make prepare`, `make doctor`, and `docker compose config --quiet` passed.
+- External/runtime gates: host preflight passed (Docker, QEMU, KVM, TUN, writable runtime roots, and ports). Real KVM qualification was not run.
+- Known limitations: `OperationRepository` lacks `leaseNext`, step persistence, and operation execution methods required by `Runner`; frontend pending runtime calls lack safe mounted service contracts; no pinned managed qualification QCOW2 was supplied. These block runner Compose deployment and `make capsule-qualify`.
+- Requested changes for Agent H-owned files: add and test the durable production runner persistence/lease contract and complete the pending runtime/Scenario/capacity/console routes before release qualification.
+- Downstream agents unblocked: none; remediation is required before release/cutover acceptance.

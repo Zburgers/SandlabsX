@@ -251,7 +251,7 @@ export default function Home() {
                   </div>
                 </div>
                 <a
-                  href="/lab"
+                  href="/capsules"
                   className="px-4 py-2 bg-lab-secondary/20 hover:bg-lab-secondary/30 text-lab-secondary border border-lab-secondary/30 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
                 >
                   <span>🎨</span>

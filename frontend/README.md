@@ -63,7 +63,7 @@ Backend endpoint groups currently include:
 - `/api/auth`
 - `/api/nodes`
 - `/api/images`
-- `/api/labs`
+- `/api/v2/capsules`, `/api/v2/instances`, and `/api/v2/operations`
 - `/api/users`
 
 API failures should be presented with actionable messages and should never silently replace persisted state with mock data.
