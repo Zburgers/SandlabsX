@@ -6,6 +6,7 @@ const { OperationRepository } = require('../repositories/operationRepository');
 const { ImageArtifactRepository } = require('../repositories/imageArtifactRepository');
 const { ImageArtifactService } = require('../services/imageArtifactService');
 const { CheckpointService } = require('../services/checkpointService');
+const { DurableCheckpointService } = require('../runtime/durableCheckpointService');
 const { ImagePipeline } = require('../modules/imagePipeline');
 const { ProcessRunner } = require('../runtime/processRunner');
 const { DiskService } = require('../runtime/diskService');
@@ -24,7 +25,7 @@ function createRunnerRuntime({ pool, processRunner = new ProcessRunner(), env = 
   const disk = new DiskService({ root: overlaysRoot, runner: processRunner }); const network = new NetworkService({ runner: processRunner });
   const qemu = new QemuProcessService({ runner: processRunner, readiness: resource => processRunner.inspectProcess(resource.pid) });
   const consoleService = new ConsoleService({ registry: new PostgresConsoleRegistry({ pool }), secret: env.CONSOLE_TOKEN_SECRET });
-  const checkpoints = new CheckpointService({ root: checkpointsRoot, overlayRoot: overlaysRoot });
+  const checkpoints = new DurableCheckpointService({ service: new CheckpointService({ root: checkpointsRoot, overlayRoot: overlaysRoot }), pool });
   const capture = new ImageArtifactService({ repository: new ImageArtifactRepository({ pool }), pipeline: imagePipeline });
   const operations = new OperationRepository({ pool }); const id = env.RUNNER_ID || `${os.hostname()}:${process.pid}`;
   const handlers = createOperationHandlers({ disk, network, qemu, console: consoleService, checkpoints, capture });

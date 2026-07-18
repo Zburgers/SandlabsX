@@ -54,7 +54,7 @@ function createApp({ services, readiness, metrics, authenticate, observability }
   app.use('/api/v2/capsules', createCapsuleRouter({ capsuleService: services.capsuleService }));
   app.use('/api/v2/scenarios', createScenarioRouter({ scenarioService: services.scenarioService }));
   app.use('/api/v2/assignments', createAssignmentRouter({ assignmentService: services.assignmentService }));
-  app.use('/api/v2/instances', createInstanceRouter({ instanceService: services.instanceService, operationService: services.operationService, capacityService: services.capacityService }));
+  app.use('/api/v2/instances', createInstanceRouter({ instanceService: services.instanceService, operationService: services.operationService, capacityService: services.capacityService, runtimeService: services.runtimeService }));
   app.use('/api/v2/operations', createOperationRouter({ operationService: services.operationService }));
   app.use('/api/v2/events', createEventRouter({ eventService: services.eventService }));
   app.use('/api/images/v2', createImageRouter({ imageArtifacts: services.imageArtifacts, workloadProfiles: services.workloadProfiles }));

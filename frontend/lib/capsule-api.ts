@@ -19,9 +19,9 @@ export const capsuleApi = {
   createScenario: async (document: ScenarioDocument) => (await request<{ scenario: ScenarioDraft }>(v2('/scenarios'), { method: 'POST', body: JSON.stringify(document) })).scenario,
   publishScenario: async (id: string) => (await request<{ version: ScenarioVersion }>(v2(`/scenarios/${id}/publish`), { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } })).version,
   getScenarioVersion: async (id: string) => (await request<{ version: ScenarioVersion }>(v2(`/scenarios/versions/${id}`))).version,
-  createCheckpoint: async (_instanceId: string, _name: string, _nodes: string[]): Promise<never> => pending('Checkpoint'),
+  createCheckpoint: async (instanceId: string, name: string, _nodes: string[]): Promise<Operation> => (await request<{ operation: Operation }>(v2(`/instances/${instanceId}/checkpoints`), { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ name }) })).operation,
   runVerification: async (_instanceId: string, _scenarioId: string): Promise<never> => pending('Scenario verification'),
-  impactPreview: async (_id: string, _action: 'reset' | 'destroy'): Promise<ImpactPreview> => pending('Impact-preview'),
+  impactPreview: async (id: string, action: 'reset' | 'destroy'): Promise<ImpactPreview> => (await request<{ impact: ImpactPreview }>(v2(`/instances/${id}/impact/${action}`))).impact,
   confirmImpact: async (_id: string, _action: 'reset' | 'destroy', _token: string, _key: string): Promise<Operation> => pending('Destructive-action'),
-  requestConsoleGrant: async (_id: string, _transport: ConsoleGrant['transport']): Promise<ConsoleGrant> => pending('Console-grant'),
+  requestConsoleGrant: async (id: string, transport: ConsoleGrant['transport']): Promise<ConsoleGrant> => (await request<{ grant: ConsoleGrant }>(v2(`/instances/${id}/console-grants`), { method: 'POST', body: JSON.stringify({ transport }) })).grant,
 };

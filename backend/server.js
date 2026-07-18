@@ -25,6 +25,7 @@ const { AuthService } = require('./services/authService');
 const { ReservationRepository } = require('./repositories/reservationRepository');
 const { AdmissionService } = require('./services/admissionService');
 const { InstanceRuntimeService } = require('./services/instanceRuntimeService');
+const { RuntimeApiService } = require('./services/runtimeApiService');
 
 function createServices(pool) {
   const capsules = new CapsuleRepository({ pool }); const scenarios = new ScenarioRepository({ pool }); const assignments = new AssignmentRepository({ pool }); const instances = new InstanceRepository({ pool }); const operations = new OperationRepository({ pool });
@@ -35,7 +36,8 @@ function createServices(pool) {
   const instanceService = new InstanceRuntimeService({ instances, capsules, images: imageRepository, profiles: profileRepository, admission, host, overlaysRoot: process.env.OVERLAYS_PATH });
   const operationService = { async submit(actor, input) { await instanceService.get(actor, input.instanceId); const plan = await instanceService.planFor(actor, input.instanceId); return operations.create({ ownerId: actor.id, type: input.type, resourceType: 'instance', resourceId: input.instanceId, idempotencyKey: input.idempotencyKey, input: { ...(input.input || {}), plan } }); }, async get(actor, id) { const operation = await operations.get(id); if (!operation || (actor.role !== 'admin' && operation.ownerId !== actor.id)) throw Object.assign(new Error('Operation not found'), { code: 'NOT_FOUND' }); return operation; }, async cancel(actor, id) { await this.get(actor, id); return operations.requestCancel(id); } };
   const audit = new AuditRepository({ pool });
-  return { authService: new AuthService({ pool, audit }), capsuleService: new CapsuleService({ repository: capsules }), scenarioService: new ScenarioService({ repository: scenarios, capsuleVersions: capsules }), assignmentService: new AssignmentService({ repository: assignments, capsuleVersions: capsules, scenarioVersions: scenarios }), instanceService, operationService, capacityService: { get: async () => ({ hostId: host.id, architecture: host.architecture, ...host.capacity }) }, eventService: { list: (actor, { after }) => operations.listEventsForOwner(actor.id, after) }, imageArtifacts, workloadProfiles, userRoles: { async get(id) { const result = await pool.query('SELECT role FROM sandlabx_users WHERE id=$1', [id]); return result.rows[0]?.role; } } };
+  const runtimeService = new RuntimeApiService({ pool, instances, operationService, audit, secret: process.env.RUNTIME_ACTION_SECRET || process.env.JWT_SECRET || 'change-this-runtime-secret' });
+  return { authService: new AuthService({ pool, audit }), capsuleService: new CapsuleService({ repository: capsules }), scenarioService: new ScenarioService({ repository: scenarios, capsuleVersions: capsules }), assignmentService: new AssignmentService({ repository: assignments, capsuleVersions: capsules, scenarioVersions: scenarios }), instanceService, operationService, runtimeService, capacityService: { get: async () => ({ hostId: host.id, architecture: host.architecture, ...host.capacity }) }, eventService: { list: (actor, { after }) => operations.listEventsForOwner(actor.id, after) }, imageArtifacts, workloadProfiles, userRoles: { async get(id) { const result = await pool.query('SELECT role FROM sandlabx_users WHERE id=$1', [id]); return result.rows[0]?.role; } } };
 }
 
 async function main() {
