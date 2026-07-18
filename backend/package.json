@@ -19,7 +19,7 @@
     "db:test-legacy-upgrade": "node scripts/test-legacy-upgrade.js",
     "architecture:inventory": "node scripts/check-architecture.js inventory",
     "architecture:check": "node scripts/check-architecture.js enforce",
-    "check": "npm test && node -c server.js && node -c middleware/rateLimit.js && node -c modules/migrationRunner.js && node -c modules/imagePipeline.js && node -c modules/labSpec.js && node -c cli/sandlabx.js && node -c scripts/migrate.js && node -c scripts/check-schema.js && node -c scripts/check-architecture.js && node -c scripts/test-legacy-upgrade.js && node -c migrations/0001_core_schema.cjs && node -c migrations/0002_capsule_control_plane.cjs && node -c migrations/0003_retire_legacy_migration_ledger.cjs && node -c migrations/0004_capsule_platform_schema.cjs && node -c migrations/0005_capsule_platform_constraints.cjs && node -c migrations/0006_image_profile_versions.cjs"
+    "check": "npm test && node -c server.js && node -c middleware/rateLimit.js && node -c modules/migrationRunner.js && node -c modules/imagePipeline.js && node -c modules/labSpec.js && node -c cli/sandlabx.js && node -c scripts/migrate.js && node -c scripts/check-schema.js && node -c scripts/check-architecture.js && node -c scripts/test-legacy-upgrade.js && node -c migrations/0001_core_schema.cjs && node -c migrations/0002_capsule_control_plane.cjs && node -c migrations/0003_retire_legacy_migration_ledger.cjs && node -c migrations/0004_capsule_platform_schema.cjs && node -c migrations/0005_capsule_platform_constraints.cjs && node -c migrations/0006_image_profile_versions.cjs && node -c migrations/0007_capsule_control_plane_persistence.cjs"
   },
   "keywords": [
     "qemu",

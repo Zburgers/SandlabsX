@@ -27,6 +27,12 @@ help:
 
 prepare:
 	@mkdir -p images/custom overlays vms pids checkpoints
+	@for directory in images images/custom overlays vms pids checkpoints; do \
+	  if [[ ! -w "$$directory" ]]; then \
+	    printf 'ERROR: %s is not writable by uid %s. Stop the stack, then repair only the bind-mount root with: sudo chown %s:%s %q\n' "$$directory" "$$(id -u)" "$$(id -u)" "$$(id -g)" "$$directory" >&2; \
+	    exit 1; \
+	  fi; \
+	done
 	@printf 'Runtime directories are ready.\n'
 
 doctor:

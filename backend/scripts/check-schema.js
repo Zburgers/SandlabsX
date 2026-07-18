@@ -14,6 +14,7 @@ const requiredTables = [
   'sandlabx_capsules',
   'sandlabx_capsule_drafts',
   'sandlabx_capsule_versions',
+  'sandlabx_capsule_private_revisions',
   'sandlabx_capsule_version_artifacts',
   'sandlabx_scenarios',
   'sandlabx_scenario_drafts',
