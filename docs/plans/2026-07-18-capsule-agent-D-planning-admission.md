@@ -74,3 +74,16 @@ Commit: `refactor: route planning through capsule compiler`
 ## Handoff requirements
 
 Provide Agent E and H final SHA, plan schema/fixture, error codes, reservation lifecycle, transaction requirements, and focused output. Append completion evidence here only.
+
+## Completion evidence
+
+- Status: COMPLETE
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine`; final SHA is the `[D] refactor` handoff commit containing this evidence.
+- Commits: `b6f2897f9aa7f045b91b5e39d4a670357f41267f` (`[D] feat: compile deterministic capsule plans`), `a9c907f74ccd0b2a4d7043b30ff6e513a300e700` (`[D] feat: admit capsule resource plans`), plus the facade/handoff commit.
+- Owned files changed: `backend/planning/**`, `backend/services/admissionService.js`, `backend/repositories/reservationRepository.js`, focused tests and fixture, plus the two temporary module facades.
+- Contracts exported: `compileExecutionPlan`, `PlanCompilationError`, `AdmissionService`, `AdmissionError`, `ReservationRepository`, and `MemoryReservationRepository`. The v2 plan fixture is `backend/test/fixtures/plans/routing-lab-v2.json`.
+- Tests run and results: focused D1/D2/D3 suite passed (7 tests); `cd backend && npm test` passed (67 tests); `cd backend && npm run check` passed; `docker compose config --quiet` passed; `git diff --check` passed.
+- External/runtime gates: `make doctor` attempted. QEMU, KVM, and TUN passed; it reported non-writable `vms/` and `pids/` plus already-occupied service ports, so no real host admission/provisioning run was claimed.
+- Known limitations: PostgreSQL reservations use an advisory transaction lock per host and release all active reservation claims when an instance stops. Runner integration persists/executes plans later (Agent E/H).
+- Requested changes for Agent H-owned files: compose `AdmissionService` with the runner operation handlers, persist plans before admission, and call `releaseForStoppedInstance` only after a durable stopped transition.
+- Downstream agents unblocked: Agent E can consume schema version 2 plans and the fixture; Agent H can wire transactional admission and remove the two temporary facades at cutover.
