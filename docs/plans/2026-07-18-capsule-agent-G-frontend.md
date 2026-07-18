@@ -99,3 +99,12 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 - Add contract tests that consume shared backend fixtures or equivalent canonical examples, including desired-versus-observed topology and event cursor resume behavior. A successful isolated frontend build is necessary but not sufficient.
 - Do not claim dashboard/runtime integration complete while capacity, console grants, impact preview/destruction, and durable runtime APIs remain pending. Preserve the visual workflows behind typed boundaries.
 - Re-run frontend tests/build and append remediation commits and exact pending-contract inventory here for coordinator acceptance.
+
+## Coordinator remediation evidence
+
+- Status: REMEDIATION REQUIRED — canonical document and landed Agent B v2 integration are complete; the runtime/capacity capabilities below remain intentionally pending.
+- Canonical corrections: `CapsuleDocument` no longer embeds Scenarios; `ScenarioDocument` pins `spec.capsuleVersion`; every authored node has an exact image-artifact reference, exact workload-profile version, and stable interface objects; links use canonical `type` and `node:interface` endpoint references.
+- V2 integration: Capsule drafts use `/api/v2/capsules` (`POST`, `GET :id`, `PUT :id` with `If-Match`); instances and operations use `/api/v2/instances` and `/api/v2/operations`; Scenario draft/version calls use `/api/v2/scenarios`; durable events use `/api/v2/events?after=<cursor>` and parse named SSE events with numeric cursors.
+- Contract tests: canonical Capsule fixture verifies V2 save URL/method/revision header, stable error mapping, numeric cursor resumption, named-SSE normalization, and editor insertion of canonical profile/image/interface references.
+- Tests run and results: `cd frontend && npm test` — 4 files / 8 tests passed; `cd frontend && npm run build` — 10 routes compiled and type-checked; `git diff --check` passed.
+- Exact pending-contract inventory: Capsule listing, capacity/admission, console grants, impact preview/reset/destroy confirmation, checkpoints, Scenario-run verification, and assignment listing are not exposed by the landed `/api/v2` routes. They remain `CONTRACT_PENDING` only at the typed client boundary.
