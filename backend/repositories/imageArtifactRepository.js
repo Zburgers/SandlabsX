@@ -9,7 +9,8 @@ class MemoryImageArtifactRepository {
 
   async createVersion(input) {
     if (this.byDigest.has(input.digest)) throw codeError('Image digest already has an immutable version', 'DUPLICATE_DIGEST');
-    const version = { id: input.id || crypto.randomUUID(), versionNumber: 1, createdAt: new Date().toISOString(), ...clone(input) };
+    const versionNumber = [...this.versions.values()].filter(version => version.name === input.name).length + 1;
+    const version = { ...clone(input), id: input.id || crypto.randomUUID(), versionNumber, createdAt: new Date().toISOString() };
     this.versions.set(version.id, version);
     this.byDigest.set(version.digest, version.id);
     return clone(version);
@@ -28,7 +29,7 @@ class ImageArtifactRepository {
       const result = await client.query(
         `INSERT INTO sandlabx_image_artifact_versions
           (id, artifact_name, version_number, digest, format, storage_path, size_bytes, virtual_size_bytes, architecture, provenance, metadata)
-         VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+         VALUES ($1, $2::varchar, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM sandlabx_image_artifact_versions WHERE artifact_name = $2::varchar), $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [id, input.name, input.digest, input.format, input.storagePath, input.sizeBytes, input.virtualSizeBytes || null, input.architecture || null, input.provenance, input.metadata || {}],
       );
       return rowToImageVersion(result.rows[0]);

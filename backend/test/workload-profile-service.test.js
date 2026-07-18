@@ -33,6 +33,8 @@ test('publishes immutable workload profile versions with capability metadata', a
   const version = await service.publish(profile());
   assert.equal(version.versionNumber, 1);
   assert.deepEqual(version.capabilities, profile().capabilities);
+  const second = await service.publish({ ...profile(), resources: { ...profile().resources, maxVcpus: 8 } });
+  assert.equal(second.versionNumber, 2);
   await assert.rejects(service.publish(profile()), error => error.code === 'DUPLICATE_CONTENT');
   assert.deepEqual(await service.resolveWorkloadProfileVersion(version.id), version);
 });

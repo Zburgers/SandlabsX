@@ -26,6 +26,11 @@ test('publishes immutable image versions with digest identity and provenance', a
   });
   assert.equal(version.versionNumber, 1);
   assert.deepEqual(version.provenance, { kind: 'IMPORT', source: 'router.vmdk' });
+  const second = await service.publish({
+    name: 'router-base', digest: `sha256:${'c'.repeat(64)}`, format: 'qcow2', storagePath: '/images/router-v2.qcow2',
+    sizeBytes: 84, architecture: 'x86_64', provenance: { kind: 'IMPORT', source: 'router-v2.vmdk' },
+  });
+  assert.equal(second.versionNumber, 2);
   await assert.rejects(service.publish({ ...version, storagePath: '/images/duplicate.qcow2' }), error => error.code === 'DUPLICATE_DIGEST');
   assert.deepEqual(await service.resolveImageVersion(version.id), version);
 });

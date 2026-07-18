@@ -9,7 +9,8 @@ class MemoryWorkloadProfileRepository {
 
   async createVersion(input) {
     if (this.byContentHash.has(input.contentHash)) throw codeError('Workload profile content is already published', 'DUPLICATE_CONTENT');
-    const version = { id: input.id || crypto.randomUUID(), versionNumber: 1, contentHash: input.contentHash, createdAt: new Date().toISOString(), ...clone(input.profile) };
+    const versionNumber = [...this.versions.values()].filter(version => version.name === input.name).length + 1;
+    const version = { ...clone(input.profile), id: input.id || crypto.randomUUID(), name: input.name, versionNumber, contentHash: input.contentHash, createdAt: new Date().toISOString() };
     this.versions.set(version.id, version);
     this.byContentHash.set(version.contentHash, version.id);
     return clone(version);
@@ -28,7 +29,7 @@ class WorkloadProfileRepository {
       const result = await client.query(
         `INSERT INTO sandlabx_workload_profile_versions
           (id, profile_name, version_number, content_sha256, profile)
-         VALUES ($1, $2, 1, $3, $4) RETURNING *`,
+         VALUES ($1, $2::varchar, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM sandlabx_workload_profile_versions WHERE profile_name = $2::varchar), $3, $4) RETURNING *`,
         [id, input.name, input.contentHash, input.profile],
       );
       return rowToWorkloadProfileVersion(result.rows[0]);
