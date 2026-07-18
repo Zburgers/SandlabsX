@@ -103,6 +103,7 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 ## Coordinator remediation evidence
 
 - Status: REMEDIATION REQUIRED — canonical document and landed Agent B v2 integration are complete; the runtime/capacity capabilities below remain intentionally pending.
+- Remediation commit: `58db5b7fac6a867078553911ef87236c424f2521` (`[G] fix: align capsule frontend with v2 contracts`).
 - Canonical corrections: `CapsuleDocument` no longer embeds Scenarios; `ScenarioDocument` pins `spec.capsuleVersion`; every authored node has an exact image-artifact reference, exact workload-profile version, and stable interface objects; links use canonical `type` and `node:interface` endpoint references.
 - V2 integration: Capsule drafts use `/api/v2/capsules` (`POST`, `GET :id`, `PUT :id` with `If-Match`); instances and operations use `/api/v2/instances` and `/api/v2/operations`; Scenario draft/version calls use `/api/v2/scenarios`; durable events use `/api/v2/events?after=<cursor>` and parse named SSE events with numeric cursors.
 - Contract tests: canonical Capsule fixture verifies V2 save URL/method/revision header, stable error mapping, numeric cursor resumption, named-SSE normalization, and editor insertion of canonical profile/image/interface references.
