@@ -143,8 +143,21 @@ async function verifyUpgrade(databaseUrl) {
     const migrations = await client.query(
       'SELECT name FROM sandlabx_migrations ORDER BY id',
     );
-    if (migrations.rowCount !== 3) {
-      throw new Error(`Expected 3 migrations, found ${migrations.rowCount}`);
+    const expectedMigrations = [
+      '0001_core_schema',
+      '0002_capsule_control_plane',
+      '0003_retire_legacy_migration_ledger',
+      '0004_capsule_platform_schema',
+      '0005_capsule_platform_constraints',
+    ];
+    const appliedMigrations = migrations.rows.map((migration) => migration.name);
+    if (
+      appliedMigrations.length !== expectedMigrations.length
+      || appliedMigrations.some((name, index) => name !== expectedMigrations[index])
+    ) {
+      throw new Error(
+        `Expected migrations ${expectedMigrations.join(', ')}, found ${appliedMigrations.join(', ')}`,
+      );
     }
 
     console.log('[legacy-upgrade] partial legacy database upgraded without data loss');

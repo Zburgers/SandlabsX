@@ -12,14 +12,57 @@ const requiredTables = [
   'sandlabx_console_sessions',
   'sandlabx_connections',
   'sandlabx_capsules',
+  'sandlabx_capsule_drafts',
   'sandlabx_capsule_versions',
+  'sandlabx_capsule_version_artifacts',
+  'sandlabx_scenarios',
+  'sandlabx_scenario_drafts',
+  'sandlabx_scenario_versions',
+  'sandlabx_scenario_capsule_compatibility',
+  'sandlabx_bundles',
+  'sandlabx_bundle_versions',
+  'sandlabx_bundle_members',
   'sandlabx_lab_instances',
+  'sandlabx_instance_nodes',
+  'sandlabx_instance_disks',
+  'sandlabx_instance_interfaces',
+  'sandlabx_network_segments',
+  'sandlabx_network_allocations',
+  'sandlabx_console_endpoints',
+  'sandlabx_resource_reservations',
+  'sandlabx_runtime_observations',
   'sandlabx_operations',
   'sandlabx_operation_steps',
+  'sandlabx_operation_attempts',
   'sandlabx_instance_events',
+  'sandlabx_audit_events',
   'sandlabx_verification_runs',
+  'sandlabx_verification_results',
   'sandlabx_checkpoints',
+  'sandlabx_checkpoint_node_disks',
+  'sandlabx_configuration_artifacts',
+  'sandlabx_image_capture_operations',
   'sandlabx_artifacts',
+  'sandlabx_assignments',
+  'sandlabx_assignment_members',
+  'sandlabx_scenario_attempts',
+  'sandlabx_scenario_stage_progress',
+  'sandlabx_scenario_check_results',
+  'sandlabx_scores',
+];
+
+const requiredConstraints = [
+  'capsule_version_digest_format',
+  'scenario_version_digest_format',
+  'network_allocation_live_unique',
+  'assignment_exact_version_unique',
+];
+
+const pendingLegacyTables = [
+  'sandlabx_labs',
+  'sandlabx_nodes',
+  'sandlabx_connections',
+  'sandlabx_console_sessions',
 ];
 
 async function main() {
@@ -54,11 +97,44 @@ async function main() {
       throw new Error('Legacy sandlabx_schema_migrations ledger still exists.');
     }
 
+    const constraints = await client.query(
+      `SELECT conname
+         FROM pg_constraint
+        WHERE conname = ANY($1::text[])`,
+      [requiredConstraints],
+    );
+    const presentConstraints = new Set(constraints.rows.map((row) => row.conname));
+    const missingConstraints = requiredConstraints.filter(
+      (constraint) => !presentConstraints.has(constraint),
+    );
+    if (missingConstraints.length > 0) {
+      throw new Error(`Required Capsule constraints are missing: ${missingConstraints.join(', ')}`);
+    }
+
+    const legacyTables = await client.query(
+      `SELECT table_name
+         FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = ANY($1::text[])`,
+      [pendingLegacyTables],
+    );
+    const presentLegacyTables = new Set(legacyTables.rows.map((row) => row.table_name));
+    const unexpectedlyMissingLegacy = pendingLegacyTables.filter(
+      (table) => !presentLegacyTables.has(table),
+    );
+    if (unexpectedlyMissingLegacy.length > 0) {
+      throw new Error(
+        `Legacy tables disappeared before the guarded cutover migration: ${unexpectedlyMissingLegacy.join(', ')}`,
+      );
+    }
+
     const applied = await client.query(
       'SELECT name, run_on FROM sandlabx_migrations ORDER BY id',
     );
 
     console.log(`[sandlabx-schema] ${requiredTables.length} required tables verified`);
+    console.log(`[sandlabx-schema] ${requiredConstraints.length} Capsule constraints verified`);
+    console.log(`[sandlabx-schema] pending legacy deletion: ${pendingLegacyTables.join(', ')}`);
     console.log(`[sandlabx-schema] ${applied.rowCount} migration(s) recorded`);
     for (const migration of applied.rows) {
       console.log(`[sandlabx-schema] applied ${migration.name}`);
