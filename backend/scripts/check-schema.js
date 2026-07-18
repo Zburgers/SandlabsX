@@ -108,6 +108,10 @@ async function main() {
     const applied = await client.query(
       'SELECT name, run_on FROM sandlabx_migrations ORDER BY id',
     );
+    const expectedMigration = '20260719000000_user_account_security';
+    if (!applied.rows.some((migration) => migration.name === expectedMigration)) {
+      throw new Error(`Required migration is not recorded: ${expectedMigration}`);
+    }
 
     console.log(`[sandlabx-schema] ${requiredTables.length} required tables verified`);
     console.log(`[sandlabx-schema] ${requiredConstraints.length} Capsule constraints verified`);
