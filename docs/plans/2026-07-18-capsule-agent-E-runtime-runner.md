@@ -96,3 +96,16 @@ Unit and failure-path suites must use temporary runtime roots and fake shell-dis
 ## Handoff requirements
 
 Provide Agent H the final SHA, runner command, required host capabilities/devices, operation handlers, plan assumptions, reconciliation matrix, facade deletions, Compose requests, and focused output. Append completion evidence here only.
+
+## Completion evidence
+
+- Status: COMPLETE
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine`; final evidence commit follows this packet update.
+- Commits: `d8eb083` (`[E] refactor: extract capsule runtime services`), `0bea760` (`[E] feat: add durable capsule runner`), `ed67c46` (`[E] feat: safeguard capsule state operations`).
+- Owned files changed: `backend/runtime/{ownership,processRunner,diskService,networkService,qemuProcessService,consoleService}.js`; `backend/runner/{runner,main,operationHandlers,reconciliationService}.js`; `backend/services/{operationService,checkpointService,destructiveActionService}.js`; `backend/modules/checkpointService.js`; the nine Agent E focused test files.
+- Contracts exported: host ports require explicit `{ instanceId, nodeId }` ownership; disk/network/process/console deletes refuse mismatches; `OperationService` supplies idempotent intent, durable-step store boundary, leases, retries, cancellation, reverse compensation; runner handlers are `PLAN`, `PROVISION`, `START`, `STOP`, `LINK_STATE`, `CHECKPOINT`, `RESTORE`, `RESET`, `CAPTURE`, and `DESTROY`; reconciliation classifies `ADOPTED`, `MISSING`, and `PID_REUSED`.
+- Tests run and results: focused E1/E2/E3 suites pass (12 tests); `cd backend && npm test` passes (85/85) after starting the repository PostgreSQL Compose service; syntax checks, `git diff --check`, Compose configuration, and the required runtime safety scan pass.
+- External/runtime gates: `make prepare`, `make doctor`, and `docker compose config --quiet` passed (KVM, TUN, QEMU, qemu-img, writable roots, and ports). PostgreSQL integration and migration tests pass against healthy Compose PostgreSQL. No real QEMU/TAP lifecycle run was attempted because `images/` contains no managed `.qcow2` test image; post-run network audit is therefore not applicable and no SandLabX TAP/bridge was present before handoff.
+- Known limitations: `MemoryOperationStore` is the test adapter; Agent H must compose a PostgreSQL-backed operation store/runner process using the existing operation tables. Lifecycle handler factories are intentionally dependency-injected seams; API composition remains Agent H-owned. Legacy `qemuManager.js` and `guacamoleClient.js` remain until Task 18 cutover and must not be used by new Capsule runtime paths.
+- Requested changes for Agent H-owned files: add a `runner` Compose service using the backend image and `node runner/main.js`; grant only runner QEMU/image roots, `/dev/kvm`, `/dev/net/tun`, and the required network capability (privileged mode remains opt-in); keep API without those device mounts; add the runner package command and wire the PostgreSQL operation-store adapter.
+- Downstream agents unblocked: Agent H can compose the runner and qualification path against the exported runtime ports and handler/reconciliation seams.
