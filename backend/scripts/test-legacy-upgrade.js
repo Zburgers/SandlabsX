@@ -151,6 +151,7 @@ async function verifyUpgrade(databaseUrl) {
       '0005_capsule_platform_constraints',
       '0006_image_profile_versions',
       '0007_capsule_control_plane_persistence',
+      '0008_resource_reservation_lifecycle',
     ];
     const appliedMigrations = migrations.rows.map((migration) => migration.name);
     if (
