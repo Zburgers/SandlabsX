@@ -10,6 +10,7 @@ const { CapsuleRepository } = require('../repositories/capsuleRepository');
 const { OperationRepository } = require('../repositories/operationRepository');
 const { ReservationRepository } = require('../repositories/reservationRepository');
 const { AdmissionService } = require('../services/admissionService');
+const { InstanceRepository } = require('../repositories/instanceRepository');
 
 const run = promisify(execFile);
 const baseUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://guacamole_user:guacamole_pass@127.0.0.1:5432/guacamole_db';
@@ -104,6 +105,10 @@ test('PostgreSQL control plane persists authoritative drafts, immutable private/
   const admission = new AdmissionService({ reservations: new ReservationRepository({ pool }) });
   const instanceA = '10000000-0000-0000-0000-000000000001'; const instanceB = '10000000-0000-0000-0000-000000000002';
   await pool.query('INSERT INTO sandlabx_lab_instances (id,capsule_version_id,owner_user_id,name) VALUES ($1,$2,$3,$4),($5,$2,$3,$6)', [instanceA, publishedVersion.id, ownerA, 'admission-a', instanceB, 'admission-b']);
+  const instanceRepository = new InstanceRepository({ pool });
+  const persistedPlan = { instanceId: instanceA, semanticHash: `sha256:${'d'.repeat(64)}`, fullHash: `sha256:${'e'.repeat(64)}`, resources: {}, interfaces: [], segments: [], consoles: [] };
+  await instanceRepository.saveExecutionPlan(instanceA, publishedVersion.id, persistedPlan);
+  assert.deepEqual((await instanceRepository.getExecutionPlan(instanceA)).document, persistedPlan);
   const host = { id: 'host-a', capabilities: ['kvm'], capacity: { vcpus: 2, memoryMiB: 2048, storageGiB: 20, consolePorts: 2 } };
   const plan = (instanceId) => ({ instanceId, resources: { vcpus: 2, memoryMiB: 2048, storageGiB: 10 }, interfaces: [{ tap: `tap-${instanceId}`, mac: `02:00:00:00:00:${instanceId.endsWith('1') ? '01' : '02'}` }], segments: [], consoles: [{ port: instanceId.endsWith('1') ? 5901 : 5902 }] });
   await admission.admit({ plan: plan(instanceA), host, requiredCapabilities: ['kvm'] });

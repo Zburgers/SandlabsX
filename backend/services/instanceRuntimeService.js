@@ -1,0 +1,11 @@
+'use strict';
+const { compileExecutionPlan } = require('../planning/planCompiler');
+const actorId = actor => actor?.id || actor?.sub;
+const fail = (message, code) => Object.assign(new Error(message), { code });
+class InstanceRuntimeService {
+  constructor({ instances, capsules, images, profiles, admission, host, overlaysRoot }) { if (!instances || !capsules || !images || !profiles || !admission || !host) throw new TypeError('runtime dependencies are required'); Object.assign(this, { instances, capsules, images, profiles, admission, host, overlaysRoot }); }
+  async create(actor, input) { const version = await this.capsules.getVersion(input.capsuleVersionId); if (!version) throw fail('Capsule version not found', 'NOT_FOUND'); const imageVersions = {}; for (const [alias, reference] of Object.entries(version.document.images || {})) imageVersions[alias] = await this.images.getVersion(reference.version); const workloadProfileVersions = {}; for (const [alias, reference] of Object.entries(version.document.workloadProfiles || {})) workloadProfileVersions[alias] = await this.profiles.getVersion(reference.version); const instance = await this.instances.create({ ownerId: actorId(actor), capsuleVersionId: version.id, name: input.name }); const plan = compileExecutionPlan(version.document, { instanceId: instance.id, capsuleVersion: version, imageVersions, workloadProfileVersions, host: this.host, overlaysRoot: this.overlaysRoot }); await this.instances.saveExecutionPlan(instance.id, version.id, plan); await this.admission.admit({ plan, host: this.host, requiredCapabilities: ['kvm'] }); return { ...instance, planHash: plan.fullHash }; }
+  async get(actor, id) { const instance = await this.instances.get(id); if (!instance || (actor.role !== 'admin' && instance.ownerId !== actorId(actor))) throw fail('Instance not found', 'NOT_FOUND'); const plan = await this.instances.getExecutionPlan(id); return { ...instance, desiredTopology: plan?.document || null }; }
+  async planFor(actor, id) { await this.get(actor, id); const plan = await this.instances.getExecutionPlan(id); if (!plan) throw fail('Execution plan not found', 'PLAN_NOT_FOUND'); return plan.document; }
+}
+module.exports = { InstanceRuntimeService };
