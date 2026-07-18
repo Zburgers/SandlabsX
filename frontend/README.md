@@ -51,6 +51,8 @@ frontend/
 - **Serial console:** xterm.js-based terminal access
 - **Graphical console:** Guacamole-backed browser sessions
 - **Authentication:** login and protected application state
+- **Capsule workspace:** canonical draft list and visual Capsule authoring at `/capsules`
+- **Instance runtime:** desired/observed topology, operation status, checkpoints, and scoped-console launch at `/instances/:instanceId`
 
 ## API integration
 
@@ -66,6 +68,12 @@ Backend endpoint groups currently include:
 
 API failures should be presented with actionable messages and should never silently replace persisted state with mock data.
 
+The Capsule client is isolated in `lib/capsule-api.ts`. It owns transport details,
+safe error normalization, correlation IDs, and the temporary contract-pending
+boundary for service endpoints that have not landed yet. Components consume the
+canonical types in `lib/capsule-types.ts` and do not retain topology in browser
+storage.
+
 ## Frontend development rules
 
 - Keep server and client component boundaries explicit.
@@ -80,6 +88,7 @@ API failures should be presented with actionable messages and should never silen
 
 ```bash
 npm run build
+npm test
 ```
 
 The current package also contains a legacy `next lint` script. Until lint configuration is migrated to a direct ESLint command, the production build is the required frontend CI gate.

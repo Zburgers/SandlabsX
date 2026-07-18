@@ -1,0 +1,1 @@
+export function InterfaceHandle({ nodeId, interfaceId }: { nodeId: string; interfaceId: string }) { return <span aria-label={`${nodeId} ${interfaceId}`} className="inline-flex rounded border border-cyan-300/50 px-2 py-1 text-xs text-cyan-200">{interfaceId}</span>; }

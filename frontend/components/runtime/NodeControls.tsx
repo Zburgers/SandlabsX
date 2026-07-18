@@ -1,0 +1,2 @@
+'use client';
+export function NodeControls({ state, onAction }: { state: string; onAction: (action: 'start' | 'stop') => void }) { const running = state === 'RUNNING'; return <div className="flex gap-2"><button type="button" disabled={running} onClick={() => onAction('start')} className="rounded bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50">Start</button><button type="button" disabled={!running} onClick={() => onAction('stop')} className="rounded border border-slate-600 px-3 py-2 text-sm disabled:opacity-50">Stop</button></div>; }

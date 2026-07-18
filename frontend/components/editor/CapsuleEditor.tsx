@@ -1,0 +1,10 @@
+'use client';
+import { useMemo, useState } from 'react';
+import type { CapsuleDocument, CapsuleDraft, CapsuleProfile } from '../../lib/capsule-types';
+
+export function CapsuleEditor({ draft, profiles, onSave, readOnly = false }: { draft: CapsuleDraft; profiles: CapsuleProfile[]; onSave: (document: CapsuleDocument) => void; readOnly?: boolean }) {
+  const [document, setDocument] = useState(draft.document);
+  const nodes = useMemo(() => Object.values(document.nodes), [document.nodes]);
+  const addNode = (profile: CapsuleProfile) => { const id = profile.id.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'node'; const unique = document.nodes[id] ? `${id}-${nodes.length + 1}` : id; const next = { ...document, nodes: { ...document.nodes, [unique]: { id: unique, name: profile.name, profileId: profile.id, interfaces: profile.interfaces, position: { x: 80 + nodes.length * 48, y: 96 + nodes.length * 32 } } } }; setDocument(next); onSave(next); };
+  return <section aria-label="Capsule visual editor" className="rounded-xl border border-slate-700 bg-slate-950 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Capsule canvas</h2><p className="text-sm text-slate-400">Revision {draft.revision}; positions are presentation metadata.</p></div><div className="flex gap-2">{profiles.map(profile => <button key={profile.id} type="button" disabled={readOnly} onClick={() => addNode(profile)} className="rounded-md bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50">Add {profile.name}</button>)}</div></div><div className="mt-5 min-h-72 rounded-lg border border-dashed border-slate-700 p-5">{nodes.length === 0 ? <p className="text-slate-400">Blank canvas. Add a workload profile to begin authoring exact interfaces.</p> : <ul className="grid gap-3 sm:grid-cols-2">{nodes.map(node => <li key={node.id} className="rounded-md border border-slate-700 bg-slate-900 p-4"><strong>{node.name}</strong><p className="mt-2 text-sm text-slate-400">{node.interfaces.map(item => <span key={item} className="mr-2">{item}</span>)}</p></li>)}</ul>}</div></section>;
+}

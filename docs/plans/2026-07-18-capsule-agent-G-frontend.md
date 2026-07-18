@@ -76,3 +76,16 @@ Commit: `fix(frontend): integrate capsule service contracts`
 ## Handoff requirements
 
 Provide Agent H final SHA, test/build output, route requirements, event assumptions, deleted/replaced legacy components, accessibility gaps, and screenshots or manual verification notes. Append completion evidence here only.
+
+## Completion evidence
+
+- Status: REMEDIATION REQUIRED
+- Branch and final HEAD: `feat/lab-capsules-scenario-engine` at pending commit
+- Commits: pending commit
+- Owned files changed: canonical client/types/event stream, Vitest harness, dashboard, Capsules visual workspace, editor components, instance runtime components, Scenario and assignment routes, frontend documentation, and Hallmark tokens/log.
+- Contracts exported: `capsuleApi`, canonical `CapsuleDocument`/draft/instance/operation types, resumable-event cursor and EventSource connector.
+- Tests run and results: `cd frontend && npm test` — 4 files / 5 tests passed; `cd frontend && npm run build` — compiled all 10 routes and type-checked successfully.
+- External/runtime gates: graph updated with `graphify update .`; real API/host validation not attempted because the current backend lacks capacity, assignment, console-grant, impact-preview, destruction, and durable event-stream endpoints.
+- Known limitations: `capsuleApi` surfaces `CONTRACT_PENDING` for the missing planned service contracts. The current backend's prototype Capsule routes support draft, publish, instance action, operation, verification, and checkpoint flows only; final integrations must be implemented at the typed client boundary after Agents B, E, and F land.
+- Requested changes for Agent H-owned files: wire the authenticated navigation to `/dashboard`, `/capsules`, `/assignments`, and instance runtime routes; remove legacy `/lab` only during final cutover.
+- Downstream agents unblocked: Agent H can compose the routes and replace only the pending typed-client methods once authoritative service contracts are available.

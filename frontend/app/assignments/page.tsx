@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function AssignmentsPage() { return <main className="min-h-screen bg-slate-950 p-5 text-slate-100"><div className="mx-auto max-w-5xl"><h1 className="text-3xl font-semibold">Assignments</h1><p className="mt-3 max-w-2xl text-slate-400">Assignments bind eligible learners to an exact Capsule and Scenario version. Assignment data is shown once the service contract is available.</p><Link href="/capsules" className="mt-6 inline-block rounded bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950">Open Capsules</Link></div></main>; }
