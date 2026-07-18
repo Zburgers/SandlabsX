@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "instanceId": "instance-123",
+  "resources": { "vcpus": 3, "memoryMiB": 3072, "storageGiB": 24, "nodeCount": 3 },
+  "images": { "router": { "id": "image-router-v1", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "path": "/images/router.qcow2", "format": "qcow2" } },
+  "disks": [{ "nodeId": "client", "action": "createOverlay" }],
+  "interfaces": [{ "nodeId": "client", "interfaceId": "eth0", "tap": "tap-130676136cd", "mac": "12:06:76:13:6c:d7", "segmentId": "lan" }, { "nodeId": "client", "interfaceId": "eth1", "tap": "tap-1a2be2aad50", "mac": "1a:2b:e2:aa:d5:08", "segmentId": null }],
+  "segments": [{ "id": "lan", "type": "segment", "resourceKey": "instance-123|lan" }, { "id": "transit", "type": "pointToPoint", "resourceKey": "instance-123|transit" }],
+  "consoles": [{ "nodeId": "client", "type": "vnc", "port": 5900 }],
+  "processes": [{ "nodeId": "client", "command": "qemu-system-x86_64", "args": ["-name", "sandlabx-instance-123-client"] }],
+  "readiness": [{ "nodeId": "client", "type": "vnc", "endpoint": "127.0.0.1:5900" }],
+  "steps": [{ "key": "start:client", "action": "startProcess", "nodeId": "client" }],
+  "compensation": [{ "action": "removeOverlay", "nodeId": "client" }],
+  "ownership": { "instanceId": "instance-123", "hostId": "host-a", "labels": { "sandlabx.io/instance": "instance-123" } },
+  "semanticHash": "sha256:cc76b2eb39e47dcdc5c780e88a3a317b90c390d9a12421c04d47d3e6aa7f6540",
+  "fullHash": "sha256:351fe9b11fa73faa0b890733ec01a4c5ec6f2ff4c5892d8a6474e09ee1491fcb"
+}
