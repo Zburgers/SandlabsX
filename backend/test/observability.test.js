@@ -18,6 +18,7 @@ test('redacts secrets recursively while preserving correlation and bounding fiel
 
 test('public errors do not expose internal messages', () => {
   assert.deepEqual(toPublicError(new Error('database password leaked')), { code: 'INTERNAL_ERROR', message: 'An internal error occurred', retryable: false });
+  assert.deepEqual(toPublicError(Object.assign(new Error('duplicate key on secret@example.test'), { code: '23505' })), { code: 'INTERNAL_ERROR', message: 'An internal error occurred', retryable: false });
   assert.deepEqual(toPublicError(new PlatformError('CAPSULE_INVALID', 'Capsule is invalid')), { code: 'CAPSULE_INVALID', message: 'Capsule is invalid', retryable: false });
 });
 
@@ -39,4 +40,5 @@ test('observability emits bounded structured events and audit repository uses pa
   const pool = { query: async (sql, values) => ({ sql, values }) };
   const result = await new AuditRepository({ pool }).append({ action: 'capsule.publish', resource_type: 'capsule', metadata: { password: 'not logged by repository' } });
   assert.match(result.sql, /INSERT INTO sandlabx_audit_events/); assert.match(result.sql, /\$1/); assert.equal(result.values[1], 'capsule.publish');
+  assert.equal(result.values[5].password, '[REDACTED]');
 });
