@@ -117,3 +117,9 @@ Provide Agent H final SHA, test/build output, route requirements, event assumpti
 - UI behavior: `ScenarioRunner` renders aggregate and stage scoring, check status/retry count, server-redacted evidence, and authored hints without reinterpreting check outcomes or exposing guest-command input.
 - Tests run and results: focused `npm test -- ScenarioRunner` passed; full `npm test` passed 5 files / 9 tests; `npm run build` compiled/type-checked all 10 routes; `git diff --check` passed.
 - Pending integration: `capsuleApi.runVerification` remains `CONTRACT_PENDING` until Agent H mounts an authenticated Scenario-run route that returns the accepted `ScenarioAttempt` payload.
+
+## Coordinator acceptance
+
+- Status override: `COMPLETE` for Agent G's owned frontend contracts and workflows through `9c7cf66`.
+- Acceptance evidence: frontend tests pass 9/9 and the production build compiles/type-checks all 10 routes. The existing ESLint circular-configuration warning remains a shared tooling issue and did not fail the build.
+- Agent H owns replacement of the remaining `CONTRACT_PENDING` methods when it mounts runtime, capacity, console, destructive-action, checkpoint, Scenario-run, assignment-list, and Capsule-list endpoints.

@@ -109,3 +109,10 @@ Provide Agent H the final SHA, runner command, required host capabilities/device
 - Known limitations: `MemoryOperationStore` is the test adapter; Agent H must compose a PostgreSQL-backed operation store/runner process using the existing operation tables. Lifecycle handler factories are intentionally dependency-injected seams; API composition remains Agent H-owned. Legacy `qemuManager.js` and `guacamoleClient.js` remain until Task 18 cutover and must not be used by new Capsule runtime paths.
 - Requested changes for Agent H-owned files: add a `runner` Compose service using the backend image and `node runner/main.js`; grant only runner QEMU/image roots, `/dev/kvm`, `/dev/net/tun`, and the required network capability (privileged mode remains opt-in); keep API without those device mounts; add the runner package command and wire the PostgreSQL operation-store adapter.
 - Downstream agents unblocked: Agent H can compose the runner and qualification path against the exported runtime ports and handler/reconciliation seams.
+
+## Coordinator acceptance
+
+- Status override: `COMPLETE` after Agent E commits through `39c031c` and coordinator runtime remediation `ab4a043`.
+- Coordinator fixes prevent `shell`/`detached`/stdio option override, normalize malformed console-token failures, replace lifecycle no-ops with disk/network/console/QEMU/checkpoint/capture/destruction port calls and compensation, and require QEMU readiness before START succeeds.
+- Acceptance evidence: focused E suite passes 11/11; full PostgreSQL-backed backend passes 87/87; legacy upgrade through `0008`, Compose configuration, syntax, diff, and safety gates pass. PostgreSQL was stopped after validation.
+- Real QEMU/TAP qualification remains Agent H's integration gate because no managed test image currently exists; this does not block composition of the accepted runtime contracts.

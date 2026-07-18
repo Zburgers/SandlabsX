@@ -82,6 +82,8 @@ Expected: real-host PASS. Missing KVM/TUN/images is an explicit release blocker,
 
 Before qualification, follow the shared virtualization preflight. Do not run the live gate against root-owned bind roots or unidentified occupied ports. Unit/integration harnesses use temporary roots; the real gate must use writable persistent roots, identify the intended Compose listeners, capture pre/post network audits, and prove cleanup of PIDs, TAPs, bridges, overlays, and console grants.
 
+No managed QCOW2 qualification image exists at handoff. Provision one through `ImagePipeline` with a pinned checksum and recorded provenance, validate that it has no external backing dependency, and keep the binary out of Git. Do not download an unpinned image or claim support for an unqualified appliance. Record the exact artifact digest and cleanup policy in qualification evidence.
+
 Commit: `test: qualify capsule runtime on kvm`
 
 ### Task H4: Hard legacy cutover
