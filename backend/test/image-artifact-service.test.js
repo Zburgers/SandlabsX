@@ -10,7 +10,7 @@ const { MemoryWorkloadProfileRepository } = require('../repositories/workloadPro
 
 function profile() {
   return {
-    name: 'qemu-router', architecture: 'x86_64', acceleration: ['kvm'], machine: 'q35',
+    id: 'qemu-router', version: 'draft', console: 'serial', architecture: 'x86_64', acceleration: ['kvm'], machine: 'q35',
     resources: { minVcpus: 1, maxVcpus: 4, minMemoryMiB: 512, maxMemoryMiB: 8192 },
     interfaces: { max: 4, models: ['virtio-net'] }, disks: { max: 2, formats: ['qcow2'] },
     capabilities: { capture: true }, supportedImage: { architectures: ['x86_64'], formats: ['qcow2'] },

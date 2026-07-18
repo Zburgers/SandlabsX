@@ -11,11 +11,13 @@ const { MemoryWorkloadProfileRepository } = require('../repositories/workloadPro
 
 function profile() {
   return {
-    name: 'qemu-router',
+    id: 'qemu-router',
+    version: 'draft',
     architecture: 'x86_64',
     acceleration: ['kvm'],
     machine: 'q35',
     firmware: 'uefi',
+    console: 'serial',
     consoles: ['serial', 'vnc'],
     resources: { minVcpus: 1, maxVcpus: 4, minMemoryMiB: 512, maxMemoryMiB: 8192 },
     interfaces: { max: 4, models: ['virtio-net'] },
