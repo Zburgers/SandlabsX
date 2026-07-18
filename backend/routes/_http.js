@@ -1,0 +1,7 @@
+'use strict';
+const safeMessages = { UNAUTHORIZED: 'Authentication is required', FORBIDDEN: 'Access denied', NOT_FOUND: 'Resource not found', REVISION_CONFLICT: 'Capsule revision conflict', INVALID_CAPSULE: 'Capsule validation failed', INVALID_SCENARIO: 'Scenario validation failed', VERSION_NOT_FOUND: 'Immutable version not found', SCENARIO_CAPSULE_MISMATCH: 'Scenario and Capsule versions are incompatible' };
+function actor(req) { const identity = req.user || req.auth; return identity && { id: identity.id || identity.sub, role: identity.role }; }
+function requireIdempotency(req, res) { const key = req.get('idempotency-key'); if (!key) { res.status(400).json({ success: false, code: 'IDEMPOTENCY_KEY_REQUIRED', error: 'Idempotency-Key header is required' }); return null; } return key; }
+function sendError(res, err) { const status = { UNAUTHORIZED: 401, FORBIDDEN: 403, NOT_FOUND: 404, REVISION_CONFLICT: 409, INVALID_CAPSULE: 422, INVALID_SCENARIO: 422, VERSION_NOT_FOUND: 404, SCENARIO_CAPSULE_MISMATCH: 422 }[err.code] || 500; return res.status(status).json({ success: false, code: err.code || 'INTERNAL_ERROR', error: safeMessages[err.code] || 'Internal server error', ...(err.issues ? { issues: err.issues } : {}) }); }
+const asyncRoute = handler => (req, res) => Promise.resolve(handler(req, res)).catch(error => sendError(res, error));
+module.exports = { actor, requireIdempotency, sendError, asyncRoute };

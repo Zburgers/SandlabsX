@@ -1,0 +1,4 @@
+'use strict';
+const express = require('express'); const { actor, asyncRoute } = require('./_http');
+function createEventRouter({ eventService }) { if (!eventService) throw new TypeError('eventService is required'); const router = express.Router(); router.get('/', asyncRoute(async (req, res) => { const after = Number(req.get('last-event-id') || req.query.after || 0); if (!Number.isSafeInteger(after) || after < 0) return res.status(400).json({ success: false, code: 'INVALID_CURSOR', error: 'Cursor must be a non-negative integer' }); const events = await eventService.list(actor(req), { after }); res.status(200).set({ 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' }); for (const event of events) res.write(`id: ${event.cursor}\nevent: ${event.type}\ndata: ${JSON.stringify(event.payload || {})}\n\n`); return res.end(); })); return router; }
+module.exports = { createEventRouter };

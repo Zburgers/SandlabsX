@@ -1,0 +1,4 @@
+'use strict';
+const express = require('express'); const { actor, requireIdempotency, asyncRoute } = require('./_http');
+function createScenarioRouter({ scenarioService }) { if (!scenarioService) throw new TypeError('scenarioService is required'); const router = express.Router(); router.post('/', asyncRoute(async (req, res) => res.status(202).json({ success: true, scenario: await scenarioService.createDraft(actor(req), req.body) }))); router.post('/:id/publish', asyncRoute(async (req, res) => { if (!requireIdempotency(req, res)) return; return res.status(202).json({ success: true, version: await scenarioService.publish(actor(req), req.params.id) }); })); router.get('/versions/:id', asyncRoute(async (req, res) => res.json({ success: true, version: await scenarioService.getVersion(actor(req), req.params.id) }))); return router; }
+module.exports = { createScenarioRouter };
