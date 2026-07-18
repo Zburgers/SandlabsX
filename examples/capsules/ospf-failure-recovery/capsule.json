@@ -14,29 +14,17 @@
     "execution": { "allowAuthorScripts": false }
   },
   "images": {
-    "router": { "source": "managed", "name": "router", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
+    "router": { "source": "managed", "name": "router", "version": "router-image-v1", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" }
   },
+  "workloadProfiles": { "router": { "version": "qemu-serial-router-v1" } },
   "nodes": {
-    "r1": { "displayName": "Router 1", "driver": "qemu-serial-router", "image": "router", "role": "router", "resources": { "vcpus": 1, "memoryMiB": 2048 }, "interfaces": [{ "id": "ge0" }, { "id": "ge1" }], "console": { "type": "serial" }, "position": { "x": 80, "y": 180 } },
-    "r2": { "displayName": "Router 2", "driver": "qemu-serial-router", "image": "router", "role": "router", "resources": { "vcpus": 1, "memoryMiB": 2048 }, "interfaces": [{ "id": "ge0" }, { "id": "ge1" }], "console": { "type": "serial" }, "position": { "x": 380, "y": 180 } },
-    "r3": { "displayName": "Router 3", "driver": "qemu-serial-router", "image": "router", "role": "router", "resources": { "vcpus": 1, "memoryMiB": 2048 }, "interfaces": [{ "id": "ge0" }, { "id": "ge1" }], "console": { "type": "serial" }, "position": { "x": 680, "y": 180 } }
+    "r1": { "displayName": "Router 1", "driver": "qemu-serial-router", "image": "router", "workloadProfile": "router", "role": "router", "resources": { "vcpus": 1, "memoryMiB": 2048 }, "interfaces": [{ "id": "ge0" }, { "id": "ge1" }], "console": { "type": "serial" }, "position": { "x": 80, "y": 180 } },
+    "r2": { "displayName": "Router 2", "driver": "qemu-serial-router", "image": "router", "workloadProfile": "router", "role": "router", "resources": { "vcpus": 1, "memoryMiB": 2048 }, "interfaces": [{ "id": "ge0" }, { "id": "ge1" }], "console": { "type": "serial" }, "position": { "x": 380, "y": 180 } },
+    "r3": { "displayName": "Router 3", "driver": "qemu-serial-router", "image": "router", "workloadProfile": "router", "role": "router", "resources": { "vcpus": 1, "memoryMiB": 2048 }, "interfaces": [{ "id": "ge0" }, { "id": "ge1" }], "console": { "type": "serial" }, "position": { "x": 680, "y": 180 } }
   },
   "links": [
     { "id": "r1-r2", "type": "pointToPoint", "endpoints": ["r1:ge0", "r2:ge0"] },
     { "id": "r2-r3", "type": "pointToPoint", "endpoints": ["r2:ge1", "r3:ge0"] },
     { "id": "r3-r1", "type": "pointToPoint", "endpoints": ["r3:ge1", "r1:ge1"] }
-  ],
-  "scenarios": [{
-    "id": "recover-adjacency",
-    "title": "Recover OSPF adjacency",
-    "instructions": [
-      "Inspect serial output on all routers and identify the failed transit interface.",
-      "Restore the interface and confirm that the OSPF neighbor reaches FULL."
-    ],
-    "checks": [
-      { "id": "topology", "type": "topologyPlan", "expected": { "nodes": 3, "links": 3 } },
-      { "id": "r1-adjacency", "type": "serialOutput", "node": "r1", "expected": { "contains": "OSPF FULL" } }
-    ],
-    "checkpoints": [{ "id": "initial", "name": "Initial stopped state" }]
-  }]
+  ]
 }

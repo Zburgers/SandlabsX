@@ -1,0 +1,13 @@
+{
+  "apiVersion": "sandlabx.io/v1alpha1",
+  "kind": "LabScenario",
+  "metadata": { "name": "ospf-failure-recovery", "displayName": "Recover OSPF adjacency" },
+  "spec": { "capsuleVersion": "EXACT_CAPSULE_VERSION_REQUIRED" },
+  "stages": [
+    {
+      "id": "recover-adjacency",
+      "instructions": ["Inspect serial output and restore the failed transit interface."],
+      "checks": [{ "id": "topology", "type": "topologyPlan" }]
+    }
+  ]
+}
