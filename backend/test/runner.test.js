@@ -4,6 +4,7 @@ const test = require('node:test');
 const { OperationService, MemoryOperationStore } = require('../services/operationService');
 const { Runner } = require('../runner/runner');
 const { createOperationHandlers } = require('../runner/operationHandlers');
+const { createRunnerRuntime } = require('../runner/production');
 
 test('Runner leases one operation and retries a retryable stable step without duplicate completion', async () => {
   const store = new MemoryOperationStore(); const operations = new OperationService({ store, maxAttempts: 2 });
@@ -29,4 +30,13 @@ test('lifecycle handlers execute runtime ports and expose reverse compensation',
   assert.deepEqual(calls.slice(0, 4).map(call => call[0]), ['disk.create', 'segment.create', 'tap.create', 'console.register']);
   const start = handlers.START(operation); await start[0].run(); await start[0].compensate();
   assert.deepEqual(calls.slice(-3).map(call => call[0]), ['qemu.start', 'qemu.ready', 'qemu.stop']);
+});
+
+test('production runner composition uses one injected pool and host capability adapter', () => {
+  const pool = { query: async () => ({ rows: [] }), connect: async () => { throw new Error('not used'); } };
+  const processRunner = { run: async () => ({ code: 0, stdout: '[]', stderr: '' }), spawn: async () => ({ pid: 42 }), inspectProcess: async () => ({ command: 'qemu-system-x86_64', args: [] }), inspectLink: async () => null, signal: async () => {} };
+  const runtime = createRunnerRuntime({ pool, processRunner, env: { RUNNER_ID: 'runner-test', OVERLAYS_PATH: '/tmp/overlays', CHECKPOINTS_PATH: '/tmp/checkpoints', CUSTOM_IMAGES_PATH: '/tmp/images', IMAGE_CATALOG_PATH: '/tmp/catalog.json', CONSOLE_TOKEN_SECRET: 'test-secret' } });
+  assert.equal(runtime.id, 'runner-test');
+  assert.equal(runtime.runner.operations, runtime.operations);
+  assert.ok(runtime.handlers.START && runtime.handlers.PROVISION && runtime.handlers.DESTROY);
 });

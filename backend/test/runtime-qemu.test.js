@@ -27,3 +27,18 @@ test('ProcessRunner cannot be coerced into shell or detached execution', async (
   assert.equal(calls[0].shell, false); assert.deepEqual(calls[0].stdio, ['ignore', 'pipe', 'pipe']);
   assert.equal(calls[1].shell, false); assert.equal(calls[1].detached, false); assert.equal(calls[1].stdio, 'ignore');
 });
+
+test('ProcessRunner inspects proc identity, observes links, signals only numeric PIDs, and bounds output', async () => {
+  const signals = []; const outputs = [];
+  const runner = new ProcessRunner({
+    maxOutputBytes: 64,
+    readFile: async file => { assert.equal(file, '/proc/42/cmdline'); return Buffer.from('/usr/bin/qemu-system-x86_64\0-name\0owned\0'); },
+    killImpl: (pid, signal) => signals.push([pid, signal]),
+    spawnImpl: (_command, args) => { const { EventEmitter } = require('node:events'); const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); process.nextTick(() => { if (args[0] === '-json') child.stdout.emit('data', JSON.stringify([{ ifname: 'tap-a', operstate: 'UP' }])); else child.stdout.emit('data', 'x'.repeat(70)); child.emit('close', 0, null); }); return child; },
+  });
+  assert.deepEqual(await runner.inspectProcess(42), { command: '/usr/bin/qemu-system-x86_64', args: ['-name', 'owned'] });
+  assert.deepEqual(await runner.inspectLink('tap-a'), { name: 'tap-a', up: true, state: 'UP' });
+  outputs.push(await runner.run('tool', [])); assert.equal(outputs[0].stdout, 'x'.repeat(64));
+  await runner.signal(42, 'SIGTERM'); assert.deepEqual(signals, [[42, 'SIGTERM']]);
+  await assert.rejects(runner.signal('42; reboot', 'SIGTERM'), /numeric PID/);
+});

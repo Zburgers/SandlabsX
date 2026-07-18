@@ -1,8 +1,13 @@
 'use strict';
 const { spawn } = require('node:child_process');
+const fs = require('node:fs/promises');
 class ProcessRunner {
-  constructor({ maxOutputBytes = 64 * 1024, spawnImpl = spawn } = {}) { this.maxOutputBytes = maxOutputBytes; this.spawnImpl = spawnImpl; }
+  constructor({ maxOutputBytes = 64 * 1024, spawnImpl = spawn, readFile = fs.readFile, killImpl = process.kill } = {}) { this.maxOutputBytes = maxOutputBytes; this.spawnImpl = spawnImpl; this.readFile = readFile; this.killImpl = killImpl; }
   run(command, args, options = {}) { if (!Array.isArray(args) || typeof command !== 'string' || !command) throw new TypeError('command and argument array are required'); return new Promise((resolve, reject) => { const child = this.spawnImpl(command, args, { ...options, shell: false, stdio: ['ignore', 'pipe', 'pipe'] }); let stdout = ''; let stderr = ''; const collect = (target, chunk) => (target + String(chunk)).slice(-this.maxOutputBytes); child.stdout?.on('data', chunk => { stdout = collect(stdout, chunk); }); child.stderr?.on('data', chunk => { stderr = collect(stderr, chunk); }); child.once('error', reject); child.once('close', (code, signal) => resolve({ command, args: [...args], code, signal, stdout, stderr, correlationId: options.correlationId || null })); }); }
   spawn(command, args, options = {}) { if (!Array.isArray(args) || typeof command !== 'string' || !command) throw new TypeError('command and argument array are required'); return new Promise((resolve, reject) => { const child = this.spawnImpl(command, args, { ...options, shell: false, detached: false, stdio: 'ignore' }); child.once('error', reject); child.once('spawn', () => resolve({ pid: child.pid, command, args: [...args] })); }); }
+  async inspectProcess(pid) { assertPid(pid); try { const fields = (await this.readFile(`/proc/${pid}/cmdline`)).toString().split('\0').filter(Boolean); if (!fields.length) return null; return { command: fields[0], args: fields.slice(1) }; } catch (error) { if (error.code === 'ENOENT' || error.code === 'ESRCH') return null; throw error; } }
+  async signal(pid, signal = 'SIGTERM') { assertPid(pid); if (!['SIGTERM', 'SIGKILL'].includes(signal)) throw new TypeError('unsupported signal'); this.killImpl(pid, signal); }
+  async inspectLink(name) { if (typeof name !== 'string' || !/^[a-zA-Z0-9_.-]{1,15}$/.test(name)) throw new TypeError('valid link name is required'); const result = await this.run('ip', ['-json', 'link', 'show', 'dev', name]); if (result.code !== 0) return null; let rows; try { rows = JSON.parse(result.stdout); } catch { throw Object.assign(new Error('ip returned invalid JSON'), { code: 'INVALID_IP_OUTPUT' }); } const link = rows[0]; return link ? { name: link.ifname, up: link.operstate === 'UP', state: link.operstate } : null; }
 }
+function assertPid(pid) { if (!Number.isSafeInteger(pid) || pid <= 1) throw new TypeError('numeric PID greater than one is required'); }
 module.exports = { ProcessRunner };

@@ -104,17 +104,8 @@ services:
     restart: unless-stopped
     init: true
 
-    # LEGACY RUNTIME BOUNDARY
-    # NET_ADMIN plus KVM/TUN are needed only by the pre-Capsule QemuManager that
-    # runs QEMU in the API container. Remove these grants when execution moves
-    # to the dedicated Capsule runner.
-    cap_add:
-      - NET_ADMIN
     security_opt:
       - no-new-privileges:true
-    devices:
-      - /dev/kvm:/dev/kvm
-      - /dev/net/tun:/dev/net/tun
     environment:
       PORT: 3001
       NODE_ENV: ${NODE_ENV:-production}
@@ -134,7 +125,7 @@ services:
       OVERLAYS_PATH: /overlays
       VMS_PATH: /vms
       CHECKPOINTS_PATH: /checkpoints
-      SANDLABX_NETWORK_MODE: ${SANDLABX_NETWORK_MODE:-legacy-l2}
+      SANDLABX_NETWORK_MODE: disabled
       SANDLABX_VALIDATE_IMAGES_ON_STARTUP: ${SANDLABX_VALIDATE_IMAGES_ON_STARTUP:-false}
       QEMU_IFUP: /usr/local/libexec/sandlabx/qemu-ifup
       QEMU_IFDOWN: /usr/local/libexec/sandlabx/qemu-ifdown
@@ -149,6 +140,42 @@ services:
     stop_grace_period: 30s
     volumes:
       - backend-data:/app/data
+      - ./images:/images
+      - ./overlays:/overlays
+      - ./vms:/vms
+      - ./pids:/pids
+      - ./checkpoints:/checkpoints
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      guacamole:
+        condition: service_started
+    networks: [sandlabx-network]
+    logging: *default-logging
+
+  runner:
+    build:
+      context: ./backend
+    container_name: sandlabx-runner
+    restart: unless-stopped
+    init: true
+    command: ["node", "runner/production.js"]
+    cap_add: [NET_ADMIN]
+    security_opt: ["no-new-privileges:true"]
+    devices:
+      - /dev/kvm:/dev/kvm
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-guacamole_user}:${POSTGRES_PASSWORD:-guacamole_pass}@postgres:5432/${POSTGRES_DB:-guacamole_db}
+      RUNNER_ID: ${RUNNER_ID:-sandlabx-runner}
+      CONSOLE_TOKEN_SECRET: ${CONSOLE_TOKEN_SECRET:-change-this-console-secret}
+      CUSTOM_IMAGES_PATH: /images/custom
+      IMAGE_CATALOG_PATH: /images/catalog.json
+      OVERLAYS_PATH: /overlays
+      CHECKPOINTS_PATH: /checkpoints
+      SANDLABX_NETWORK_MODE: disabled
+    volumes:
       - ./images:/images
       - ./overlays:/overlays
       - ./vms:/vms

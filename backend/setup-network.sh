@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+if [[ "${SANDLABX_ENABLE_LEGACY_NETWORK:-false}" != "true" ]]; then
+  printf '[sandlabx-network] Legacy fixed bridge setup is quarantined. Capsule runner networking is compiled per instance.\n' >&2
+  exit 64
+fi
+
 # LEGACY FIXED-TOPOLOGY NETWORK BOOTSTRAP
 #
 # Purpose today:
