@@ -1,184 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './auth.module.css';
 import { isAuthenticated, fetchUserProfile, readApiJson } from '../../lib/auth';
+import { CapsuleIcon } from '../../components/icons';
 
 export default function AuthPage() {
-    const router = useRouter();
-    const [isLogin, setIsLogin] = useState(true);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    // Check if user is already authenticated on mount
-    useEffect(() => {
-        const checkAuth = async () => {
-            if (isAuthenticated()) {
-                // Verify token is still valid
-                const result = await fetchUserProfile();
-                if (result.success) {
-                    // User is authenticated, redirect to dashboard
-                    router.push('/');
-                }
-            }
-        };
+  useEffect(() => { if (isAuthenticated()) fetchUserProfile().then(result => { if (result.success) router.push('/dashboard'); }); }, [router]);
+  const switchMode = () => { setIsLogin(value => !value); setError(null); setPassword(''); };
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault(); setIsLoading(true); setError(null);
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '');
+    try {
+      const response = await fetch(`${baseUrl}${isLogin ? '/api/auth/login' : '/api/auth/register'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      const data = await readApiJson(response);
+      if (!response.ok) throw new Error(data.error || 'Authentication failed');
+      localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data.user));
+      const destination = localStorage.getItem('redirectAfterLogin') || '/dashboard'; localStorage.removeItem('redirectAfterLogin'); router.push(destination === '/' ? '/dashboard' : destination);
+    } catch (value) { setError(value instanceof Error ? value.message : 'Authentication failed'); } finally { setIsLoading(false); }
+  };
 
-        checkAuth();
-    }, [router]);
-
-    // Clear error when switching modes
-    useEffect(() => {
-        setError(null);
-        setEmail('');
-        setPassword('');
-    }, [isLogin]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError(null);
-
-        const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-        // Normalize: strip trailing /api if present to avoid double /api paths
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '');
-
-        try {
-            const res = await fetch(`${baseUrl}${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await readApiJson(res);
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Authentication failed');
-            }
-
-            // Store token
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            // Redirect to dashboard
-            router.push('/');
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className={styles.authContainer}>
-            {/* Background Nodes Animation */}
-            <div className={styles.networkNodes}>
-                {[...Array(5)].map((_, i) => (
-                    <div
-                        key={i}
-                        className={styles.node}
-                        style={{
-                            width: Math.random() * 10 + 5 + 'px',
-                            height: Math.random() * 10 + 5 + 'px',
-                            top: Math.random() * 100 + '%',
-                            left: Math.random() * 100 + '%',
-                            animationDelay: Math.random() * 5 + 's',
-                            animationDuration: Math.random() * 10 + 10 + 's',
-                        }}
-                    />
-                ))}
-            </div>
-
-            <div className={styles.authCard}>
-                <h1 className={styles.logo}>SandLabX</h1>
-                <p className={styles.subtitle}>
-                    {isLogin ? 'Access Console' : 'Initialize Session'}
-                </p>
-
-                <div className={styles.toggleContainer}>
-                    <button
-                        className={`${styles.toggleButton} ${isLogin ? styles.active : ''}`}
-                        onClick={() => setIsLogin(true)}
-                    >
-                        Login
-                    </button>
-                    <button
-                        className={`${styles.toggleButton} ${!isLogin ? styles.active : ''}`}
-                        onClick={() => setIsLogin(false)}
-                    >
-                        Register
-                    </button>
-                </div>
-
-                {error && <div className={styles.error}>{error}</div>}
-
-                <form onSubmit={handleSubmit}>
-                    <div className={styles.inputGroup}>
-                        <label className={styles.inputLabel}>Email Address</label>
-                        <input
-                            type="email"
-                            className={styles.inputField}
-                            placeholder="user@sandlabx.io"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
-                        <svg
-                            className={styles.inputIcon}
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                            <polyline points="22,6 12,13 2,6" />
-                        </svg>
-                    </div>
-
-                    <div className={styles.inputGroup}>
-                        <label className={styles.inputLabel}>Password</label>
-                        <input
-                            type="password"
-                            className={styles.inputField}
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            minLength={8}
-                        />
-                        <svg
-                            className={styles.inputIcon}
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
-                    </div>
-
-                    <button
-                        type="submit"
-                        className={styles.submitButton}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? 'Connecting...' : isLogin ? 'Connect' : 'Initialize'}
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
+  return <main className={styles.page}><section className={styles.context} aria-label="SandLabX product summary"><div className={styles.brand}><span className={styles.mark}><CapsuleIcon width={24} height={24} /></span><span>SandLabX</span></div><div className={styles.contextBody}><p className="eyebrow">capsule workstation</p><h2>Design the network.<br />Know what will run.</h2><p>Author exact-version workloads, allocate host resources, wire declared interfaces, and validate topology before it reaches QEMU.</p><div className={styles.topology} aria-hidden="true"><span>edge-01</span><i /><span>core-01</span><i /><span>client-01</span></div></div><p className={styles.contextFooter}>Self-hosted · isolated by default · revisioned</p></section>
+    <section className={styles.authPanel}><div className={styles.formWrap}><p className="eyebrow">{isLogin ? 'Welcome back' : 'New workspace account'}</p><h1>{isLogin ? 'Sign in to SandLabX' : 'Create your account'}</h1><p className={styles.intro}>{isLogin ? 'Continue to your Capsule workspace and runtime console.' : 'Create a student account. Administrators manage elevated roles separately.'}</p>{error && <div className={styles.error} role="alert">{error}</div>}<form onSubmit={handleSubmit} className={styles.form} noValidate><label htmlFor="auth-email">Email address</label><input id="auth-email" className="field" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" required /><label htmlFor="auth-password">Password</label><input id="auth-password" className="field" type="password" autoComplete={isLogin ? 'current-password' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} placeholder="At least 8 characters" required minLength={8} /><button type="submit" className={styles.submit} disabled={isLoading}>{isLoading ? 'Connecting…' : isLogin ? 'Sign in' : 'Create account'}</button></form><div className={styles.switcher}><span>{isLogin ? 'Need an account?' : 'Already registered?'}</span><button type="button" onClick={switchMode}>{isLogin ? 'Create account' : 'Sign in instead'}</button></div><p className={styles.help}>Your session is stored in this browser. Do not use shared machines for administrator access.</p></div></section>
+  </main>;
 }

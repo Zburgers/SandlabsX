@@ -1,194 +1,27 @@
-/* Deep Void Background */
-.authContainer {
-  background-color: #0d1117;
-  background-image: 
-    radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.03) 0%, transparent 50%),
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 100% 100%, 40px 40px, 40px 40px;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Abstract Network Nodes (Background Animation) */
-.networkNodes {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.4;
-}
-
-.node {
-  position: absolute;
-  background: #00f0ff;
-  border-radius: 50%;
-  opacity: 0.2;
-  animation: float 10s infinite ease-in-out;
-}
-
-@keyframes float {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(20px, -20px); }
-}
-
-/* Glassmorphic Card */
-.authCard {
-  background: rgba(13, 17, 23, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 2.5rem;
-  width: 100%;
-  max-width: 420px;
-  position: relative;
-  z-index: 10;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-
-/* Terminal Input Fields */
-.inputGroup {
-  margin-bottom: 1.5rem;
-  position: relative;
-}
-
-.inputLabel {
-  display: block;
-  color: #8b949e;
-  font-size: 0.875rem;
-  margin-bottom: 0.5rem;
-  font-family: 'Inter', monospace;
-}
-
-.inputField {
-  width: 100%;
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 0.75rem 1rem 0.75rem 2.5rem; /* Space for icon */
-  color: #c9d1d9;
-  font-family: 'Inter', sans-serif;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.inputField:focus {
-  border-color: #00f0ff;
-  box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.2);
-  background: #0d1117;
-}
-
-.inputIcon {
-  position: absolute;
-  left: 12px;
-  top: 38px; /* Adjust based on label height */
-  color: #8b949e;
-  transition: color 0.2s ease;
-}
-
-.inputField:focus + .inputIcon,
-.inputGroup:focus-within .inputIcon {
-  color: #00f0ff;
-}
-
-/* Electric Blue Button */
-.submitButton {
-  width: 100%;
-  background: linear-gradient(135deg, #00f0ff 0%, #00a8ff 100%);
-  border: none;
-  border-radius: 6px;
-  padding: 0.875rem;
-  color: #000;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  position: relative;
-  overflow: hidden;
-}
-
-.submitButton:hover {
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
-  transform: translateY(-1px);
-}
-
-.submitButton:active {
-  transform: translateY(1px);
-}
-
-/* Toggle Switch */
-.toggleContainer {
-  display: flex;
-  background: #161b22;
-  border-radius: 999px;
-  padding: 4px;
-  margin-bottom: 2rem;
-  border: 1px solid #30363d;
-}
-
-.toggleButton {
-  flex: 1;
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: none;
-  background: transparent;
-  color: #8b949e;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.3s ease;
-}
-
-.toggleButton.active {
-  background: #21262d;
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-
-/* Logo Shimmer */
-.logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 0.5rem;
-  text-align: center;
-  background: linear-gradient(to right, #fff 0%, #8b949e 50%, #fff 100%);
-  background-size: 200% auto;
-  color: transparent;
-  -webkit-background-clip: text;
-  background-clip: text;
-  animation: shimmer 3s linear infinite;
-}
-
-@keyframes shimmer {
-  to {
-    background-position: 200% center;
-  }
-}
-
-.subtitle {
-  text-align: center;
-  color: #8b949e;
-  font-size: 0.875rem;
-  margin-bottom: 1.5rem;
-}
-
-.error {
-  background: rgba(255, 0, 0, 0.1);
-  border: 1px solid rgba(255, 0, 0, 0.2);
-  color: #ff6b6b;
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
-  text-align: center;
-}
+.page { min-height: 100dvh; display: grid; background: var(--canvas); }
+.context { display: none; position: relative; overflow: hidden; border-right: 1px solid var(--border); background: radial-gradient(circle at 24% 10%, rgba(101,214,200,.11), transparent 28rem), var(--canvas-soft); padding: 2.2rem; }
+.context::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .35; background-image: linear-gradient(rgba(132,160,169,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(132,160,169,.08) 1px,transparent 1px); background-size: 2rem 2rem; mask-image: linear-gradient(to bottom,black,transparent 78%); }
+.brand { position: relative; z-index: 1; display: flex; align-items: center; gap: .75rem; font-weight: 650; letter-spacing: -.03em; }
+.mark { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; color: var(--accent); border: 1px solid var(--border-strong); border-radius: .55rem; background: var(--surface); }
+.contextBody { position: relative; z-index: 1; margin: auto 0; max-width: 38rem; }
+.contextBody h2 { margin: 1.2rem 0 0; font-size: clamp(2.8rem,5.4vw,5.8rem); line-height: .95; letter-spacing: -.075em; font-weight: 620; text-wrap: balance; }
+.contextBody > p:not(:first-child) { max-width: 32rem; margin-top: 1.7rem; color: var(--ink-soft); line-height: 1.7; }
+.topology { display: flex; align-items: center; margin-top: 3rem; color: var(--ink-soft); font: .68rem var(--font-geist-mono), monospace; }
+.topology span { border: 1px solid var(--border-strong); padding: .65rem .8rem; background: var(--surface); }
+.topology i { width: clamp(1.5rem,5vw,5rem); height: 1px; background: var(--accent); }
+.contextFooter { position: relative; z-index: 1; margin-top: auto; color: var(--muted); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.authPanel { display: grid; min-height: 100dvh; place-items: center; padding: 2rem 1.25rem; }
+.formWrap { width: 100%; max-width: 27rem; }
+.formWrap h1 { margin-top: .8rem; font-size: clamp(2rem,5vw,3rem); line-height: 1.05; letter-spacing: -.055em; font-weight: 620; }
+.intro { margin-top: 1rem; color: var(--ink-soft); font-size: .9rem; line-height: 1.65; }
+.form { display: grid; gap: .65rem; margin-top: 2rem; }
+.form label { margin-top: .5rem; color: var(--ink-soft); font-size: .78rem; font-weight: 550; }
+.submit { min-height: 3rem; margin-top: 1rem; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent); color: var(--accent-ink); font-size: .9rem; font-weight: 700; transition: transform var(--duration),background var(--duration); }
+.submit:hover { background: var(--accent-strong); }
+.submit:active { transform: translateY(1px); }
+.submit:disabled { opacity: .55; cursor: wait; }
+.switcher { display: flex; justify-content: center; gap: .45rem; margin-top: 1.4rem; color: var(--muted); font-size: .8rem; }
+.switcher button { color: var(--accent); font-weight: 600; }
+.help { margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.2rem; color: var(--muted); font-size: .72rem; line-height: 1.6; }
+.error { margin-top: 1.4rem; border-left: 2px solid var(--danger); background: rgba(255,143,136,.07); padding: .85rem 1rem; color: var(--danger); font-size: .82rem; }
+@media (min-width: 960px) { .page { grid-template-columns: minmax(0,1.2fr) minmax(26rem,.8fr); } .context { display: flex; flex-direction: column; min-height: 100dvh; } }
