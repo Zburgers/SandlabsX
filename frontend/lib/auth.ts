@@ -88,7 +88,7 @@ export async function fetchUserProfile(): Promise<AuthResponse> {
 
   try {
     const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '');
-    const response = await fetch(`${baseUrl}/api/users/me`, {
+    const response = await fetch(`${baseUrl}/api/auth/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

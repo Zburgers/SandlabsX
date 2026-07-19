@@ -93,6 +93,18 @@ class AuthService {
     return { token: this.tokenFor(user), user: publicUser(user) };
   }
 
+  async currentUser({ userId }) {
+    if (!userId) throw new AuthError('UNAUTHORIZED', 'Authentication is required', 401);
+    const result = await this.pool.query(
+      `SELECT id, email, role, is_active, must_change_password
+       FROM sandlabx_users WHERE id = $1`,
+      [userId],
+    );
+    const user = result.rows[0];
+    if (!user || !user.is_active) throw new AuthError('UNAUTHORIZED', 'Authentication is required', 401);
+    return { user: publicUser(user) };
+  }
+
   async changePassword({ userId, currentPassword, newPassword, requestId }) {
     if (!userId) throw new AuthError('UNAUTHORIZED', 'User not authenticated', 401);
     if (typeof newPassword !== 'string' || newPassword.length < 8) throw new AuthError('VALIDATION_ERROR', 'New password must be at least 8 characters');

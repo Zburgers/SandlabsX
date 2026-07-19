@@ -27,6 +27,27 @@ test('login route returns a JSON authentication response instead of an HTML fall
   });
 });
 
+test('authenticated profile route returns the user needed after login', async () => {
+  const authService = {
+    login: async () => ({ token: 'token', user: { id: 'user-1', email: 'student@example.test', role: 'student' } }),
+    currentUser: async ({ userId }) => ({ user: { id: userId, email: 'student@example.test', role: 'student' } }),
+  };
+  const app = createApp({
+    services: services(authService),
+    authenticate: (req, _res, next) => { req.auth = { sub: 'user-1' }; next(); },
+    readiness: { check: async () => ({ status: 'healthy', checks: {} }) },
+  });
+
+  await withServer(app, async (base) => {
+    const response = await fetch(`${base}/api/auth/me`, { headers: { authorization: 'Bearer token' } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      success: true,
+      user: { id: 'user-1', email: 'student@example.test', role: 'student' },
+    });
+  });
+});
+
 test('API misses return JSON and request logging excludes request bodies and secrets', async () => {
   const app = createApp({ services: services({ login: async () => ({}) }), authenticate: (_req, _res, next) => next(), readiness: { check: async () => ({ status: 'healthy', checks: {} }) } });
   await withServer(app, async (base) => {

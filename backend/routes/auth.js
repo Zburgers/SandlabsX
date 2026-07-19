@@ -15,6 +15,7 @@ function createAuthRouter({ authService, authenticate }) {
     try { res.status(201).json({ success: true, ...await authService.register({ ...req.body, requestId: req.requestId }) }); } catch (error) { next(error); }
   });
   router.post('/login', handler((req) => authService.login({ ...req.body, requestId: req.requestId, ipAddress: req.ip })));
+  router.get('/me', authenticate, handler((req) => authService.currentUser({ userId: req.auth?.sub })));
   router.post('/change-password', authenticate, handler((req) => authService.changePassword({ ...req.body, userId: req.auth?.sub, requestId: req.requestId })));
   return router;
 }
