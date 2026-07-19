@@ -1,1 +1,1 @@
-export function NetworkSegmentNode({ name, memberCount }: { name: string; memberCount: number }) { return <div className="rounded-full border border-violet-300/60 px-4 py-2 text-sm text-violet-200">{name} · {memberCount} members</div>; }
+export function NetworkSegmentNode({ name, memberCount }: { name: string; memberCount: number }) { return <div className="rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-sm text-accent">{name} · {memberCount} members</div>; }
