@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { CapsuleEditor, connectInterfaces, moveCapsuleNode, removeCapsuleNode } from '../CapsuleEditor';
+import { CapsuleEditor, connectInterfaces, moveCapsuleNode, removeCapsuleLink, removeCapsuleNode } from '../CapsuleEditor';
 import type { CapsuleDraft, CapsuleProfile } from '../../../lib/capsule-types';
 import { canonicalCapsule } from '../../../test/fixtures/canonical-capsule';
 
@@ -8,6 +8,13 @@ const profile: CapsuleProfile = { id: 'router', version: 'profile-router-v2', na
 const draft: CapsuleDraft = { id: 'capsule-1', revision: 4, status: 'DRAFT', document: { ...canonicalCapsule, images: {}, workloadProfiles: {}, nodes: {}, links: [] } };
 
 describe('CapsuleEditor', () => {
+  it('presents the topology as a freeform canvas with direct manipulation guidance', () => {
+    render(<CapsuleEditor draft={draft} profiles={[profile]} onSave={vi.fn()} />);
+
+    expect(screen.getByRole('application', { name: /freeform topology canvas/i })).toBeInTheDocument();
+    expect(screen.getByText(/drag nodes.*interface handle.*pan the canvas/i)).toBeInTheDocument();
+  });
+
   it('opens the builder from a blank canvas and places a resource-aware canonical node', () => {
     const onSave = vi.fn();
     render(<CapsuleEditor draft={draft} profiles={[profile]} onSave={onSave} />);
@@ -52,5 +59,10 @@ describe('CapsuleEditor', () => {
     const removed = removeCapsuleNode(moved, 'router');
     expect(removed.nodes.router).toBeUndefined();
     expect(removed.links).toHaveLength(0);
+  });
+
+  it('removes a selected wire from the canonical document', () => {
+    const linked = { ...canonicalCapsule, links: [{ id: 'router-host', type: 'pointToPoint' as const, endpoints: ['router:wan0', 'host:wan0'] }] };
+    expect(removeCapsuleLink(linked, 'router-host').links).toHaveLength(0);
   });
 });
