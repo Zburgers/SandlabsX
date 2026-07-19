@@ -94,6 +94,7 @@ export async function fetchUserProfile(): Promise<AuthResponse> {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      cache: 'no-store',
     });
 
     const data = await readApiJson(response);

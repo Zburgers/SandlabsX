@@ -32,6 +32,7 @@ function createApp({ services, readiness, metrics, authenticate, observability }
   const telemetry = observability || createObservability({ logger });
   const app = express();
   app.disable('x-powered-by');
+  app.disable('etag');
   app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:2000'], credentials: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'If-Match', 'X-Request-Id'] }));
   app.use(express.json({ limit: '1mb' }));
   app.use(requestContext({ observability: telemetry }));

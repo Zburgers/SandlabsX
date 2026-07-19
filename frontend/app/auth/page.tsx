@@ -14,7 +14,7 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { if (isAuthenticated()) fetchUserProfile().then(result => { if (result.success) router.push('/dashboard'); }); }, [router]);
+  useEffect(() => { if (isAuthenticated()) fetchUserProfile().then(result => { if (result.success) router.push('/dashboard'); }); }, []);
   const switchMode = () => { setIsLogin(value => !value); setError(null); setPassword(''); };
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault(); setIsLoading(true); setError(null);
