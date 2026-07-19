@@ -1,4 +1,4 @@
-import type { CapsuleDocument, CapsuleDraft, CapsuleVersion, ConsoleGrant, ImpactPreview, InstanceSummary, Operation, ScenarioDocument, ScenarioDraft, ScenarioVersion } from './capsule-types';
+import type { AssignmentSummary, Capacity, CapsuleDocument, CapsuleDraft, CapsuleValidation, CapsuleVersion, ConsoleGrant, ImageArtifactVersion, ImpactPreview, InstanceSummary, Operation, ScenarioDocument, ScenarioDraft, ScenarioVersion, WorkloadProfileVersion } from './capsule-types';
 
 const baseUrl = `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/api\/?$/, '')}/api`;
 const v2 = (path: string) => `/v2${path}`;
@@ -12,7 +12,16 @@ export const capsuleApi = {
   getDraft: async (id: string) => (await request<{ capsule: CapsuleDraft }>(v2(`/capsules/${id}`))).capsule,
   createDraft: async (document: CapsuleDocument) => (await request<{ capsule: CapsuleDraft }>(v2('/capsules'), { method: 'POST', body: JSON.stringify(document) })).capsule,
   saveDraft: async (id: string, revision: number, document: CapsuleDocument) => (await request<{ capsule: CapsuleDraft }>(v2(`/capsules/${id}`), { method: 'PUT', headers: { 'If-Match': String(revision) }, body: JSON.stringify(document) })).capsule,
+  validateDraft: async (id: string, published = false): Promise<CapsuleValidation> => {
+    const result = await request<{ success: true } & CapsuleValidation>(v2(`/capsules/${id}/validate`), { method: 'POST', body: JSON.stringify({ published }) });
+    return { valid: result.valid, issues: result.issues };
+  },
+  createPrivateRevision: async (id: string) => (await request<{ version: CapsuleVersion }>(v2(`/capsules/${id}/private-revisions`), { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } })).version,
   publish: async (id: string) => (await request<{ version: CapsuleVersion }>(v2(`/capsules/${id}/publish`), { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } })).version,
+  listImageVersions: async (): Promise<ImageArtifactVersion[]> => (await request<{ images: ImageArtifactVersion[] }>('/images/v2/versions')).images,
+  listProfileVersions: async (): Promise<WorkloadProfileVersion[]> => (await request<{ profiles: WorkloadProfileVersion[] }>('/images/v2/profiles/versions')).profiles,
+  getCapacity: async (): Promise<Capacity> => (await request<{ capacity: Capacity }>(v2('/instances/capacity/admission'))).capacity,
+  listAssignments: async (): Promise<AssignmentSummary[]> => (await request<{ assignments: AssignmentSummary[] }>(v2('/assignments'))).assignments,
   getInstance: async (id: string) => (await request<{ instance: InstanceSummary }>(v2(`/instances/${id}`))).instance,
   instanceAction: async (id: string, action: 'start' | 'stop' | 'reset') => (await request<{ operation: Operation }>(v2(`/instances/${id}/actions/${action}`), { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } })).operation,
   getOperation: async (id: string) => (await request<{ operation: Operation }>(v2(`/operations/${id}`))).operation,
