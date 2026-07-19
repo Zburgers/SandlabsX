@@ -57,7 +57,7 @@ Normalization sorts nodes, links, and tags so Git diffs remain deterministic.
 
 ## Lab Capsules
 
-Capsules are the canonical versioned model for new labs. They pin image digests, declare interface-level links, compile into instance-owned TAP/MAC/segment/QEMU plans, and support durable operation events, typed verification, and stopped-VM checkpoints.
+Capsules are the canonical versioned model for new labs. They pin image digests, declare interface-level links, compile into instance-owned TAP/MAC/segment/QEMU plans, and support durable operation events, typed verification, and stopped-VM checkpoints. The authenticated workstation at `/capsules` now provides visual node creation, bounded resource allocation, interface-level wiring, validation, autosave with revision-conflict recovery, and explicit publication.
 
 ```bash
 cd backend

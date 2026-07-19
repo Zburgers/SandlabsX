@@ -13,7 +13,17 @@ SandLabX should remain understandable while it grows from a single-host lab mana
 
 ### Frontend
 
-Next.js and React provide dashboard, topology, authentication, and console workflows. The frontend communicates with the backend API and embeds Guacamole for graphical consoles.
+Next.js and React provide a single workstation shell for dashboard, Capsule authoring, assignments, image catalogues, scenario execution, authentication, and runtime consoles. The active product surface uses a consistent graphite-and-cyan design system and responsive navigation rather than separate dashboard and editor experiences. The frontend communicates with the backend API and embeds Guacamole for graphical consoles.
+
+The Capsule editor treats the API revision as canonical. React Flow owns transient
+canvas presentation, while normalized node and link changes are serialized through
+a debounced save queue using exact revision preconditions. Failed saves preserve
+local work; conflicts require an explicit retry or server reload. Profile, image,
+version, and capacity choices come from backend catalogues instead of UI fixtures.
+
+Resource allocation in the editor remains declarative. Selecting vCPU, memory,
+disk, interfaces, or console mode changes the Capsule definition; host devices and
+runtime ports are allocated only after compilation at the backend runner boundary.
 
 ### API
 

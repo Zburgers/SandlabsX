@@ -1,6 +1,6 @@
 # SandLabX frontend
 
-The SandLabX web application is built with Next.js 15, React 19, TypeScript, Tailwind CSS, React Flow, and xterm.js. It provides node lifecycle controls, a topology canvas, image selection, authentication workflows, and browser console access.
+The SandLabX web application is a task-oriented workstation built with Next.js 15, React 19, TypeScript, Tailwind CSS, React Flow, and xterm.js. Its shared shell brings Capsule authoring, assignments, images, scenario execution, live instances, and account controls into one consistent interface.
 
 ## Development
 
@@ -10,7 +10,7 @@ npm install --no-audit --no-fund
 npm run dev
 ```
 
-The development server listens on `http://localhost:3000`.
+The development server listens on `http://localhost:2000`. The production container continues to listen on port `3000` internally; Docker Compose publishes it at `http://localhost:2000` by default.
 
 Production compilation:
 
@@ -45,13 +45,15 @@ frontend/
 
 ## Main product surfaces
 
-- **Dashboard:** node status, resources, and lifecycle actions
-- **Topology canvas:** visual nodes and network links
-- **Image selection:** built-in and custom image choices
+- **Dashboard:** recent Capsules, assignments, images, and clear next actions
+- **Capsule workspace:** searchable drafts and a visual authoring canvas at `/capsules`
+- **Visual topology editor:** drag-and-drop nodes, interface-to-interface links, minimap, zoom controls, undo/redo, validation, and a live activity rail
+- **Resource-aware node builder:** profile and compatible image selection with bounded vCPU, memory, disk, interface, and console configuration
+- **Images:** backend-sourced profile, artifact, and immutable-version catalogues
+- **Assignments and scenarios:** consistent preparation, run, and evidence workflows
 - **Serial console:** xterm.js-based terminal access
 - **Graphical console:** Guacamole-backed browser sessions
-- **Authentication:** login and protected application state
-- **Capsule workspace:** canonical draft list and visual Capsule authoring at `/capsules`
+- **Authentication and account:** deterministic sign-in, registration, session protection, and account settings
 - **Instance runtime:** desired/observed topology, operation status, checkpoints, and scoped-console launch at `/instances/:instanceId`
 
 ## API integration
@@ -69,10 +71,14 @@ Backend endpoint groups currently include:
 API failures should be presented with actionable messages and should never silently replace persisted state with mock data.
 
 The Capsule client is isolated in `lib/capsule-api.ts`. It owns transport details,
-safe error normalization, correlation IDs, and the temporary contract-pending
-boundary for service endpoints that have not landed yet. Components consume the
-canonical types in `lib/capsule-types.ts` and do not retain topology in browser
-storage.
+safe error normalization, correlation IDs, exact revision preconditions, resource
+catalogues, assignments, and image versions. Components consume the canonical
+types in `lib/capsule-types.ts`; topology remains server-backed rather than being
+treated as browser-local state.
+
+Draft edits are serialized and debounced. The editor shows saving, saved, failed,
+and conflict states, retains local work after a failed request, and lets the user
+retry or reload the server revision. Publishing remains an explicit action.
 
 ## Frontend development rules
 
@@ -101,6 +107,6 @@ The current package also contains a legacy `next lint` script. Until lint config
 - Bulk node start, stop, and reset operations
 - Search and filtering for large labs
 - Event-driven status updates instead of fixed polling
-- Resource quota and capacity visibility
+- Host-level admission checks and organization quota visibility
 
 See the root [README](../README.md) and [architecture guide](../docs/ARCHITECTURE.md).
