@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { AppShell } from '../components/shell/AppShell'
 
-const inter = Inter({ 
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-geist-sans',
   display: 'swap',
 })
 
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'SandLabX - Network Lab',
-  description: 'Manage virtual network nodes with QEMU and Guacamole',
+  title: { default: 'SandLabX Workstation', template: '%s · SandLabX' },
+  description: 'Design, validate, and operate versioned network lab Capsules.',
 }
 
 export default function RootLayout({
@@ -25,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${geistMono.variable}`}>
-      <body className="antialiased font-sans">{children}</body>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
+      <body className="antialiased font-sans"><AppShell>{children}</AppShell></body>
     </html>
   )
 }

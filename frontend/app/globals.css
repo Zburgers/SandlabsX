@@ -1,96 +1,64 @@
+@import '../tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #0a0e27;
-  --foreground: #ffffff;
-}
-
+* { box-sizing: border-box; }
+html { background: var(--canvas); scroll-behavior: smooth; }
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  position: relative;
-  overflow-x: hidden;
+  min-width: 20rem;
+  min-height: 100dvh;
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 78% -12%, rgba(101, 214, 200, 0.08), transparent 32rem),
+    linear-gradient(180deg, var(--canvas-soft), var(--canvas) 34rem);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
-/* Animated background gradient */
-body::before {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(
-    circle at 20% 50%,
-    rgba(59, 130, 246, 0.08) 0%,
-    transparent 50%
-  ),
-  radial-gradient(
-    circle at 80% 80%,
-    rgba(147, 51, 234, 0.08) 0%,
-    transparent 50%
-  ),
-  radial-gradient(
-    circle at 40% 90%,
-    rgba(6, 182, 212, 0.06) 0%,
-    transparent 50%
-  );
-  animation: gradientMove 20s ease-in-out infinite;
-  z-index: 0;
-  pointer-events: none;
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; text-decoration: none; }
+::selection { color: var(--accent-ink); background: var(--accent); }
+:focus-visible { outline: none; box-shadow: var(--focus); }
+
+.mono, .tabular { font-family: var(--font-geist-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.text-pretty { text-wrap: pretty; }
+.text-balance { text-wrap: balance; }
+.workstation-grid {
+  background-image:
+    linear-gradient(rgba(132, 160, 169, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(132, 160, 169, 0.055) 1px, transparent 1px);
+  background-size: 1.5rem 1.5rem;
+}
+.surface { border: 1px solid var(--border); background: rgba(17, 26, 34, 0.88); box-shadow: inset 0 1px rgba(255,255,255,0.025); }
+.surface-raised { border: 1px solid var(--border); background: var(--surface-raised); box-shadow: var(--shadow); }
+.field {
+  min-height: 2.75rem;
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: rgba(8, 13, 18, 0.72);
+  padding: 0.7rem 0.85rem;
+  transition: border-color var(--duration), background var(--duration), box-shadow var(--duration);
+}
+.field:hover { border-color: #526b76; }
+.field:focus { border-color: var(--accent); box-shadow: var(--focus); outline: none; }
+.field::placeholder { color: var(--muted); }
+.eyebrow { color: var(--accent); font-size: 0.72rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; }
+
+::-webkit-scrollbar { width: 0.65rem; height: 0.65rem; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 1rem; background: #38505a; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #516d78; background-clip: padding-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-@keyframes gradientMove {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  33% {
-    transform: translate(5%, -5%) rotate(1deg);
-  }
-  66% {
-    transform: translate(-5%, 5%) rotate(-1deg);
-  }
+@media (prefers-contrast: more) {
+  :root { --border: #607984; --border-strong: #8aa0a8; --muted: #a9bac0; }
 }
-
-/* Ensure content stays above background */
-body > * {
-  position: relative;
-  z-index: 1;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-}
-
-/* Grid pattern background */
-.grid-pattern {
-  background-image: 
-    linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-}
-@import '../tokens.css';

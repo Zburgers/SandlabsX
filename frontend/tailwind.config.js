@@ -8,18 +8,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'lab-dark': '#0a0e27',
-        'lab-darker': '#060914',
-        'lab-primary': '#00d9ff',
-        'lab-secondary': '#7b2cbf',
-        'lab-accent': '#10b981',
-        'lab-danger': '#ef4444',
-        'lab-warning': '#f59e0b',
-        'lab-gray': '#1e293b',
-        'lab-gray-light': '#334155',
+        canvas: 'var(--canvas)',
+        surface: 'var(--surface)',
+        raised: 'var(--surface-raised)',
+        ink: 'var(--ink)',
+        muted: 'var(--muted)',
+        accent: 'var(--accent)',
+        danger: 'var(--danger)',
+        warning: 'var(--warning)',
+        success: 'var(--success)',
+        border: 'var(--border)',
       },
       fontFamily: {
-        mono: ['Fira Code', 'Courier New', 'monospace'],
+        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui'],
+        mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
       },
       animation: {
         'pulse-glow': 'pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
