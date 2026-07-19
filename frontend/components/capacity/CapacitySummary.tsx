@@ -1,2 +1,13 @@
 import type { Capacity } from '../../lib/capsule-types';
-export function CapacitySummary({ capacity }: { capacity?: Capacity }) { return <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-5"><h2 className="text-lg font-semibold">Host capacity</h2>{capacity ? <dl className="mt-4 grid grid-cols-3 gap-3 text-sm"><div><dt className="text-slate-400">vCPU</dt><dd>{capacity.availableVcpus}</dd></div><div><dt className="text-slate-400">Memory</dt><dd>{capacity.availableMemoryMiB} MiB</dd></div><div><dt className="text-slate-400">Disk</dt><dd>{capacity.availableDiskGiB} GiB</dd></div></dl> : <p className="mt-3 text-sm text-slate-400">Capacity becomes available with the admission-control contract.</p>}</section>; }
+import { StatusSignal } from '../ui/StatusSignal';
+
+export function CapacitySummary({ capacity }: { capacity?: Capacity }) {
+  return <section className="surface rounded-[var(--radius-lg)] p-5 sm:p-6">
+    <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">admission</p><h2 className="mt-2 text-lg font-semibold tracking-[-0.025em]">Host capacity</h2></div>{capacity && <StatusSignal label={capacity.admission.toLowerCase()} tone={capacity.admission === 'AVAILABLE' ? 'success' : capacity.admission === 'LIMITED' ? 'warning' : 'danger'} />}</div>
+    {capacity ? <dl className="mt-8 grid grid-cols-3 gap-3">
+      <div><dt className="text-xs text-[var(--muted)]">compute</dt><dd className="mt-1 text-sm font-semibold tabular">{capacity.availableVcpus} vCPU available</dd></div>
+      <div><dt className="text-xs text-[var(--muted)]">memory</dt><dd className="mt-1 text-sm font-semibold tabular">{Math.round(capacity.availableMemoryMiB / 1024)} GiB available</dd></div>
+      <div><dt className="text-xs text-[var(--muted)]">storage</dt><dd className="mt-1 text-sm font-semibold tabular">{capacity.availableDiskGiB} GiB available</dd></div>
+    </dl> : <p className="mt-5 text-sm leading-6 text-[var(--ink-soft)]">Capacity is unavailable. Capsule authoring remains available, but runtime admission cannot be estimated.</p>}
+  </section>;
+}
